@@ -23,10 +23,28 @@ def needs_compute(txt_path: Path) -> bool:
     return not (ROOT / f"{stem}.log").exists()
 
 
+def run_gap_streaming(script_path: Path) -> None:
+    proc = subprocess.Popen(
+        ["gap", "-q", str(script_path)],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        print(line, end="", flush=True)
+    return_code = proc.wait()
+    if return_code != 0:
+        raise subprocess.CalledProcessError(return_code, ["gap", "-q", str(script_path)])
+
+
 def compute_one(txt_path: Path) -> None:
     stem = txt_path.stem
     log_path = ROOT / f"{stem}.log"
     wrapper = f'''
+OnBreak := QUIT;;
 input_txt_path := "{txt_path.as_posix()}";;
 output_log_path := "{log_path.as_posix()}";;
 Read("{(SOURCE / 'Step2Core.g').as_posix()}");;
@@ -37,8 +55,8 @@ QUIT;
         tmp.write(wrapper)
         tmp_path = Path(tmp.name)
     try:
-        print(f"[compute] {txt_path.name} -> {log_path.name}")
-        subprocess.run(["gap", "-q", str(tmp_path)], cwd=ROOT, check=True)
+        print(f"[compute] {txt_path.name} -> {log_path.name}", flush=True)
+        run_gap_streaming(tmp_path)
     finally:
         if tmp_path.exists():
             tmp_path.unlink()
@@ -47,7 +65,7 @@ QUIT;
 def main() -> None:
     targets = [p for p in input_files() if needs_compute(p)]
     if not targets:
-        print("No pending .txt inputs need computation.")
+        print("No pending .txt inputs need computation.", flush=True)
         return
     for txt_path in targets:
         compute_one(txt_path)

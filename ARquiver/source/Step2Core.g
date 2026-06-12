@@ -8,6 +8,51 @@ compute_tilting := true;;
 ar_strategy := "hybrid";;
 V := [];;
 
+# ===== Runtime progress and safety guards =====
+MAX_AR_MODULES := 100;;
+
+Progress := function(msg)
+    Print("[progress] ", msg, "\n");
+end;;
+
+AssertFiniteRepresentationTypeOrAbort := function(A)
+    local finiteCall, bongartzCall, bound;
+    Progress("checking finite representation type");
+    if IsBoundGlobal("IsFiniteTypeAlgebra") then
+        finiteCall := CALL_WITH_CATCH(IsFiniteTypeAlgebra, [A]);
+        if finiteCall[1] = true then
+            if finiteCall[2] = true then
+                Progress("finite representation type confirmed by IsFiniteTypeAlgebra");
+                return;
+            fi;
+            if finiteCall[2] = false then
+                Error("Algebra failed finite representation type test: IsFiniteTypeAlgebra returned false");
+            fi;
+            Progress("IsFiniteTypeAlgebra was inconclusive; trying Bongartz guard");
+        fi;
+    fi;
+
+    if IsBoundGlobal("BongartzTest") then
+        bound := 32;
+        bongartzCall := CALL_WITH_CATCH(BongartzTest, [A, bound]);
+        if bongartzCall[1] = true then
+            if bongartzCall[2] = false then
+                Error("Algebra failed Bongartz finite-representation guard: infinite representation type detected");
+            fi;
+            Progress("Bongartz guard was inconclusive; continuing with 100-module size guard");
+            return;
+        fi;
+    fi;
+    Progress("No usable finite-representation test succeeded; continuing with 100-module size guard");
+end;;
+
+CheckModuleCountGuard := function(count)
+    if count >= MAX_AR_MODULES then
+        Error("Computation aborted: discovered ", count, " modules (limit is ", MAX_AR_MODULES - 1, "). The algebra/subquiver is too large.");
+    fi;
+end;;
+
+
 # ===== Step2.ipynb cell 1 =====
 # Decompose a module into projections onto indecomposable summands.
 FindNontrivialIdempotent := function(M)
@@ -566,6 +611,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
         fname := Filename(outDir, Concatenation(arg, ".log"));
     fi;
 
+    Progress("computing projective and injective modules");
     P := IndecProjectiveModules(A);;
     I := IndecInjectiveModules(A);;
     SI := Filtered(I, X -> Dimension(X) = 1);;
@@ -736,6 +782,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
     end;
 
     # --- 2.1 Init queue: start from indec projectives ---
+    Progress("building AR quiver by irreducible morphisms");
     for X0 in P do
         uX := AddVertex(X0);
         Enqueue(uX, 0);
@@ -796,6 +843,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
     od;
 
     # --- 4. Output TXT file ---
+    Progress("closing irreducible arrows among discovered vertices");
     # Final closure: depth limits should not hide irreducible arrows among already discovered vertices.
     for uX in [1..Length(verts)] do
         if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
@@ -1931,28 +1979,40 @@ GenerateQuiverData := function(A, N, arg)
     local res, tr_list, torsionless_node_ids, reflexive_node_ids,
         dim_vectors, hom_dim, ext_dim, tau_map, pdid, syz_edges, gi_gp;
 
+    Progress("starting computation");
+    AssertFiniteRepresentationTypeOrAbort(A);
+
+    Progress("constructing AR quiver");
     if IsBoundGlobal("ar_strategy") and ar_strategy = "direct" then
         res := DrawIrreducibleDiagram(A, N, arg);
     else
         res := DrawIrreducibleDiagramHybrid(A, N, arg);
     fi;
 
+    Progress("computing dimension vectors");
     dim_vectors := ComputeDimensionVectors(res.verts);
+    Progress("computing tau translation");
     tau_map := ComputeTauMap(res.verts);
+    Progress("computing Hom dimension matrix");
     hom_dim := ComputeHomDimMatrix(res.verts);
+    Progress("computing Ext^1 dimension matrix");
     ext_dim := ComputeExtDimMatrix(res.verts);
+    Progress("computing syzygy edges");
     syz_edges := ComputeSyzygyEdges(res.verts, res.projective_node_ids);
+    Progress("computing projective/injective dimensions");
     pdid := ComputeProjInjDims(res.verts, 6);
 
     WriteQuiverAndRelations(res.fname, Q, rel);
     WriteSyzygySummand(res.fname, res.verts, res.projective_node_ids);
     WriteTranslationQuiver(res.fname, res.verts, dim_vectors, tau_map);
 
+    Progress("computing torsionless and reflexive modules");
     tr_list := CollectTorsionlessReflexive(res.verts, res.projective_node_ids, res.P);
     torsionless_node_ids := tr_list[1];
     reflexive_node_ids := tr_list[2];
     WriteTorsionlessReflexive(res.fname, torsionless_node_ids, reflexive_node_ids);
 
+    Progress("computing Gorenstein projective/injective modules");
     gi_gp := CollectGorensteinProjectiveInjective(
         res.verts,
         res.projective_node_ids,
@@ -1964,19 +2024,26 @@ GenerateQuiverData := function(A, N, arg)
     );
     WriteGorensteinProjectiveInjective(res.fname, gi_gp[1], gi_gp[2]);
 
+    Progress("writing Hom/Ext quivers");
     WriteHomDimQuiver(res.fname, res.verts, dim_vectors, hom_dim);
     WriteExtDimQuiver(res.fname, res.verts, dim_vectors, ext_dim);
 
     if not IsBoundGlobal("compute_tilting") or compute_tilting = true then
+        Progress("computing tilting modules");
         FindTiltingObjects(res.fname, res.verts, res.projective_node_ids, hom_dim, ext_dim);
     fi;
 
+    Progress("computing torsion pairs");
     WriteTorsionPairs(res.fname, res.verts, hom_dim);
+    Progress("computing cotorsion pairs");
     WriteCotorsionPairs(res.fname, res.verts, ext_dim, syz_edges);
+    Progress("computing support tau-tilting modules");
     WriteSupportTauTiltingPairs(res.fname, res.verts, res.projective_node_ids, hom_dim, tau_map);
 
+    Progress("writing PD/ID table");
     WriteProjInjDimsFromCache(res.fname, pdid);
 
+    Progress("finished writing log file");
     Print("TXT file successfully written to ", res.fname, "\n");
 end;;
 
