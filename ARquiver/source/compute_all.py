@@ -29,7 +29,7 @@ def run_gap_streaming(script_path: Path) -> None:
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
+        universal_newlines=True,
         bufsize=1,
     )
     assert proc.stdout is not None
