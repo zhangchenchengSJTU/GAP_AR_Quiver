@@ -340,9 +340,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         except (json.JSONDecodeError, TypeError) as e:
             # Fallback for "pd=0, id=3"
             lbl = attrs.get('label', '')
-            m = re.search(r'pd=(\d+),\s*id=(\d+)', lbl)
+            m = re.search(r'pd=(-?\d+|∞),\s*id=(-?\d+|∞)', lbl)
             if m:
-                nodes_data[node_id]['dim'] = {'pd': int(m.group(1)), 'id': int(m.group(2))}
+                nodes_data[node_id]['dim'] = {'pd': m.group(1), 'id': m.group(2)}
             else:
                 print(f"❌ 节点 {node_id} 的 label 不是合法 JSON：{attrs.get('label')}\n原因：{e}")
                 return
@@ -624,6 +624,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       })();
       (function addRightButtons() {
         const container = document.createElement('div');
+        container.id = 'arControlPanel';
         container.style.position = 'absolute';
         container.style.top = '10px';
         container.style.right = '10px';
@@ -689,6 +690,16 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           <div id="almostSupportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
         `;
         document.body.appendChild(container);
+        let controlPanelVisible = true;
+        document.addEventListener('keydown', (event) => {
+          const key = (event.key || '').toLowerCase();
+          if ((event.ctrlKey || event.metaKey) && key === 'l') {
+            event.preventDefault();
+            event.stopPropagation();
+            controlPanelVisible = !controlPanelVisible;
+            container.style.display = controlPanelVisible ? 'flex' : 'none';
+          }
+        }, true);
         function emphasizeNodeSet(ids, color) {
           const idsArray = (ids || []).map(Number).filter(x => !Number.isNaN(x));
           if (!idsArray.length) return false;
@@ -810,29 +821,53 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           listEl.style.display = 'block';
           renderTiltingList();
         });
+        function clearPairListHighlight() {
+          const hadPairHighlight = pairHighlighted && pairHighlighted.size > 0;
+          resetPairStyles();
+          if (hadPairHighlight) {
+            resetTiltingStyles();
+            clearActiveTilting();
+          }
+        }
         document.getElementById('torsionPairToggle').addEventListener('change', (e) => {
           const el = document.getElementById('torsionPairList');
           if (!el) return;
           el.style.display = e.target.checked ? 'block' : 'none';
-          if (e.target.checked) renderPairList('torsionPairList', torsionPairData, 'T', 'F', 'Torsion pairs', null, { kind: 'torsion' });
+          if (e.target.checked) {
+            renderPairList('torsionPairList', torsionPairData, 'T', 'F', 'Torsion pairs', null, { kind: 'torsion' });
+          } else {
+            clearPairListHighlight();
+          }
         });
         document.getElementById('cotorsionPairToggle').addEventListener('change', (e) => {
           const el = document.getElementById('cotorsionPairList');
           if (!el) return;
           el.style.display = e.target.checked ? 'block' : 'none';
-          if (e.target.checked) renderPairList('cotorsionPairList', cotorsionPairData, 'L', 'R', 'Cotorsion pairs', item => `<td style="border:1px solid #ddd; padding:3px;">${item.hereditary ? 'hereditary' : 'non-hereditary'}</td>`);
+          if (e.target.checked) {
+            renderPairList('cotorsionPairList', cotorsionPairData, 'L', 'R', 'Cotorsion pairs', item => `<td style="border:1px solid #ddd; padding:3px;">${item.hereditary ? 'hereditary' : 'non-hereditary'}</td>`);
+          } else {
+            clearPairListHighlight();
+          }
         });
         document.getElementById('supportTauToggle').addEventListener('change', (e) => {
           const el = document.getElementById('supportTauList');
           if (!el) return;
           el.style.display = e.target.checked ? 'block' : 'none';
-          if (e.target.checked) renderSupportTauList('supportTauList', supportTauTiltingData, 'Support tau-tilting modules');
+          if (e.target.checked) {
+            renderSupportTauList('supportTauList', supportTauTiltingData, 'Support tau-tilting modules');
+          } else {
+            clearPairListHighlight();
+          }
         });
         document.getElementById('almostSupportTauToggle').addEventListener('change', (e) => {
           const el = document.getElementById('almostSupportTauList');
           if (!el) return;
           el.style.display = e.target.checked ? 'block' : 'none';
-          if (e.target.checked) renderSupportTauList('almostSupportTauList', almostSupportTauTiltingData, 'Almost support tau-tilting modules');
+          if (e.target.checked) {
+            renderSupportTauList('almostSupportTauList', almostSupportTauTiltingData, 'Almost support tau-tilting modules');
+          } else {
+            clearPairListHighlight();
+          }
         });
         document.getElementById('showLabelToggle').addEventListener('change', (e) => {
           showLabels = e.target.checked;
@@ -1321,7 +1356,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         if (!entry) return;
         ensureHoverTip();
         hoverNodeId = id;
-        hoverTip.textContent = `pd=${entry.pd}, id=${entry.id}`;
+        hoverTip.textContent = `pd=${entry.pd === -1 ? '∞' : entry.pd}, id=${entry.id === -1 ? '∞' : entry.id}`;
         hoverTip.style.display = 'block';
         updateHoverTip();
       }
@@ -1655,19 +1690,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
           e.preventDefault();
           redo();
-        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
-          e.preventDefault();
-          const lightGray = '#cccccc';
-          const lightGold = '#ffe9a6';
-          const edges = network.body.data.edges.get();
-          const toRemove = edges.filter(e => {
-            const c = getEdgeColor(e);
-            return c === lightGray || c === lightGold;
-          }).map(e => e.id);
-          if (toRemove.length) {
-            snapshot();
-            network.body.data.edges.remove(toRemove);
-          }
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
           snapshot();
           network.deleteSelected();
@@ -2444,7 +2466,10 @@ def patch_tau_toggle_file(html_path: str) -> None:
 def format_dim_vector(dim_list, quiver_structure: Union[str, None]):
     # Special labels like pd/id
     if isinstance(dim_list, dict) and 'pd' in dim_list and 'id' in dim_list:
-        return f"pd={dim_list['pd']}, id={dim_list['id']}"
+        
+        def _pdid_val(x):
+            return '∞' if x == -1 or x == '-1' else str(x)
+        return f"pd={_pdid_val(dim_list['pd'])}, id={_pdid_val(dim_list['id'])}"
     if isinstance(dim_list, str):
         return dim_list
     if not dim_list:

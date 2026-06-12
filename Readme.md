@@ -2,103 +2,99 @@
 
 ## 启动容器
 
-在 [Binder](https://mybinder.org/) 中打开 GitHub 仓库. 依次完成以下两个步骤即可, 请勿进行多余动作.
+自动启动: 点击 [![Binder](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgbadge_logo.svg)](https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/HEAD).
 
-1. 确认 `GitHub repository name or URL` 一栏显示 `GitHub`. 在右侧粘贴 `https://github.com/czhang271828/GAP_Online`.
+手动启动: 在 [Binder](https://mybinder.org/) 中打开 GitHub 仓库. 依次完成以下两个步骤即可, 请勿进行多余动作.
+
+1. 确认 `GitHub repository name or URL` 一栏显示 `GitHub`. 在右侧粘贴 `https://github.com/zhangchenchengSJTU/GAP_AR_Quiver`.
 2. 直接点击 `Launch` 按钮.
 3. 等待环境启动完成. 随后 Binder 会自动跳转至 Jupyter Notebook 页面.
 
-若浏览器未能成功跳转页面, 则请点击 `view raw`, 并在新标签页中打开链接. `Jupyter Notebook` 的链接通常出现在 `server running at ...` 处.
-
-- 此处的复制键可能是 `Ctrl + Insert` 而非 `Ctrl + C`.
-
 ## 进入 Jupyter Notebook
 
-进入 Jupyter Notebook 后, 浏览器上的地址形如 `https://hub.gesis.mybinder.org/user/czhang271828-gap_online-xxxx/tree`. 此时 root 目录下出现以下三项
+进入 Jupyter Notebook 后, 浏览器上的地址形如 `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/treee`. 此时 root 目录下出现以下三项
 
 - `Dockerfile`: 这是搭建环境的说明文件, 供开发者使用. 用户无需关注.
 - `Readme.md`: 这是说明文档.
-- `ARquiver`: 这是绘制 ARquiver 的文件夹.
+- `ARquiver`: 这是绘制 ARquiver 的文件夹. 进入该文件夹后会出现
+  - `source` 文件夹, 这是存放源码的文档, 用户无需关注.
+  - `run.ipynb` 文件, 这是运行脚本.
+  - `example.txt`, `untitled.txt` 等文件, 这是输入 quiver 信息的文件.
 
-### Step1.txt
 
-路代数信息存放于 `Step1.txt` 文件中. 文件格式如
+## 绘制路代数
 
+请使用 `https://q.uiver.app/` 网页绘制 quiver with relation. 绘制时请注意
+
+- quiver 的顶点只能是简单正整数,
+- quiver 的边是简单的拉丁字母或 $\LaTeX$ 格式的希腊字母, 如 `a` 或者 `\alpha`,
+- 请随机寻找空白的格子输入路代数的关系 `rel: ....` .
+
+示例图:
+
+![image-20260612214532284](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612214532284.png)
+
+点击网页下方 `LaTeX`, 复制 `tikzcd` 源码. 
+
+在 `ARquiver` 文件夹中新建 `txt` 文件 `yourfile.txt`, 粘贴刚才复制的源码. 保存并退出.
+
+## 绘制 AR quiver
+
+请打开 `run.ipynb`. 依次运行
+
+```python
+# Compute algebra data: filename.txt -> filename.log
+%run source/compute_all.py
 ```
-vertices: 4
 
-edges: 
-    1 2 alpha
-    2 3 beta
-    3 1 gamma
-    4 1 delta
-
-rel: 
-    alpha beta
-    delta alpha
-    beta gamma alpha
-    
-
-style:
-    1-2-
-    -3-4
-    
-depth: 20
-
-file: example
-
-guess: F
+```python
+# Render interactive diagram: filename.log -> filename.html
+%run source/render_all.py
 ```
 
-以上文本中,
+此时 `ARquiver` 文件夹中将出现
 
-- `vertices:` 后接顶点数. 默认顶点为 $1,2,\dots, n$.
-- `edges:` 后接边. 例如, 若图中存在一条边 $\alpha : 1 \to 2$, 则在 `edges` 一栏中添加 `1 2 alpha`. 请在录入新边前使用换行与 `tab` 缩进.
-- `rel:` 后接关系. 例如, 若图中存在关系 $\beta \circ \alpha = 0$, 则请输入 `alpha*beta`. 一个空格 ` ` 将严格转义为 `*`. 请勿在表述中增加多余的空格. 请在录入新关系前使用换行与 `tab` 缩进.
-`style:` 后接维数向量的排列方式. `-` 表示占位符. 示例代码将维数向量的排列方式设定为 $\left[\begin{smallmatrix}v_1 & & v_2 & \\ & v_3 & & v_4\end{smallmatrix}\right]$.
-- `depth` 表示 AR quiver 计算深度. 建议先使用 `depth: 4` 进行测试. 若后续计算速度较快, 则可以加大深度.
-  - 部分代数可能不是有限表示的, 则以上计算结果为其预投射分支的局部.
-- `file:` 后接文件名称. 后续将输出 `quiver_name.txt` 与 `diagram_name.html` 两个文件.
-- `guess:` 后接 `T` 或 `F`. 若使用 `T`, 则会通过某种成功率较高的算法猜测不可约态射, 速度相对快一些.
+- `yourfile.log`  (代数计算日志) 与
+- `yourfile.html` (quiver 画布).
 
-### Step2.ipynb
+## 将 AR quiver 转换成常见形式
 
-**`Step1.txt` 中描述的的路代数是 $\mathbb Q$ 上的, 且支持重边, 自环与定向圈.**
+打开 `yourfile.html` 文件, 即可查看 AR quiver 的可视化图像. 
 
-保存 `Step1.txt` 后, 进入 `Step2.ipynb` 文件. 请点击 `Cell > Run All` 以运行所有单元格. 运行完成后, 会将在当前目录下生成 `quiver_name.txt`, 其中包括了绘图所需的所有信息.
+![image-20260612215317720](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612215317720.png)
 
-注意: 较新版本的 `GAP` 无法在 Jupyter 环境中运行, 因此 Binder 中的 `GAP` 是较旧版本. 这可能会导致部分代码 (例如 `IrreducibleMorphismsStartingIn(M)`) 不存在.
+先介绍与 AR quiver 相关的功能.
 
-### Step3.ipynb
+- 界面中的每个椭圆表示一个不可分解模, 维数向量依照 `tikzcd` 的顶点位置排列. 
+- 紫色为投射且内射的对象. 红色为投射且非内射的对象, 蓝色为内射且非投射的对象.
+- `Irr`: 显示/隐藏不可约态射 (黑色箭头).
+- `tau`: 显示/隐藏 AR 平移 $\tau = D \mathrm{Tr}$ (金色箭头).
+- `Border`: 显示/隐藏圆框. 
+- `Ctrl + Z` 撤销, `Ctrl + Y` 重做.
 
-请先确保 `quiver_name.txt` 已经生成. 随后进入 `Step3.ipynb` 文件. 请点击 `Cell > Run All` 以运行所有单元格. 运行完成后, 会在当前目录下生成 `diagram_name.html`, 其中包含了 AR quiver 的可视化图像.
+我们需要手动完成的任务是将 AR quiver 排列成标准格式. 此处介绍一些技巧. 
 
-注意: 在线环境使用 `Python3.6` (2016 年发行, 2021 年停止支持). 这可能会导致部分代码 (例如 `f-string`) 无法使用. 请谨慎修改相关代码.
+*Lemma* 所有 $\tau$-轨道 (金色箭头的轨道) 不交. 投射内射对象不属于任何 $\tau$ 轨道, 除此以外的不可分解模恰好属于一个 $\tau$ 轨道. 因此, $\tau$ 轨道分为两类
 
-### Diagram.html
+- 一条直路, 从内射对象一路指向投射对象,
+- 一条环路, 不经过任何投射或内射对象.
 
-打开 `diagram_name.html` 文件, 即可查看 AR quiver 的可视化图像. 先介绍几个核心功能:
+依照引理. 我们优先对投射对象 $\substack{2\\ 2 \quad 0}$ 进行操作. 请先关闭 `Irr`, 再将箭头 $\substack{2\\ 2 \quad 0} \ \ \leftarrow \ \substack{2\\ 2 \quad 2}$ 水平放置在空的地方. 长按金色箭头, 以校准下一箭头的位置. 最终得到
 
-- `Irr`: 不可约态射.
-- `tau`: AR 平移. 长按橙色箭头可以校准后续.
-- `Ctrl + Z` : 撤销上一步操作. 例如, 若误删了某条边, 则可以使用 `Ctrl + Z` 恢复.
-- 选中某(几)条边后, 可使用键盘左右键调整边的弧度.
+![image-20260612220603319](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612220603319.png)
 
-可以使用如下步骤, 快速绘制较美观且个性化的 AR quiver:
+接着打开 `Irr`, 尝试找到几乎可裂短正合列 $\substack{2\\ 2 \quad 0} \ \ \rightarrowtail \bigoplus M_i  \twoheadrightarrow \ \substack{2\\ 2 \quad 2}$ 
 
-- 找到所有蓝/紫色节点, 并在一块较干净的区域排列. 最终使投射对象间的箭头朝着左下或右下.
-  - 蓝色/红色/紫色节点表示投射对象/内射对象/投射-内射对象.
-- 找到 $\tau^{-1}P_i$, 也就是让指向投射模的橙色箭头保持水平.
-- 取消对所有点/边的选择, 长按已水平化的橙色箭头, 以校准后续的 $\tau$ 平移. 如果长按无效, 那多半是因为 $\tau$ 平移箭头的底下藏着不可约态射. 可以调整弧度, 将被遮挡的 `Irr` 箭头分离.
-- 绘图完成后, 请取消对 `tau` 的选择, 检查有无被遮盖的 `Irr` 箭头.
+![image-20260612220820836](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612220820836.png)
 
-之后是一些附加功能:
+接着关闭 `Irr`, 长按金色箭头校准. 如果存在环路, 可以用鼠标选中边, 使用 `↑` 与 `↓` 键调整箭头弧度. 经过一系列操作可得 $\tau$ 轨道
 
-- `Label` 小窗口显示节点标号, 方便在 `Step2.txt` 中顶点信息.
-- `PDID` 显示投射/内射维数. $-1$ 表示无穷.
-- `Quiver` 这一小窗口显示了路代数的底图. 顶点排列与维数向量一致.
-- `Tilting` 小窗口的无向图中, 一个顶点是一个 Tilting 模. 两个 Tilting 模相邻, 当且仅当他们相邻一个不可分解对象. 在选择一个 Tilting 模后,
-  - 灰色节点表示 Tilting 模的直和项,
-  - 橙色节点表示 Torsion 类,
-  - 绿色节点表示 Torsionfree 类.
-- 其他功能请自行探索. 有时读表比看图更方便.
+![image-20260612221253587](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612221253587.png)
+
+我们最终得到了 AR quiver. 请关闭 `tau`, 调整 (被金色箭头挡住的) 水平黑边的弧度. 如果觉得有些边不好看, 可以双击切换深色/浅色. 最后得到
+
+![image-20260612222112774](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612222112774.png)
+
+## 其他功能
+
+`Syzygy` 用于转换

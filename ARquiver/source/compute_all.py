@@ -25,7 +25,7 @@ def needs_compute(txt_path: Path) -> bool:
 
 def run_gap_streaming(script_path: Path) -> None:
     proc = subprocess.Popen(
-        ["gap", "-q", str(script_path)],
+        ["gap", "-q", "--quitonbreak", str(script_path)],
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -37,14 +37,13 @@ def run_gap_streaming(script_path: Path) -> None:
         print(line, end="", flush=True)
     return_code = proc.wait()
     if return_code != 0:
-        raise subprocess.CalledProcessError(return_code, ["gap", "-q", str(script_path)])
+        raise subprocess.CalledProcessError(return_code, ["gap", "-q", "--quitonbreak", str(script_path)])
 
 
 def compute_one(txt_path: Path) -> None:
     stem = txt_path.stem
     log_path = ROOT / f"{stem}.log"
     wrapper = f'''
-OnBreak := QUIT;;
 input_txt_path := "{txt_path.as_posix()}";;
 output_log_path := "{log_path.as_posix()}";;
 Read("{(SOURCE / 'Step2Core.g').as_posix()}");;

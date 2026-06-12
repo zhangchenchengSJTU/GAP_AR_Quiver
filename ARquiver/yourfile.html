@@ -1,0 +1,2023 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 750px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "blue", "highlight": {"background": "#D2E5FF", "border": "blue"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 1, "label": "  2  \n2   0", "shape": "ellipse", "title": "Node 1\u003cbr\u003e  2  \n2   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 3, "label": "  2  \n2   2", "shape": "ellipse", "title": "Node 3\u003cbr\u003e  2  \n2   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 4, "label": "  4  \n2   2", "shape": "ellipse", "title": "Node 4\u003cbr\u003e  4  \n2   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 5, "label": "  4  \n2   4", "shape": "ellipse", "title": "Node 5\u003cbr\u003e  4  \n2   4"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "red", "highlight": {"background": "#D2E5FF", "border": "red"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 6, "label": "  0  \n2   0", "shape": "ellipse", "title": "Node 6\u003cbr\u003e  0  \n2   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "blue", "highlight": {"background": "#D2E5FF", "border": "blue"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 7, "label": "  2  \n0   2", "shape": "ellipse", "title": "Node 7\u003cbr\u003e  2  \n0   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 8, "label": "  2  \n0   2", "shape": "ellipse", "title": "Node 8\u003cbr\u003e  2  \n0   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 9, "label": "  1  \n2   0", "shape": "ellipse", "title": "Node 9\u003cbr\u003e  1  \n2   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 10, "label": "  0  \n0   1", "shape": "ellipse", "title": "Node 10\u003cbr\u003e  0  \n0   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 11, "label": "  1  \n0   0", "shape": "ellipse", "title": "Node 11\u003cbr\u003e  1  \n0   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 12, "label": "  2  \n2   1", "shape": "ellipse", "title": "Node 12\u003cbr\u003e  2  \n2   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 13, "label": "  3  \n2   2", "shape": "ellipse", "title": "Node 13\u003cbr\u003e  3  \n2   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 14, "label": "  4  \n2   3", "shape": "ellipse", "title": "Node 14\u003cbr\u003e  4  \n2   3"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "red", "highlight": {"background": "#D2E5FF", "border": "red"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 15, "label": "  2  \n2   2", "shape": "ellipse", "title": "Node 15\u003cbr\u003e  2  \n2   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "purple", "highlight": {"background": "#D2E5FF", "border": "purple"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 16, "label": "  2  \n0   3", "shape": "ellipse", "title": "Node 16\u003cbr\u003e  2  \n0   3"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 17, "label": "  2  \n2   1", "shape": "ellipse", "title": "Node 17\u003cbr\u003e  2  \n2   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 18, "label": "  1  \n1   0", "shape": "ellipse", "title": "Node 18\u003cbr\u003e  1  \n1   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 19, "label": "  3  \n2   2", "shape": "ellipse", "title": "Node 19\u003cbr\u003e  3  \n2   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 20, "label": "  0  \n1   0", "shape": "ellipse", "title": "Node 20\u003cbr\u003e  0  \n1   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 21, "label": "  4  \n2   3", "shape": "ellipse", "title": "Node 21\u003cbr\u003e  4  \n2   3"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 22, "label": "  2  \n2   2", "shape": "ellipse", "title": "Node 22\u003cbr\u003e  2  \n2   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 23, "label": "  2  \n0   1", "shape": "ellipse", "title": "Node 23\u003cbr\u003e  2  \n0   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 24, "label": "  1  \n0   2", "shape": "ellipse", "title": "Node 24\u003cbr\u003e  1  \n0   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 25, "label": "  3  \n2   2", "shape": "ellipse", "title": "Node 25\u003cbr\u003e  3  \n2   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 26, "label": "  2  \n2   1", "shape": "ellipse", "title": "Node 26\u003cbr\u003e  2  \n2   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 27, "label": "  1  \n2   1", "shape": "ellipse", "title": "Node 27\u003cbr\u003e  1  \n2   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 28, "label": "  3  \n2   3", "shape": "ellipse", "title": "Node 28\u003cbr\u003e  3  \n2   3"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 29, "label": "  1  \n0   1", "shape": "ellipse", "title": "Node 29\u003cbr\u003e  1  \n0   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 30, "label": "  3  \n2   1", "shape": "ellipse", "title": "Node 30\u003cbr\u003e  3  \n2   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 31, "label": "  1  \n0   1", "shape": "ellipse", "title": "Node 31\u003cbr\u003e  1  \n0   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 32, "label": "  3  \n2   1", "shape": "ellipse", "title": "Node 32\u003cbr\u003e  3  \n2   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 33, "label": "  1  \n1   1", "shape": "ellipse", "title": "Node 33\u003cbr\u003e  1  \n1   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 34, "label": "  3  \n2   3", "shape": "ellipse", "title": "Node 34\u003cbr\u003e  3  \n2   3"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 35, "label": "  1  \n2   0", "shape": "ellipse", "title": "Node 35\u003cbr\u003e  1  \n2   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 36, "label": "  2  \n2   1", "shape": "ellipse", "title": "Node 36\u003cbr\u003e  2  \n2   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 37, "label": "  2  \n1   2", "shape": "ellipse", "title": "Node 37\u003cbr\u003e  2  \n1   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 38, "label": "  3  \n2   2", "shape": "ellipse", "title": "Node 38\u003cbr\u003e  3  \n2   2"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 39, "label": "  2  \n1   1", "shape": "ellipse", "title": "Node 39\u003cbr\u003e  2  \n1   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 40, "label": "  1  \n2   1", "shape": "ellipse", "title": "Node 40\u003cbr\u003e  1  \n2   1"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": 1, "to": 12}, {"arrows": "to", "from": 1, "to": 17}, {"arrows": "to", "from": 3, "to": 13}, {"arrows": "to", "from": 3, "to": 19}, {"arrows": "to", "from": 4, "to": 14}, {"arrows": "to", "from": 4, "to": 21}, {"arrows": "to", "from": 5, "to": 15}, {"arrows": "to", "from": 5, "to": 22}, {"arrows": "to", "from": 6, "to": 20}, {"arrows": "to", "from": 7, "to": 16}, {"arrows": "to", "from": 7, "to": 23}, {"arrows": "to", "from": 8, "to": 25}, {"arrows": "to", "from": 9, "to": 27}, {"arrows": "to", "from": 10, "to": 29}, {"arrows": "to", "from": 11, "to": 1}, {"arrows": "to", "from": 11, "to": 31}, {"arrows": "to", "from": 12, "to": 3}, {"arrows": "to", "from": 12, "to": 30}, {"arrows": "to", "from": 13, "to": 4}, {"arrows": "to", "from": 13, "to": 28}, {"arrows": "to", "from": 14, "to": 5}, {"arrows": "to", "from": 14, "to": 26}, {"arrows": "to", "from": 15, "to": 6}, {"arrows": "to", "from": 15, "to": 24}, {"arrows": "to", "from": 16, "to": 8}, {"arrows": "to", "from": 17, "to": 3}, {"arrows": "to", "from": 17, "to": 32}, {"arrows": "to", "from": 18, "to": 1}, {"arrows": "to", "from": 18, "to": 33}, {"arrows": "to", "from": 19, "to": 4}, {"arrows": "to", "from": 19, "to": 34}, {"arrows": "to", "from": 20, "to": 35}, {"arrows": "to", "from": 21, "to": 5}, {"arrows": "to", "from": 21, "to": 36}, {"arrows": "to", "from": 22, "to": 6}, {"arrows": "to", "from": 22, "to": 37}, {"arrows": "to", "from": 23, "to": 8}, {"arrows": "to", "from": 23, "to": 30}, {"arrows": "to", "from": 24, "to": 7}, {"arrows": "to", "from": 24, "to": 31}, {"arrows": "to", "from": 25, "to": 9}, {"arrows": "to", "from": 25, "to": 28}, {"arrows": "to", "from": 26, "to": 15}, {"arrows": "to", "from": 26, "to": 29}, {"arrows": "to", "from": 27, "to": 10}, {"arrows": "to", "from": 27, "to": 26}, {"arrows": "to", "from": 28, "to": 14}, {"arrows": "to", "from": 28, "to": 27}, {"arrows": "to", "from": 29, "to": 11}, {"arrows": "to", "from": 29, "to": 24}, {"arrows": "to", "from": 30, "to": 13}, {"arrows": "to", "from": 30, "to": 25}, {"arrows": "to", "from": 31, "to": 12}, {"arrows": "to", "from": 31, "to": 23}, {"arrows": "to", "from": 32, "to": 19}, {"arrows": "to", "from": 32, "to": 38}, {"arrows": "to", "from": 33, "to": 17}, {"arrows": "to", "from": 33, "to": 39}, {"arrows": "to", "from": 34, "to": 21}, {"arrows": "to", "from": 34, "to": 40}, {"arrows": "to", "from": 35, "to": 18}, {"arrows": "to", "from": 35, "to": 40}, {"arrows": "to", "from": 36, "to": 22}, {"arrows": "to", "from": 36, "to": 39}, {"arrows": "to", "from": 37, "to": 20}, {"arrows": "to", "from": 37, "to": 38}, {"arrows": "to", "from": 38, "to": 34}, {"arrows": "to", "from": 38, "to": 35}, {"arrows": "to", "from": 39, "to": 32}, {"arrows": "to", "from": 39, "to": 37}, {"arrows": "to", "from": 40, "to": 33}, {"arrows": "to", "from": 40, "to": 36}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    
+    <script type="text/javascript">
+      const gridSize = 100;
+      const goldenEdges = [[3, 1], [4, 3], [5, 4], [6, 5], [8, 7], [9, 8], [10, 9], [11, 10], [12, 11], [13, 12], [14, 13], [15, 14], [17, 18], [18, 20], [19, 17], [20, 22], [21, 19], [22, 21], [23, 24], [24, 26], [25, 23], [26, 28], [27, 25], [28, 30], [29, 27], [30, 31], [31, 29], [32, 33], [33, 35], [34, 32], [35, 37], [36, 34], [37, 36], [38, 39], [39, 40], [40, 38]];
+      const torsionlessIds = [2, 10, 11, 18, 24, 29];
+      const reflexiveIds = [2, 18, 24];
+      const gorensteinProjectiveIds = [18];
+      const gorensteinInjectiveIds = [];
+      const zeroObjectIds = [2];
+      const syzygyEdges = [[7, 3], [29, 4], [29, 5], [11, 6], [10, 8], [11, 9], [7, 10], [24, 11], [7, 12], [7, 13], [29, 13], [29, 14], [11, 15], [29, 15], [7, 17], [18, 18], [7, 19], [29, 19], [11, 20], [18, 20], [29, 21], [11, 22], [29, 22], [10, 23], [29, 24], [29, 25], [11, 26], [29, 26], [7, 27], [11, 27], [7, 28], [29, 28], [29, 29], [29, 30], [24, 31], [29, 32], [7, 33], [18, 33], [7, 34], [29, 34], [11, 35], [11, 36], [29, 36], [18, 37], [29, 37], [29, 38], [18, 39], [29, 39], [7, 40], [11, 40]];
+      const quiverNodes = [{"id": 1, "label": "1"}, {"id": 2, "label": "2"}, {"id": 3, "label": "3"}];
+      const quiverEdges = [[2, 3, "b"], [1, 2, "a"], [1, 1, "d"], [3, 2, "c"]];
+      const quiverRel = "[a*b,b*c*b*c,d^2]";
+      const homEdges = [[1, 1, "2"], [1, 3, "2"], [1, 4, "2"], [1, 5, "2"], [1, 6, "2"], [1, 9, "2"], [1, 12, "2"], [1, 13, "2"], [1, 14, "2"], [1, 15, "2"], [1, 17, "2"], [1, 18, "1"], [1, 19, "2"], [1, 20, "1"], [1, 21, "2"], [1, 22, "2"], [1, 25, "2"], [1, 26, "2"], [1, 27, "2"], [1, 28, "2"], [1, 30, "2"], [1, 32, "2"], [1, 33, "1"], [1, 34, "2"], [1, 35, "2"], [1, 36, "2"], [1, 37, "1"], [1, 38, "2"], [1, 39, "1"], [1, 40, "2"], [3, 3, "2"], [3, 4, "2"], [3, 5, "2"], [3, 6, "2"], [3, 7, "2"], [3, 10, "2"], [3, 13, "2"], [3, 14, "2"], [3, 15, "2"], [3, 16, "2"], [3, 17, "1"], [3, 19, "2"], [3, 20, "1"], [3, 21, "2"], [3, 22, "2"], [3, 24, "2"], [3, 26, "2"], [3, 27, "2"], [3, 28, "2"], [3, 29, "2"], [3, 32, "1"], [3, 33, "1"], [3, 34, "2"], [3, 35, "1"], [3, 36, "2"], [3, 37, "1"], [3, 38, "1"], [3, 39, "1"], [3, 40, "2"], [4, 1, "4"], [4, 3, "4"], [4, 4, "6"], [4, 5, "6"], [4, 6, "2"], [4, 7, "2"], [4, 8, "2"], [4, 9, "2"], [4, 11, "2"], [4, 12, "4"], [4, 13, "4"], [4, 14, "6"], [4, 15, "4"], [4, 16, "2"], [4, 17, "4"], [4, 18, "2"], [4, 19, "5"], [4, 20, "1"], [4, 21, "6"], [4, 22, "4"], [4, 23, "2"], [4, 24, "2"], [4, 25, "4"], [4, 26, "4"], [4, 27, "2"], [4, 28, "4"], [4, 29, "2"], [4, 30, "4"], [4, 31, "2"], [4, 32, "5"], [4, 33, "2"], [4, 34, "5"], [4, 35, "3"], [4, 36, "4"], [4, 37, "3"], [4, 38, "5"], [4, 39, "3"], [4, 40, "3"], [5, 3, "4"], [5, 4, "4"], [5, 5, "6"], [5, 6, "2"], [5, 7, "4"], [5, 8, "2"], [5, 10, "2"], [5, 12, "2"], [5, 13, "4"], [5, 14, "4"], [5, 15, "4"], [5, 16, "4"], [5, 17, "2"], [5, 19, "4"], [5, 20, "1"], [5, 21, "5"], [5, 22, "4"], [5, 23, "2"], [5, 24, "4"], [5, 25, "2"], [5, 26, "2"], [5, 27, "2"], [5, 28, "4"], [5, 29, "2"], [5, 30, "2"], [5, 31, "2"], [5, 32, "2"], [5, 33, "2"], [5, 34, "5"], [5, 35, "1"], [5, 36, "3"], [5, 37, "3"], [5, 38, "3"], [5, 39, "2"], [5, 40, "3"], [6, 6, "2"], [6, 20, "1"], [6, 22, "1"], [6, 35, "1"], [6, 36, "1"], [6, 40, "1"], [7, 1, "2"], [7, 3, "2"], [7, 4, "4"], [7, 5, "4"], [7, 7, "2"], [7, 8, "2"], [7, 9, "1"], [7, 11, "1"], [7, 12, "2"], [7, 13, "3"], [7, 14, "4"], [7, 15, "2"], [7, 16, "2"], [7, 17, "2"], [7, 18, "1"], [7, 19, "3"], [7, 21, "4"], [7, 22, "2"], [7, 23, "2"], [7, 24, "1"], [7, 25, "3"], [7, 26, "2"], [7, 27, "1"], [7, 28, "3"], [7, 29, "1"], [7, 30, "3"], [7, 31, "1"], [7, 32, "3"], [7, 33, "1"], [7, 34, "3"], [7, 35, "1"], [7, 36, "2"], [7, 37, "2"], [7, 38, "3"], [7, 39, "2"], [7, 40, "1"], [8, 3, "2"], [8, 4, "2"], [8, 5, "4"], [8, 7, "2"], [8, 8, "2"], [8, 10, "1"], [8, 12, "1"], [8, 13, "2"], [8, 14, "3"], [8, 15, "2"], [8, 16, "2"], [8, 17, "1"], [8, 19, "2"], [8, 21, "3"], [8, 22, "2"], [8, 23, "1"], [8, 24, "2"], [8, 25, "2"], [8, 26, "1"], [8, 27, "1"], [8, 28, "3"], [8, 29, "1"], [8, 30, "1"], [8, 31, "1"], [8, 32, "1"], [8, 33, "1"], [8, 34, "3"], [8, 36, "1"], [8, 37, "2"], [8, 38, "2"], [8, 39, "1"], [8, 40, "1"], [9, 6, "2"], [9, 9, "1"], [9, 15, "1"], [9, 20, "1"], [9, 22, "1"], [9, 26, "1"], [9, 27, "1"], [9, 35, "1"], [9, 36, "1"], [9, 40, "1"], [10, 7, "1"], [10, 10, "1"], [10, 16, "1"], [10, 24, "1"], [10, 29, "1"], [11, 1, "2"], [11, 3, "2"], [11, 4, "2"], [11, 5, "2"], [11, 8, "1"], [11, 9, "1"], [11, 11, "1"], [11, 12, "2"], [11, 13, "2"], [11, 14, "2"], [11, 15, "1"], [11, 17, "2"], [11, 18, "1"], [11, 19, "2"], [11, 21, "2"], [11, 22, "1"], [11, 23, "1"], [11, 25, "2"], [11, 26, "1"], [11, 27, "1"], [11, 28, "2"], [11, 30, "2"], [11, 31, "1"], [11, 32, "2"], [11, 33, "1"], [11, 34, "2"], [11, 35, "1"], [11, 36, "1"], [11, 37, "1"], [11, 38, "2"], [11, 39, "1"], [11, 40, "1"], [12, 3, "2"], [12, 4, "2"], [12, 5, "2"], [12, 6, "2"], [12, 7, "1"], [12, 9, "1"], [12, 10, "1"], [12, 12, "1"], [12, 13, "2"], [12, 14, "2"], [12, 15, "2"], [12, 16, "1"], [12, 17, "1"], [12, 19, "2"], [12, 20, "1"], [12, 21, "2"], [12, 22, "2"], [12, 24, "1"], [12, 25, "1"], [12, 26, "2"], [12, 27, "2"], [12, 28, "2"], [12, 29, "1"], [12, 30, "1"], [12, 32, "1"], [12, 33, "1"], [12, 34, "2"], [12, 35, "1"], [12, 36, "2"], [12, 37, "1"], [12, 38, "1"], [12, 39, "1"], [12, 40, "2"], [13, 1, "2"], [13, 3, "2"], [13, 4, "4"], [13, 5, "4"], [13, 6, "2"], [13, 7, "2"], [13, 8, "1"], [13, 9, "1"], [13, 10, "1"], [13, 11, "1"], [13, 12, "2"], [13, 13, "3"], [13, 14, "4"], [13, 15, "3"], [13, 16, "2"], [13, 17, "2"], [13, 18, "1"], [13, 19, "3"], [13, 20, "1"], [13, 21, "4"], [13, 22, "3"], [13, 23, "1"], [13, 24, "2"], [13, 25, "2"], [13, 26, "3"], [13, 27, "2"], [13, 28, "3"], [13, 29, "2"], [13, 30, "2"], [13, 31, "1"], [13, 32, "3"], [13, 33, "1"], [13, 34, "3"], [13, 35, "2"], [13, 36, "3"], [13, 37, "2"], [13, 38, "3"], [13, 39, "2"], [13, 40, "2"], [14, 1, "2"], [14, 3, "4"], [14, 4, "4"], [14, 5, "6"], [14, 6, "2"], [14, 7, "3"], [14, 8, "2"], [14, 9, "1"], [14, 10, "1"], [14, 11, "1"], [14, 12, "3"], [14, 13, "4"], [14, 14, "5"], [14, 15, "4"], [14, 16, "3"], [14, 17, "3"], [14, 18, "1"], [14, 19, "4"], [14, 20, "1"], [14, 21, "5"], [14, 22, "4"], [14, 23, "2"], [14, 24, "3"], [14, 25, "3"], [14, 26, "3"], [14, 27, "2"], [14, 28, "4"], [14, 29, "2"], [14, 30, "3"], [14, 31, "2"], [14, 32, "3"], [14, 33, "2"], [14, 34, "5"], [14, 35, "2"], [14, 36, "3"], [14, 37, "3"], [14, 38, "4"], [14, 39, "2"], [14, 40, "3"], [15, 3, "2"], [15, 4, "2"], [15, 5, "2"], [15, 6, "2"], [15, 7, "2"], [15, 8, "1"], [15, 10, "1"], [15, 12, "1"], [15, 13, "2"], [15, 14, "2"], [15, 15, "2"], [15, 16, "2"], [15, 17, "1"], [15, 19, "2"], [15, 20, "1"], [15, 21, "2"], [15, 22, "2"], [15, 23, "1"], [15, 24, "2"], [15, 25, "1"], [15, 26, "1"], [15, 27, "1"], [15, 28, "2"], [15, 29, "1"], [15, 30, "1"], [15, 31, "1"], [15, 32, "1"], [15, 33, "1"], [15, 34, "2"], [15, 35, "1"], [15, 36, "2"], [15, 37, "1"], [15, 38, "1"], [15, 39, "1"], [15, 40, "2"], [16, 3, "2"], [16, 4, "2"], [16, 5, "4"], [16, 7, "2"], [16, 8, "2"], [16, 10, "1"], [16, 12, "1"], [16, 13, "2"], [16, 14, "3"], [16, 15, "2"], [16, 16, "3"], [16, 17, "1"], [16, 19, "2"], [16, 21, "3"], [16, 22, "2"], [16, 23, "1"], [16, 24, "2"], [16, 25, "2"], [16, 26, "1"], [16, 27, "1"], [16, 28, "3"], [16, 29, "1"], [16, 30, "1"], [16, 31, "1"], [16, 32, "1"], [16, 33, "1"], [16, 34, "3"], [16, 36, "1"], [16, 37, "2"], [16, 38, "2"], [16, 39, "1"], [16, 40, "1"], [17, 1, "1"], [17, 3, "2"], [17, 4, "2"], [17, 5, "2"], [17, 6, "2"], [17, 7, "1"], [17, 9, "1"], [17, 10, "1"], [17, 12, "1"], [17, 13, "2"], [17, 14, "2"], [17, 15, "2"], [17, 16, "1"], [17, 17, "2"], [17, 18, "1"], [17, 19, "2"], [17, 20, "1"], [17, 21, "2"], [17, 22, "2"], [17, 24, "1"], [17, 25, "1"], [17, 26, "2"], [17, 27, "2"], [17, 28, "2"], [17, 29, "1"], [17, 30, "1"], [17, 32, "2"], [17, 33, "1"], [17, 34, "2"], [17, 35, "2"], [17, 36, "2"], [17, 37, "1"], [17, 38, "2"], [17, 39, "1"], [17, 40, "2"], [18, 1, "1"], [18, 3, "1"], [18, 4, "1"], [18, 5, "1"], [18, 6, "1"], [18, 9, "1"], [18, 12, "1"], [18, 13, "1"], [18, 14, "1"], [18, 15, "1"], [18, 17, "1"], [18, 18, "1"], [18, 19, "1"], [18, 20, "1"], [18, 21, "1"], [18, 22, "1"], [18, 25, "1"], [18, 26, "1"], [18, 27, "1"], [18, 28, "1"], [18, 30, "1"], [18, 32, "1"], [18, 33, "1"], [18, 34, "1"], [18, 35, "1"], [18, 36, "1"], [18, 37, "1"], [18, 38, "1"], [18, 39, "1"], [18, 40, "1"], [19, 1, "2"], [19, 3, "3"], [19, 4, "4"], [19, 5, "4"], [19, 6, "2"], [19, 7, "2"], [19, 8, "1"], [19, 9, "1"], [19, 10, "1"], [19, 11, "1"], [19, 12, "2"], [19, 13, "3"], [19, 14, "4"], [19, 15, "3"], [19, 16, "2"], [19, 17, "3"], [19, 18, "1"], [19, 19, "4"], [19, 20, "1"], [19, 21, "4"], [19, 22, "3"], [19, 23, "1"], [19, 24, "2"], [19, 25, "2"], [19, 26, "3"], [19, 27, "2"], [19, 28, "3"], [19, 29, "2"], [19, 30, "2"], [19, 31, "1"], [19, 32, "3"], [19, 33, "2"], [19, 34, "4"], [19, 35, "2"], [19, 36, "3"], [19, 37, "2"], [19, 38, "3"], [19, 39, "2"], [19, 40, "3"], [20, 6, "1"], [20, 20, "1"], [20, 22, "1"], [20, 35, "1"], [20, 36, "1"], [20, 40, "1"], [21, 1, "2"], [21, 3, "4"], [21, 4, "5"], [21, 5, "6"], [21, 6, "2"], [21, 7, "3"], [21, 8, "2"], [21, 9, "1"], [21, 10, "1"], [21, 11, "1"], [21, 12, "3"], [21, 13, "4"], [21, 14, "5"], [21, 15, "4"], [21, 16, "3"], [21, 17, "3"], [21, 18, "1"], [21, 19, "5"], [21, 20, "1"], [21, 21, "6"], [21, 22, "4"], [21, 23, "2"], [21, 24, "3"], [21, 25, "3"], [21, 26, "3"], [21, 27, "2"], [21, 28, "4"], [21, 29, "2"], [21, 30, "3"], [21, 31, "2"], [21, 32, "4"], [21, 33, "2"], [21, 34, "5"], [21, 35, "2"], [21, 36, "4"], [21, 37, "3"], [21, 38, "4"], [21, 39, "3"], [21, 40, "3"], [22, 3, "2"], [22, 4, "2"], [22, 5, "3"], [22, 6, "2"], [22, 7, "2"], [22, 8, "1"], [22, 10, "1"], [22, 12, "1"], [22, 13, "2"], [22, 14, "2"], [22, 15, "2"], [22, 16, "2"], [22, 17, "1"], [22, 19, "2"], [22, 20, "1"], [22, 21, "3"], [22, 22, "3"], [22, 23, "1"], [22, 24, "2"], [22, 25, "1"], [22, 26, "1"], [22, 27, "1"], [22, 28, "2"], [22, 29, "1"], [22, 30, "1"], [22, 31, "1"], [22, 32, "1"], [22, 33, "1"], [22, 34, "3"], [22, 35, "1"], [22, 36, "2"], [22, 37, "2"], [22, 38, "2"], [22, 39, "1"], [22, 40, "2"], [23, 1, "2"], [23, 3, "2"], [23, 4, "4"], [23, 5, "4"], [23, 7, "1"], [23, 8, "2"], [23, 9, "1"], [23, 11, "1"], [23, 12, "2"], [23, 13, "3"], [23, 14, "4"], [23, 15, "2"], [23, 16, "1"], [23, 17, "2"], [23, 18, "1"], [23, 19, "3"], [23, 21, "4"], [23, 22, "2"], [23, 23, "2"], [23, 24, "1"], [23, 25, "3"], [23, 26, "2"], [23, 27, "1"], [23, 28, "3"], [23, 29, "1"], [23, 30, "3"], [23, 31, "1"], [23, 32, "3"], [23, 33, "1"], [23, 34, "3"], [23, 35, "1"], [23, 36, "2"], [23, 37, "2"], [23, 38, "3"], [23, 39, "2"], [23, 40, "1"], [24, 3, "2"], [24, 4, "2"], [24, 5, "2"], [24, 7, "2"], [24, 8, "1"], [24, 10, "1"], [24, 12, "1"], [24, 13, "2"], [24, 14, "2"], [24, 15, "1"], [24, 16, "2"], [24, 17, "1"], [24, 19, "2"], [24, 21, "2"], [24, 22, "1"], [24, 23, "1"], [24, 24, "2"], [24, 25, "1"], [24, 26, "1"], [24, 27, "1"], [24, 28, "2"], [24, 29, "1"], [24, 30, "1"], [24, 31, "1"], [24, 32, "1"], [24, 33, "1"], [24, 34, "2"], [24, 36, "1"], [24, 37, "1"], [24, 38, "1"], [24, 39, "1"], [24, 40, "1"], [25, 3, "2"], [25, 4, "2"], [25, 5, "4"], [25, 6, "2"], [25, 7, "2"], [25, 8, "1"], [25, 9, "1"], [25, 10, "1"], [25, 12, "1"], [25, 13, "2"], [25, 14, "3"], [25, 15, "3"], [25, 16, "2"], [25, 17, "1"], [25, 19, "2"], [25, 20, "1"], [25, 21, "3"], [25, 22, "3"], [25, 23, "1"], [25, 24, "2"], [25, 25, "2"], [25, 26, "2"], [25, 27, "2"], [25, 28, "3"], [25, 29, "1"], [25, 30, "1"], [25, 31, "1"], [25, 32, "1"], [25, 33, "1"], [25, 34, "3"], [25, 35, "1"], [25, 36, "2"], [25, 37, "2"], [25, 38, "2"], [25, 39, "1"], [25, 40, "2"], [26, 1, "2"], [26, 3, "2"], [26, 4, "2"], [26, 5, "2"], [26, 6, "2"], [26, 7, "1"], [26, 8, "1"], [26, 9, "1"], [26, 11, "1"], [26, 12, "2"], [26, 13, "2"], [26, 14, "2"], [26, 15, "2"], [26, 16, "1"], [26, 17, "2"], [26, 18, "1"], [26, 19, "2"], [26, 20, "1"], [26, 21, "2"], [26, 22, "2"], [26, 23, "1"], [26, 24, "1"], [26, 25, "2"], [26, 26, "2"], [26, 27, "1"], [26, 28, "2"], [26, 29, "1"], [26, 30, "2"], [26, 31, "1"], [26, 32, "2"], [26, 33, "1"], [26, 34, "2"], [26, 35, "2"], [26, 36, "2"], [26, 37, "1"], [26, 38, "2"], [26, 39, "1"], [26, 40, "2"], [27, 6, "2"], [27, 7, "1"], [27, 10, "1"], [27, 15, "1"], [27, 16, "1"], [27, 20, "1"], [27, 22, "1"], [27, 24, "1"], [27, 26, "1"], [27, 27, "1"], [27, 29, "1"], [27, 35, "1"], [27, 36, "1"], [27, 40, "1"], [28, 3, "2"], [28, 4, "2"], [28, 5, "4"], [28, 6, "2"], [28, 7, "3"], [28, 8, "1"], [28, 10, "2"], [28, 12, "1"], [28, 13, "2"], [28, 14, "3"], [28, 15, "3"], [28, 16, "3"], [28, 17, "1"], [28, 19, "2"], [28, 20, "1"], [28, 21, "3"], [28, 22, "3"], [28, 23, "1"], [28, 24, "3"], [28, 25, "1"], [28, 26, "2"], [28, 27, "2"], [28, 28, "3"], [28, 29, "2"], [28, 30, "1"], [28, 31, "1"], [28, 32, "1"], [28, 33, "1"], [28, 34, "3"], [28, 35, "1"], [28, 36, "2"], [28, 37, "2"], [28, 38, "2"], [28, 39, "1"], [28, 40, "2"], [29, 1, "2"], [29, 3, "2"], [29, 4, "2"], [29, 5, "2"], [29, 7, "1"], [29, 8, "1"], [29, 9, "1"], [29, 11, "1"], [29, 12, "2"], [29, 13, "2"], [29, 14, "2"], [29, 15, "1"], [29, 16, "1"], [29, 17, "2"], [29, 18, "1"], [29, 19, "2"], [29, 21, "2"], [29, 22, "1"], [29, 23, "1"], [29, 24, "1"], [29, 25, "2"], [29, 26, "1"], [29, 27, "1"], [29, 28, "2"], [29, 29, "1"], [29, 30, "2"], [29, 31, "1"], [29, 32, "2"], [29, 33, "1"], [29, 34, "2"], [29, 35, "1"], [29, 36, "1"], [29, 37, "1"], [29, 38, "2"], [29, 39, "1"], [29, 40, "1"], [30, 1, "2"], [30, 3, "2"], [30, 4, "4"], [30, 5, "4"], [30, 6, "2"], [30, 7, "1"], [30, 8, "1"], [30, 9, "2"], [30, 11, "1"], [30, 12, "2"], [30, 13, "3"], [30, 14, "4"], [30, 15, "3"], [30, 16, "1"], [30, 17, "2"], [30, 18, "1"], [30, 19, "3"], [30, 20, "1"], [30, 21, "4"], [30, 22, "3"], [30, 23, "1"], [30, 24, "1"], [30, 25, "3"], [30, 26, "3"], [30, 27, "2"], [30, 28, "3"], [30, 29, "1"], [30, 30, "3"], [30, 31, "1"], [30, 32, "3"], [30, 33, "1"], [30, 34, "3"], [30, 35, "2"], [30, 36, "3"], [30, 37, "2"], [30, 38, "3"], [30, 39, "2"], [30, 40, "2"], [31, 3, "2"], [31, 4, "2"], [31, 5, "2"], [31, 7, "1"], [31, 8, "1"], [31, 10, "1"], [31, 12, "1"], [31, 13, "2"], [31, 14, "2"], [31, 15, "1"], [31, 16, "1"], [31, 17, "1"], [31, 19, "2"], [31, 21, "2"], [31, 22, "1"], [31, 23, "1"], [31, 24, "1"], [31, 25, "1"], [31, 26, "1"], [31, 27, "1"], [31, 28, "2"], [31, 29, "1"], [31, 30, "1"], [31, 31, "1"], [31, 32, "1"], [31, 33, "1"], [31, 34, "2"], [31, 36, "1"], [31, 37, "1"], [31, 38, "1"], [31, 39, "1"], [31, 40, "1"], [32, 1, "3"], [32, 3, "3"], [32, 4, "4"], [32, 5, "4"], [32, 6, "2"], [32, 7, "1"], [32, 8, "1"], [32, 9, "2"], [32, 11, "1"], [32, 12, "3"], [32, 13, "3"], [32, 14, "4"], [32, 15, "3"], [32, 16, "1"], [32, 17, "3"], [32, 18, "2"], [32, 19, "4"], [32, 20, "1"], [32, 21, "4"], [32, 22, "3"], [32, 23, "1"], [32, 24, "1"], [32, 25, "3"], [32, 26, "3"], [32, 27, "2"], [32, 28, "3"], [32, 29, "1"], [32, 30, "3"], [32, 31, "1"], [32, 32, "4"], [32, 33, "2"], [32, 34, "4"], [32, 35, "3"], [32, 36, "3"], [32, 37, "2"], [32, 38, "4"], [32, 39, "2"], [32, 40, "3"], [33, 3, "1"], [33, 4, "1"], [33, 5, "1"], [33, 6, "1"], [33, 7, "1"], [33, 10, "1"], [33, 13, "1"], [33, 14, "1"], [33, 15, "1"], [33, 16, "1"], [33, 17, "1"], [33, 19, "1"], [33, 20, "1"], [33, 21, "1"], [33, 22, "1"], [33, 24, "1"], [33, 26, "1"], [33, 27, "1"], [33, 28, "1"], [33, 29, "1"], [33, 32, "1"], [33, 33, "1"], [33, 34, "1"], [33, 35, "1"], [33, 36, "1"], [33, 37, "1"], [33, 38, "1"], [33, 39, "1"], [33, 40, "1"], [34, 3, "3"], [34, 4, "3"], [34, 5, "4"], [34, 6, "2"], [34, 7, "3"], [34, 8, "1"], [34, 10, "2"], [34, 12, "1"], [34, 13, "3"], [34, 14, "3"], [34, 15, "3"], [34, 16, "3"], [34, 17, "2"], [34, 19, "3"], [34, 20, "1"], [34, 21, "4"], [34, 22, "3"], [34, 23, "1"], [34, 24, "3"], [34, 25, "1"], [34, 26, "2"], [34, 27, "2"], [34, 28, "3"], [34, 29, "2"], [34, 30, "1"], [34, 31, "1"], [34, 32, "2"], [34, 33, "2"], [34, 34, "4"], [34, 35, "1"], [34, 36, "3"], [34, 37, "2"], [34, 38, "2"], [34, 39, "2"], [34, 40, "3"], [35, 1, "1"], [35, 3, "1"], [35, 4, "1"], [35, 5, "1"], [35, 6, "2"], [35, 9, "1"], [35, 12, "1"], [35, 13, "1"], [35, 14, "1"], [35, 15, "1"], [35, 17, "1"], [35, 18, "1"], [35, 19, "1"], [35, 20, "1"], [35, 21, "1"], [35, 22, "2"], [35, 25, "1"], [35, 26, "1"], [35, 27, "1"], [35, 28, "1"], [35, 30, "1"], [35, 32, "1"], [35, 33, "1"], [35, 34, "1"], [35, 35, "2"], [35, 36, "2"], [35, 37, "1"], [35, 38, "1"], [35, 39, "1"], [35, 40, "2"], [36, 1, "2"], [36, 3, "2"], [36, 4, "3"], [36, 5, "3"], [36, 6, "2"], [36, 7, "1"], [36, 8, "1"], [36, 9, "1"], [36, 11, "1"], [36, 12, "2"], [36, 13, "2"], [36, 14, "3"], [36, 15, "2"], [36, 16, "1"], [36, 17, "2"], [36, 18, "1"], [36, 19, "3"], [36, 20, "1"], [36, 21, "3"], [36, 22, "3"], [36, 23, "1"], [36, 24, "1"], [36, 25, "2"], [36, 26, "2"], [36, 27, "1"], [36, 28, "2"], [36, 29, "1"], [36, 30, "2"], [36, 31, "1"], [36, 32, "3"], [36, 33, "1"], [36, 34, "3"], [36, 35, "2"], [36, 36, "3"], [36, 37, "2"], [36, 38, "3"], [36, 39, "2"], [36, 40, "2"], [37, 3, "2"], [37, 4, "2"], [37, 5, "3"], [37, 6, "1"], [37, 7, "2"], [37, 8, "1"], [37, 10, "1"], [37, 12, "1"], [37, 13, "2"], [37, 14, "2"], [37, 15, "2"], [37, 16, "2"], [37, 17, "1"], [37, 19, "2"], [37, 20, "1"], [37, 21, "3"], [37, 22, "2"], [37, 23, "1"], [37, 24, "2"], [37, 25, "1"], [37, 26, "1"], [37, 27, "1"], [37, 28, "2"], [37, 29, "1"], [37, 30, "1"], [37, 31, "1"], [37, 32, "1"], [37, 33, "1"], [37, 34, "3"], [37, 35, "1"], [37, 36, "2"], [37, 37, "2"], [37, 38, "2"], [37, 39, "1"], [37, 40, "2"], [38, 1, "1"], [38, 3, "3"], [38, 4, "3"], [38, 5, "4"], [38, 6, "2"], [38, 7, "2"], [38, 8, "1"], [38, 9, "1"], [38, 10, "1"], [38, 12, "2"], [38, 13, "3"], [38, 14, "3"], [38, 15, "3"], [38, 16, "2"], [38, 17, "2"], [38, 18, "1"], [38, 19, "3"], [38, 20, "1"], [38, 21, "4"], [38, 22, "3"], [38, 23, "1"], [38, 24, "2"], [38, 25, "2"], [38, 26, "2"], [38, 27, "2"], [38, 28, "3"], [38, 29, "1"], [38, 30, "2"], [38, 31, "1"], [38, 32, "2"], [38, 33, "2"], [38, 34, "4"], [38, 35, "2"], [38, 36, "3"], [38, 37, "2"], [38, 38, "3"], [38, 39, "2"], [38, 40, "3"], [39, 1, "2"], [39, 3, "2"], [39, 4, "3"], [39, 5, "3"], [39, 6, "1"], [39, 7, "1"], [39, 8, "1"], [39, 9, "1"], [39, 11, "1"], [39, 12, "2"], [39, 13, "2"], [39, 14, "3"], [39, 15, "2"], [39, 16, "1"], [39, 17, "2"], [39, 18, "1"], [39, 19, "3"], [39, 20, "1"], [39, 21, "3"], [39, 22, "2"], [39, 23, "1"], [39, 24, "1"], [39, 25, "2"], [39, 26, "2"], [39, 27, "1"], [39, 28, "2"], [39, 29, "1"], [39, 30, "2"], [39, 31, "1"], [39, 32, "3"], [39, 33, "1"], [39, 34, "3"], [39, 35, "2"], [39, 36, "2"], [39, 37, "2"], [39, 38, "3"], [39, 39, "2"], [39, 40, "2"], [40, 3, "1"], [40, 4, "1"], [40, 5, "1"], [40, 6, "2"], [40, 7, "1"], [40, 10, "1"], [40, 13, "1"], [40, 14, "1"], [40, 15, "1"], [40, 16, "1"], [40, 17, "1"], [40, 19, "1"], [40, 20, "1"], [40, 21, "1"], [40, 22, "2"], [40, 24, "1"], [40, 26, "1"], [40, 27, "1"], [40, 28, "1"], [40, 29, "1"], [40, 32, "1"], [40, 33, "1"], [40, 34, "1"], [40, 35, "1"], [40, 36, "2"], [40, 37, "1"], [40, 38, "1"], [40, 39, "1"], [40, 40, "2"]];
+      const extEdges = [[3, 1, "2"], [3, 4, "4"], [3, 7, "2"], [3, 11, "2"], [3, 13, "2"], [3, 14, "2"], [3, 17, "1"], [3, 18, "1"], [3, 19, "2"], [3, 21, "2"], [3, 23, "2"], [3, 26, "2"], [3, 29, "2"], [3, 30, "2"], [3, 32, "3"], [3, 35, "1"], [3, 36, "2"], [3, 38, "1"], [3, 39, "2"], [4, 1, "2"], [4, 3, "2"], [4, 11, "2"], [4, 12, "2"], [4, 17, "2"], [4, 18, "1"], [4, 19, "1"], [4, 24, "2"], [4, 29, "2"], [4, 31, "2"], [4, 32, "1"], [4, 33, "1"], [4, 34, "1"], [4, 35, "1"], [4, 38, "1"], [4, 40, "1"], [5, 1, "2"], [5, 3, "2"], [5, 4, "2"], [5, 7, "2"], [5, 11, "2"], [5, 12, "2"], [5, 13, "2"], [5, 17, "2"], [5, 18, "1"], [5, 19, "2"], [5, 21, "1"], [5, 23, "2"], [5, 24, "2"], [5, 29, "2"], [5, 30, "2"], [5, 31, "2"], [5, 32, "2"], [5, 33, "1"], [5, 34, "1"], [5, 35, "1"], [5, 36, "1"], [5, 38, "1"], [5, 39, "1"], [5, 40, "1"], [6, 1, "2"], [6, 3, "2"], [6, 4, "2"], [6, 5, "2"], [6, 8, "2"], [6, 11, "2"], [6, 12, "2"], [6, 13, "2"], [6, 14, "2"], [6, 17, "2"], [6, 18, "1"], [6, 19, "2"], [6, 21, "2"], [6, 22, "1"], [6, 23, "2"], [6, 25, "2"], [6, 28, "2"], [6, 30, "2"], [6, 31, "2"], [6, 32, "2"], [6, 33, "1"], [6, 34, "2"], [6, 35, "1"], [6, 36, "1"], [6, 37, "1"], [6, 38, "2"], [6, 39, "1"], [6, 40, "1"], [8, 7, "1"], [8, 10, "1"], [8, 24, "1"], [8, 29, "1"], [9, 8, "1"], [9, 11, "1"], [9, 23, "1"], [9, 31, "1"], [10, 1, "2"], [10, 4, "2"], [10, 7, "1"], [10, 9, "1"], [10, 11, "1"], [10, 12, "1"], [10, 13, "1"], [10, 14, "1"], [10, 17, "1"], [10, 18, "1"], [10, 19, "1"], [10, 21, "1"], [10, 23, "1"], [10, 25, "1"], [10, 26, "1"], [10, 29, "1"], [10, 30, "2"], [10, 32, "2"], [10, 35, "1"], [10, 36, "1"], [10, 38, "1"], [10, 39, "1"], [11, 3, "2"], [11, 10, "1"], [11, 12, "1"], [11, 13, "1"], [11, 17, "1"], [11, 19, "1"], [11, 24, "1"], [11, 27, "1"], [11, 28, "1"], [11, 31, "1"], [11, 33, "1"], [11, 34, "1"], [11, 40, "1"], [12, 4, "2"], [12, 7, "1"], [12, 11, "1"], [12, 13, "1"], [12, 14, "1"], [12, 19, "1"], [12, 21, "1"], [12, 23, "1"], [12, 26, "1"], [12, 29, "1"], [12, 30, "1"], [12, 32, "1"], [12, 36, "1"], [12, 39, "1"], [13, 1, "2"], [13, 4, "2"], [13, 7, "1"], [13, 11, "2"], [13, 12, "1"], [13, 13, "1"], [13, 14, "1"], [13, 17, "1"], [13, 18, "1"], [13, 19, "1"], [13, 21, "1"], [13, 23, "1"], [13, 24, "1"], [13, 26, "1"], [13, 29, "2"], [13, 30, "1"], [13, 31, "1"], [13, 32, "2"], [13, 35, "1"], [13, 36, "1"], [13, 38, "1"], [13, 39, "1"], [14, 1, "2"], [14, 3, "2"], [14, 7, "1"], [14, 11, "2"], [14, 12, "2"], [14, 13, "1"], [14, 17, "2"], [14, 18, "1"], [14, 19, "1"], [14, 23, "1"], [14, 24, "2"], [14, 29, "2"], [14, 30, "1"], [14, 31, "2"], [14, 32, "1"], [14, 33, "1"], [14, 34, "1"], [14, 35, "1"], [14, 38, "1"], [14, 40, "1"], [15, 1, "2"], [15, 3, "2"], [15, 4, "2"], [15, 7, "1"], [15, 8, "1"], [15, 11, "2"], [15, 12, "2"], [15, 13, "2"], [15, 14, "1"], [15, 17, "2"], [15, 18, "1"], [15, 19, "2"], [15, 21, "1"], [15, 23, "2"], [15, 24, "1"], [15, 25, "1"], [15, 28, "1"], [15, 29, "1"], [15, 30, "2"], [15, 31, "2"], [15, 32, "2"], [15, 33, "1"], [15, 34, "1"], [15, 35, "1"], [15, 36, "1"], [15, 38, "1"], [15, 39, "1"], [15, 40, "1"], [17, 1, "1"], [17, 4, "2"], [17, 7, "1"], [17, 11, "1"], [17, 13, "1"], [17, 14, "1"], [17, 17, "1"], [17, 18, "1"], [17, 19, "1"], [17, 21, "1"], [17, 23, "1"], [17, 26, "1"], [17, 29, "1"], [17, 30, "1"], [17, 32, "2"], [17, 35, "1"], [17, 36, "1"], [17, 38, "1"], [17, 39, "1"], [18, 18, "1"], [18, 20, "1"], [18, 33, "1"], [18, 37, "1"], [18, 39, "1"], [19, 1, "2"], [19, 3, "1"], [19, 4, "2"], [19, 7, "1"], [19, 11, "2"], [19, 12, "1"], [19, 13, "1"], [19, 14, "1"], [19, 17, "2"], [19, 18, "1"], [19, 19, "2"], [19, 21, "1"], [19, 23, "1"], [19, 24, "1"], [19, 26, "1"], [19, 29, "2"], [19, 30, "1"], [19, 31, "1"], [19, 32, "2"], [19, 33, "1"], [19, 34, "1"], [19, 35, "1"], [19, 36, "1"], [19, 38, "1"], [19, 39, "1"], [19, 40, "1"], [20, 1, "1"], [20, 3, "1"], [20, 4, "1"], [20, 5, "1"], [20, 8, "1"], [20, 11, "1"], [20, 12, "1"], [20, 13, "1"], [20, 14, "1"], [20, 17, "1"], [20, 18, "1"], [20, 19, "1"], [20, 20, "1"], [20, 21, "1"], [20, 22, "1"], [20, 23, "1"], [20, 25, "1"], [20, 28, "1"], [20, 30, "1"], [20, 31, "1"], [20, 32, "1"], [20, 33, "1"], [20, 34, "1"], [20, 35, "1"], [20, 36, "1"], [20, 37, "1"], [20, 38, "1"], [20, 39, "1"], [20, 40, "1"], [21, 1, "2"], [21, 3, "2"], [21, 4, "1"], [21, 7, "1"], [21, 11, "2"], [21, 12, "2"], [21, 13, "1"], [21, 17, "2"], [21, 18, "1"], [21, 19, "2"], [21, 21, "1"], [21, 23, "1"], [21, 24, "2"], [21, 29, "2"], [21, 30, "1"], [21, 31, "2"], [21, 32, "2"], [21, 33, "1"], [21, 34, "1"], [21, 35, "1"], [21, 36, "1"], [21, 38, "1"], [21, 39, "1"], [21, 40, "1"], [22, 1, "2"], [22, 3, "2"], [22, 4, "2"], [22, 5, "1"], [22, 7, "1"], [22, 8, "1"], [22, 11, "2"], [22, 12, "2"], [22, 13, "2"], [22, 14, "1"], [22, 17, "2"], [22, 18, "1"], [22, 19, "2"], [22, 21, "2"], [22, 22, "1"], [22, 23, "2"], [22, 24, "1"], [22, 25, "1"], [22, 28, "1"], [22, 29, "1"], [22, 30, "2"], [22, 31, "2"], [22, 32, "2"], [22, 33, "1"], [22, 34, "2"], [22, 35, "1"], [22, 36, "1"], [22, 37, "1"], [22, 38, "2"], [22, 39, "1"], [22, 40, "1"], [23, 10, "1"], [23, 24, "1"], [23, 29, "1"], [24, 1, "2"], [24, 3, "2"], [24, 4, "2"], [24, 7, "1"], [24, 9, "1"], [24, 11, "1"], [24, 12, "2"], [24, 13, "2"], [24, 14, "1"], [24, 17, "2"], [24, 18, "1"], [24, 19, "2"], [24, 21, "1"], [24, 23, "1"], [24, 24, "1"], [24, 25, "1"], [24, 26, "1"], [24, 27, "1"], [24, 28, "1"], [24, 29, "1"], [24, 30, "2"], [24, 31, "1"], [24, 32, "2"], [24, 33, "1"], [24, 34, "1"], [24, 35, "1"], [24, 36, "1"], [24, 38, "1"], [24, 39, "1"], [24, 40, "1"], [25, 7, "1"], [25, 11, "1"], [25, 23, "1"], [25, 24, "1"], [25, 29, "1"], [25, 31, "1"], [26, 1, "2"], [26, 3, "2"], [26, 8, "1"], [26, 11, "2"], [26, 12, "2"], [26, 13, "1"], [26, 17, "2"], [26, 18, "1"], [26, 19, "1"], [26, 23, "1"], [26, 24, "1"], [26, 25, "1"], [26, 28, "1"], [26, 29, "1"], [26, 30, "1"], [26, 31, "2"], [26, 32, "1"], [26, 33, "1"], [26, 34, "1"], [26, 35, "1"], [26, 38, "1"], [26, 40, "1"], [27, 1, "2"], [27, 4, "2"], [27, 7, "1"], [27, 8, "1"], [27, 11, "2"], [27, 12, "1"], [27, 13, "1"], [27, 14, "1"], [27, 17, "1"], [27, 18, "1"], [27, 19, "1"], [27, 21, "1"], [27, 23, "2"], [27, 25, "1"], [27, 26, "1"], [27, 29, "1"], [27, 30, "2"], [27, 31, "1"], [27, 32, "2"], [27, 35, "1"], [27, 36, "1"], [27, 38, "1"], [27, 39, "1"], [28, 1, "2"], [28, 4, "2"], [28, 7, "2"], [28, 11, "2"], [28, 12, "1"], [28, 13, "1"], [28, 14, "1"], [28, 17, "1"], [28, 18, "1"], [28, 19, "1"], [28, 21, "1"], [28, 23, "2"], [28, 24, "1"], [28, 26, "1"], [28, 29, "2"], [28, 30, "2"], [28, 31, "1"], [28, 32, "2"], [28, 35, "1"], [28, 36, "1"], [28, 38, "1"], [28, 39, "1"], [29, 1, "2"], [29, 3, "2"], [29, 9, "1"], [29, 11, "1"], [29, 12, "2"], [29, 13, "1"], [29, 17, "2"], [29, 18, "1"], [29, 19, "1"], [29, 24, "1"], [29, 25, "1"], [29, 27, "1"], [29, 28, "1"], [29, 29, "1"], [29, 30, "1"], [29, 31, "1"], [29, 32, "1"], [29, 33, "1"], [29, 34, "1"], [29, 35, "1"], [29, 38, "1"], [29, 40, "1"], [30, 11, "1"], [30, 24, "1"], [30, 29, "1"], [30, 31, "1"], [31, 3, "2"], [31, 4, "2"], [31, 7, "1"], [31, 10, "1"], [31, 12, "1"], [31, 13, "2"], [31, 14, "1"], [31, 17, "1"], [31, 19, "2"], [31, 21, "1"], [31, 23, "1"], [31, 24, "1"], [31, 26, "1"], [31, 27, "1"], [31, 28, "1"], [31, 29, "1"], [31, 30, "1"], [31, 31, "1"], [31, 32, "1"], [31, 33, "1"], [31, 34, "1"], [31, 36, "1"], [31, 39, "1"], [31, 40, "1"], [32, 1, "1"], [32, 3, "1"], [32, 11, "1"], [32, 12, "1"], [32, 17, "1"], [32, 18, "1"], [32, 19, "1"], [32, 24, "1"], [32, 29, "1"], [32, 31, "1"], [32, 32, "1"], [32, 33, "1"], [32, 34, "1"], [32, 35, "1"], [32, 38, "1"], [32, 40, "1"], [33, 1, "1"], [33, 4, "2"], [33, 7, "1"], [33, 11, "1"], [33, 13, "1"], [33, 14, "1"], [33, 17, "1"], [33, 18, "1"], [33, 19, "1"], [33, 20, "1"], [33, 21, "1"], [33, 23, "1"], [33, 26, "1"], [33, 29, "1"], [33, 30, "1"], [33, 32, "2"], [33, 33, "1"], [33, 35, "1"], [33, 36, "1"], [33, 37, "1"], [33, 38, "1"], [33, 39, "2"], [34, 1, "2"], [34, 3, "1"], [34, 4, "3"], [34, 7, "2"], [34, 11, "2"], [34, 12, "1"], [34, 13, "2"], [34, 14, "1"], [34, 17, "2"], [34, 18, "1"], [34, 19, "2"], [34, 21, "2"], [34, 23, "2"], [34, 24, "1"], [34, 26, "1"], [34, 29, "2"], [34, 30, "2"], [34, 31, "1"], [34, 32, "3"], [34, 33, "1"], [34, 34, "1"], [34, 35, "1"], [34, 36, "2"], [34, 38, "1"], [34, 39, "2"], [34, 40, "1"], [35, 1, "1"], [35, 3, "1"], [35, 4, "1"], [35, 5, "1"], [35, 8, "1"], [35, 11, "1"], [35, 12, "1"], [35, 13, "1"], [35, 14, "1"], [35, 17, "1"], [35, 18, "1"], [35, 19, "1"], [35, 21, "1"], [35, 22, "1"], [35, 23, "1"], [35, 25, "1"], [35, 28, "1"], [35, 30, "1"], [35, 31, "1"], [35, 32, "1"], [35, 33, "1"], [35, 34, "1"], [35, 35, "1"], [35, 36, "1"], [35, 37, "1"], [35, 38, "1"], [35, 39, "1"], [35, 40, "1"], [36, 1, "2"], [36, 3, "2"], [36, 4, "1"], [36, 5, "1"], [36, 8, "1"], [36, 11, "2"], [36, 12, "2"], [36, 13, "1"], [36, 14, "1"], [36, 17, "2"], [36, 18, "1"], [36, 19, "2"], [36, 21, "1"], [36, 22, "1"], [36, 23, "1"], [36, 24, "1"], [36, 25, "1"], [36, 28, "1"], [36, 29, "1"], [36, 30, "1"], [36, 31, "2"], [36, 32, "2"], [36, 33, "1"], [36, 34, "2"], [36, 35, "1"], [36, 36, "1"], [36, 37, "1"], [36, 38, "2"], [36, 39, "1"], [36, 40, "1"], [37, 1, "1"], [37, 3, "1"], [37, 4, "1"], [37, 7, "1"], [37, 11, "1"], [37, 12, "1"], [37, 13, "1"], [37, 17, "1"], [37, 18, "1"], [37, 19, "1"], [37, 20, "1"], [37, 21, "1"], [37, 23, "1"], [37, 24, "1"], [37, 29, "1"], [37, 30, "1"], [37, 31, "1"], [37, 32, "1"], [37, 33, "1"], [37, 34, "1"], [37, 35, "1"], [37, 36, "1"], [37, 37, "1"], [37, 38, "1"], [37, 39, "1"], [37, 40, "1"], [38, 1, "1"], [38, 3, "1"], [38, 4, "1"], [38, 7, "1"], [38, 11, "1"], [38, 12, "1"], [38, 13, "1"], [38, 17, "1"], [38, 18, "1"], [38, 19, "1"], [38, 21, "1"], [38, 23, "1"], [38, 24, "1"], [38, 29, "1"], [38, 30, "1"], [38, 31, "1"], [38, 32, "1"], [38, 33, "1"], [38, 34, "1"], [38, 35, "1"], [38, 36, "1"], [38, 38, "1"], [38, 39, "1"], [38, 40, "1"], [39, 1, "1"], [39, 3, "1"], [39, 11, "1"], [39, 12, "1"], [39, 17, "1"], [39, 18, "1"], [39, 19, "1"], [39, 20, "1"], [39, 24, "1"], [39, 29, "1"], [39, 31, "1"], [39, 32, "1"], [39, 33, "1"], [39, 34, "1"], [39, 35, "1"], [39, 37, "1"], [39, 38, "1"], [39, 39, "1"], [39, 40, "1"], [40, 1, "2"], [40, 3, "1"], [40, 4, "3"], [40, 5, "1"], [40, 7, "1"], [40, 8, "1"], [40, 11, "2"], [40, 12, "1"], [40, 13, "2"], [40, 14, "2"], [40, 17, "2"], [40, 18, "1"], [40, 19, "2"], [40, 21, "2"], [40, 22, "1"], [40, 23, "2"], [40, 25, "1"], [40, 26, "1"], [40, 28, "1"], [40, 29, "1"], [40, 30, "2"], [40, 31, "1"], [40, 32, "3"], [40, 33, "1"], [40, 34, "1"], [40, 35, "1"], [40, 36, "2"], [40, 37, "1"], [40, 38, "2"], [40, 39, "2"], [40, 40, "1"]];
+      const tiltingData = [{"L": [3, 10, 16], "F": [1, 2, 9, 11, 18], "T": [2, 3, 5, 6, 8, 10, 15, 16, 20, 22, 24, 27, 28, 31, 33, 34, 37, 40], "split": false}, {"L": [3, 12, 16], "F": [1, 2, 11, 18], "T": [2, 3, 5, 6, 8, 9, 10, 12, 15, 16, 20, 22, 24, 25, 27, 28, 31, 33, 34, 37, 40], "split": false}, {"L": [3, 16, 27], "F": [1, 2, 9, 11, 18], "T": [2, 3, 5, 6, 8, 10, 15, 16, 20, 22, 24, 27, 28, 31, 33, 34, 37, 40], "split": false}, {"L": [3, 16, 28], "F": [1, 2, 9, 11, 18], "T": [2, 3, 5, 6, 8, 10, 15, 16, 20, 22, 24, 27, 28, 31, 33, 34, 37, 40], "split": false}, {"L": [10, 16, 27], "F": [1, 2, 9, 11, 18], "T": [2, 3, 5, 6, 8, 10, 15, 16, 20, 22, 24, 27, 28, 31, 33, 34, 37, 40], "split": false}, {"L": [1, 12, 16], "F": [2, 11], "T": [1, 2, 3, 5, 6, 8, 9, 10, 12, 15, 16, 17, 18, 20, 22, 24, 25, 27, 28, 31, 33, 34, 35, 37, 38, 40], "split": false}, {"L": [10, 16, 28], "F": [1, 2, 9, 11, 18], "T": [2, 3, 5, 6, 8, 10, 15, 16, 20, 22, 24, 27, 28, 31, 33, 34, 37, 40], "split": false}, {"L": [16, 27, 28], "F": [1, 2, 9, 11, 18], "T": [2, 3, 5, 6, 8, 10, 15, 16, 20, 22, 24, 27, 28, 31, 33, 34, 37, 40], "split": false}];
+      const torsionPairData = [{"T": [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40], "F": []}, {"T": [1, 3, 5, 6, 8, 9, 10, 12, 15, 16, 17, 18, 20, 22, 24, 25, 27, 28, 31, 33, 34, 35, 37, 38, 40], "F": [11]}, {"T": [1, 3, 6, 9, 10, 12, 17, 18, 20, 27, 33, 35, 40], "F": [8, 11, 23, 31]}, {"T": [1, 4, 6, 7, 9, 11, 18, 20, 23, 26, 29, 30, 32, 35, 36, 39], "F": [10]}, {"T": [1, 6, 9, 11, 18, 20, 35], "F": [7, 10, 16, 24, 29]}, {"T": [1, 6, 9, 18, 20, 35], "F": [7, 8, 10, 11, 16, 23, 24, 29, 31]}, {"T": [], "F": [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]}, {"T": [3, 5, 6, 8, 9, 10, 12, 15, 16, 20, 22, 24, 25, 27, 28, 31, 33, 34, 37, 40], "F": [1, 11, 18]}, {"T": [3, 5, 6, 8, 10, 15, 16, 20, 22, 24, 27, 28, 31, 33, 34, 37, 40], "F": [1, 9, 11, 18]}, {"T": [3, 6, 9, 10, 12, 20, 27, 33, 40], "F": [1, 8, 11, 18, 23, 31]}, {"T": [3, 6, 9, 10, 20, 27, 33, 40], "F": [1, 8, 11, 12, 18, 23, 25, 30, 31]}, {"T": [3, 6, 10, 20, 27, 33, 40], "F": [1, 8, 9, 11, 12, 18, 23, 25, 30, 31]}, {"T": [6, 9, 10, 20, 27], "F": [1, 3, 4, 5, 8, 11, 12, 13, 14, 17, 18, 19, 21, 23, 25, 28, 30, 31, 32, 33, 34, 37, 38, 39]}, {"T": [6, 9, 20], "F": [1, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14, 16, 17, 18, 19, 21, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39]}, {"T": [6, 10, 20], "F": [1, 3, 4, 5, 8, 9, 11, 12, 13, 14, 15, 17, 18, 19, 21, 23, 25, 26, 27, 28, 30, 31, 32, 33, 34, 37, 38, 39]}, {"T": [6, 10, 20, 27], "F": [1, 3, 4, 5, 8, 9, 11, 12, 13, 14, 17, 18, 19, 21, 23, 25, 28, 30, 31, 32, 33, 34, 37, 38, 39]}, {"T": [6, 20], "F": [1, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39]}, {"T": [7, 8, 10, 11, 16, 23, 24, 29, 31], "F": [6, 20]}, {"T": [7, 11, 23, 29], "F": [6, 10, 20]}, {"T": [8, 10, 16, 24, 31], "F": [1, 6, 9, 11, 18, 20, 35]}, {"T": [10], "F": [1, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]}, {"T": [11], "F": [6, 7, 10, 16, 20, 24, 29]}];
+      const cotorsionPairData = [{"L": [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40], "R": [6, 15, 16], "hereditary": true}, {"L": [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 35, 36, 38, 40], "R": [6, 15, 16, 20], "hereditary": true}, {"L": [1, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "R": [6, 15, 16, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "R": [6, 15, 16, 20, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40], "R": [6, 9, 15, 16], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 25, 26, 27, 28, 30, 31, 32, 34, 35, 36, 38, 40], "R": [6, 9, 15, 16, 20], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "R": [6, 9, 15, 16, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "R": [6, 9, 15, 16, 20, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "R": [6, 10, 15, 16], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "R": [6, 10, 15, 16, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 22, 24, 25, 26, 27, 28, 29, 30, 32, 34, 35, 36, 38, 40], "R": [6, 10, 15, 16, 20], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 22, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "R": [6, 10, 15, 16, 20, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "R": [6, 9, 10, 15, 16, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 6, 7, 9, 12, 13, 14, 15, 16, 17, 19, 21, 22, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "R": [6, 9, 10, 15, 16, 20, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39], "R": [5, 6, 15, 16, 22], "hereditary": true}, {"L": [1, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 38], "R": [5, 6, 15, 16, 20, 22, 37], "hereditary": true}, {"L": [1, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 25, 26, 27, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 15, 16, 22, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 23, 25, 26, 27, 28, 30, 32, 34, 38], "R": [5, 6, 15, 16, 20, 22, 27, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 16, 17, 18, 19, 21, 23, 25, 27, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 15, 16, 22, 27, 28], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 23, 25, 27, 28, 30, 32, 34, 38], "R": [5, 6, 15, 16, 20, 22, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 25, 26, 27, 28, 30, 31, 32, 33, 34, 37, 38, 39], "R": [5, 6, 9, 15, 16, 22], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 19, 21, 23, 25, 26, 27, 28, 30, 31, 32, 34, 38], "R": [5, 6, 9, 15, 16, 20, 22, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19, 21, 23, 25, 28, 30, 31, 32, 33, 34, 37, 38, 39], "R": [5, 6, 9, 15, 16, 22, 25], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 30, 31, 32, 34, 38], "R": [5, 6, 9, 15, 16, 20, 22, 25, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 25, 26, 27, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 9, 15, 16, 22, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 12, 13, 14, 15, 16, 17, 19, 21, 23, 25, 26, 27, 28, 30, 32, 34, 38], "R": [5, 6, 9, 15, 16, 20, 22, 27, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 12, 13, 14, 16, 17, 18, 19, 21, 23, 25, 27, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 9, 15, 16, 22, 27, 28], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 12, 13, 14, 16, 17, 18, 19, 21, 23, 25, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 9, 15, 16, 22, 25, 27, 28], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 12, 13, 14, 16, 17, 19, 21, 23, 25, 27, 28, 30, 32, 34, 38], "R": [5, 6, 9, 15, 16, 20, 22, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 9, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 30, 32, 34, 38], "R": [5, 6, 9, 15, 16, 20, 22, 25, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14, 16, 17, 18, 19, 21, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39], "R": [5, 6, 8, 15, 16, 22], "hereditary": true}, {"L": [1, 3, 4, 5, 7, 8, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 24, 25, 28, 29, 30, 31, 32, 34, 38], "R": [5, 6, 8, 15, 16, 20, 22, 37], "hereditary": true}, {"L": [1, 3, 4, 5, 7, 8, 10, 12, 13, 14, 16, 17, 18, 19, 21, 23, 25, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 8, 15, 16, 22, 27, 28], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 10, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 30, 32, 34, 38], "R": [5, 6, 8, 15, 16, 20, 22, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 11, 12, 13, 14, 16, 17, 18, 19, 21, 23, 25, 28, 30, 31, 32, 33, 34, 37, 38, 39], "R": [5, 6, 8, 9, 15, 16, 22, 25], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 30, 31, 32, 34, 38], "R": [5, 6, 8, 9, 15, 16, 20, 22, 25, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 8, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 30, 32, 34, 38], "R": [5, 6, 8, 9, 15, 16, 20, 22, 25, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 21, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 10, 15, 16, 22], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 21, 25, 26, 27, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 10, 15, 16, 22, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 24, 25, 26, 27, 28, 29, 30, 32, 34, 38], "R": [5, 6, 10, 15, 16, 20, 22, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 25, 26, 27, 28, 30, 32, 34, 38], "R": [5, 6, 10, 15, 16, 20, 22, 27, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 10, 12, 13, 14, 16, 17, 18, 19, 21, 25, 27, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 10, 15, 16, 22, 27, 28], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 10, 12, 13, 14, 16, 17, 19, 21, 25, 27, 28, 30, 32, 34, 38], "R": [5, 6, 10, 15, 16, 20, 22, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 12, 13, 14, 15, 16, 17, 18, 19, 21, 25, 26, 27, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 9, 10, 15, 16, 22, 27], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 12, 13, 14, 15, 16, 17, 19, 21, 25, 26, 27, 28, 30, 32, 34, 38], "R": [5, 6, 9, 10, 15, 16, 20, 22, 27, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 12, 13, 14, 16, 17, 18, 19, 21, 25, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 9, 10, 15, 16, 22, 25, 27, 28], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 12, 13, 14, 16, 17, 19, 21, 25, 27, 28, 30, 32, 34, 38], "R": [5, 6, 9, 10, 15, 16, 20, 22, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 9, 12, 13, 14, 16, 17, 19, 21, 25, 28, 30, 32, 34, 38], "R": [5, 6, 9, 10, 15, 16, 20, 22, 25, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 10, 12, 13, 14, 16, 17, 18, 19, 21, 24, 25, 28, 29, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 8, 10, 15, 16, 22], "hereditary": true}, {"L": [1, 3, 4, 5, 7, 10, 12, 13, 14, 16, 17, 18, 19, 21, 25, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 8, 10, 15, 16, 22, 27, 28], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 10, 12, 13, 14, 16, 17, 19, 21, 24, 25, 28, 29, 30, 32, 34, 38], "R": [5, 6, 8, 10, 15, 16, 20, 22, 37], "hereditary": true}, {"L": [1, 3, 4, 5, 7, 10, 12, 13, 14, 16, 17, 19, 21, 25, 28, 30, 32, 34, 38], "R": [5, 6, 8, 10, 15, 16, 20, 22, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 12, 13, 14, 16, 17, 18, 19, 21, 25, 28, 30, 32, 33, 34, 37, 38, 39], "R": [5, 6, 8, 9, 10, 15, 16, 22, 25, 27, 28], "hereditary": false}, {"L": [1, 3, 4, 5, 7, 12, 13, 14, 16, 17, 19, 21, 25, 28, 30, 32, 34, 38], "R": [5, 6, 8, 9, 10, 15, 16, 20, 22, 25, 27, 28, 37], "hereditary": false}, {"L": [1, 3, 6, 7, 9, 10, 12, 16, 17, 18, 20, 27, 33, 35, 40], "R": [6, 10, 15, 16, 24, 27], "hereditary": false}, {"L": [1, 3, 6, 7, 9, 10, 12, 16, 17, 27, 35, 40], "R": [6, 10, 15, 16, 20, 24, 27], "hereditary": false}, {"L": [1, 3, 6, 7, 9, 12, 16, 17, 18, 20, 27, 33, 35, 40], "R": [6, 9, 10, 15, 16, 24, 27], "hereditary": false}, {"L": [1, 3, 6, 7, 9, 12, 16, 17, 27, 35, 40], "R": [6, 9, 10, 15, 16, 20, 24, 27], "hereditary": false}, {"L": [1, 3, 7, 8, 9, 10, 12, 13, 16, 17, 18, 23, 25, 27, 28, 30, 33], "R": [3, 5, 6, 15, 16, 22, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 9, 10, 12, 13, 16, 17, 23, 25, 27, 28, 30], "R": [3, 5, 6, 15, 16, 20, 22, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 9, 12, 13, 16, 17, 18, 23, 25, 27, 28, 30, 33], "R": [3, 5, 6, 9, 15, 16, 22, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 9, 12, 13, 16, 17, 18, 23, 25, 28, 30, 33], "R": [3, 5, 6, 9, 15, 16, 22, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 9, 12, 13, 16, 17, 23, 25, 27, 28, 30], "R": [3, 5, 6, 9, 15, 16, 20, 22, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 9, 12, 13, 16, 17, 23, 25, 28, 30], "R": [3, 5, 6, 9, 15, 16, 20, 22, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 9, 12, 16, 17, 18, 23, 25, 30, 33], "R": [3, 5, 6, 9, 12, 15, 16, 22, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 9, 12, 16, 17, 23, 25, 30], "R": [3, 5, 6, 9, 12, 15, 16, 20, 22, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 10, 12, 13, 16, 17, 18, 23, 25, 28, 30, 33], "R": [3, 5, 6, 8, 15, 16, 22, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 10, 12, 13, 16, 17, 23, 25, 28, 30], "R": [3, 5, 6, 8, 15, 16, 20, 22, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 10, 12, 16, 17, 18, 23, 33], "R": [3, 5, 6, 8, 15, 16, 22, 27, 28, 31, 34, 40], "hereditary": true}, {"L": [1, 3, 7, 8, 10, 12, 16, 17, 23], "R": [3, 5, 6, 8, 15, 16, 20, 22, 27, 28, 31, 33, 34, 37, 40], "hereditary": true}, {"L": [1, 3, 7, 8, 12, 13, 16, 17, 18, 23, 25, 28, 30, 33], "R": [3, 5, 6, 8, 9, 15, 16, 22, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 12, 13, 16, 17, 23, 25, 28, 30], "R": [3, 5, 6, 8, 9, 15, 16, 20, 22, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 12, 16, 17, 18, 23, 25, 30, 33], "R": [3, 5, 6, 8, 9, 12, 15, 16, 22, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 12, 16, 17, 18, 23, 33], "R": [3, 5, 6, 8, 9, 12, 15, 16, 22, 25, 27, 28, 31, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 12, 16, 17, 23], "R": [3, 5, 6, 8, 9, 12, 15, 16, 20, 22, 25, 27, 28, 31, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 8, 12, 16, 17, 23, 25, 30], "R": [3, 5, 6, 8, 9, 12, 15, 16, 20, 22, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 10, 12, 13, 16, 17, 18, 25, 27, 28, 30, 33], "R": [3, 5, 6, 10, 15, 16, 22, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 10, 12, 13, 16, 17, 25, 27, 28, 30], "R": [3, 5, 6, 10, 15, 16, 20, 22, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 10, 12, 16, 17, 18, 27, 33], "R": [3, 5, 6, 10, 15, 16, 22, 24, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 10, 12, 16, 17, 27], "R": [3, 5, 6, 10, 15, 16, 20, 22, 24, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 13, 16, 17, 18, 25, 27, 28, 30, 33], "R": [3, 5, 6, 9, 10, 15, 16, 22, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 13, 16, 17, 18, 25, 28, 30, 33], "R": [3, 5, 6, 9, 10, 15, 16, 22, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 13, 16, 17, 25, 27, 28, 30], "R": [3, 5, 6, 9, 10, 15, 16, 20, 22, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 13, 16, 17, 25, 28, 30], "R": [3, 5, 6, 9, 10, 15, 16, 20, 22, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 16, 17], "R": [3, 5, 6, 9, 10, 12, 15, 16, 20, 22, 24, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 16, 17, 18, 25, 30, 33], "R": [3, 5, 6, 9, 10, 12, 15, 16, 22, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 16, 17, 18, 27, 33], "R": [3, 5, 6, 9, 10, 15, 16, 22, 24, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 16, 17, 18, 33], "R": [3, 5, 6, 9, 10, 12, 15, 16, 22, 24, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 16, 17, 25, 30], "R": [3, 5, 6, 9, 10, 12, 15, 16, 20, 22, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 9, 12, 16, 17, 27], "R": [3, 5, 6, 9, 10, 15, 16, 20, 22, 24, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 10, 12, 13, 16, 17, 18, 25, 28, 30, 33], "R": [3, 5, 6, 8, 10, 15, 16, 22, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 10, 12, 13, 16, 17, 25, 28, 30], "R": [3, 5, 6, 8, 10, 15, 16, 20, 22, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 10, 12, 16, 17], "R": [3, 5, 6, 8, 10, 15, 16, 20, 22, 24, 27, 28, 31, 33, 34, 37, 40], "hereditary": true}, {"L": [1, 3, 7, 10, 12, 16, 17, 18, 33], "R": [3, 5, 6, 8, 10, 15, 16, 22, 24, 27, 28, 31, 34, 40], "hereditary": true}, {"L": [1, 3, 7, 12, 13, 16, 17, 18, 25, 28, 30, 33], "R": [3, 5, 6, 8, 9, 10, 15, 16, 22, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 12, 13, 16, 17, 25, 28, 30], "R": [3, 5, 6, 8, 9, 10, 15, 16, 20, 22, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 3, 7, 12, 16, 17], "R": [3, 5, 6, 8, 9, 10, 12, 15, 16, 20, 22, 24, 25, 27, 28, 31, 33, 34, 37, 40], "hereditary": true}, {"L": [1, 3, 7, 12, 16, 17, 18, 25, 30, 33], "R": [3, 5, 6, 8, 9, 10, 12, 15, 16, 22, 25, 27, 28, 34, 40], "hereditary": false}, {"L": [1, 3, 7, 12, 16, 17, 18, 33], "R": [3, 5, 6, 8, 9, 10, 12, 15, 16, 22, 24, 25, 27, 28, 31, 34, 40], "hereditary": true}, {"L": [1, 3, 7, 12, 16, 17, 25, 30], "R": [3, 5, 6, 8, 9, 10, 12, 15, 16, 20, 22, 25, 27, 28, 33, 34, 37, 40], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 8, 9, 11, 14, 15, 16, 18, 20, 21, 22, 23, 25, 26, 29, 30, 32, 35, 36, 37, 38, 39], "R": [6, 15, 16, 26], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 8, 9, 11, 14, 15, 16, 18, 20, 21, 22, 23, 25, 26, 30, 32, 35, 36, 37, 38, 39], "R": [6, 9, 15, 16, 26], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 8, 9, 11, 14, 15, 16, 21, 22, 23, 25, 26, 29, 30, 32, 35, 36, 38], "R": [6, 15, 16, 20, 26], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 8, 9, 11, 14, 15, 16, 21, 22, 23, 25, 26, 30, 32, 35, 36, 38], "R": [6, 9, 15, 16, 20, 26], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 8, 9, 14, 15, 16, 18, 20, 21, 22, 23, 25, 26, 30, 32, 35, 36, 37, 38, 39], "R": [6, 9, 15, 16, 26, 27], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 8, 9, 14, 15, 16, 21, 22, 23, 25, 26, 30, 32, 35, 36, 38], "R": [6, 9, 15, 16, 20, 26, 27], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 9, 14, 15, 16, 18, 20, 21, 22, 25, 26, 29, 30, 32, 35, 36, 37, 38, 39], "R": [6, 10, 15, 16, 26], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 9, 14, 15, 16, 18, 20, 21, 22, 25, 26, 30, 32, 35, 36, 37, 38, 39], "R": [6, 9, 10, 15, 16, 26, 27], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 9, 14, 15, 16, 21, 22, 25, 26, 29, 30, 32, 35, 36, 38], "R": [6, 10, 15, 16, 20, 26], "hereditary": false}, {"L": [1, 4, 5, 6, 7, 9, 14, 15, 16, 21, 22, 25, 26, 30, 32, 35, 36, 38], "R": [6, 9, 10, 15, 16, 20, 26, 27], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 15, 16, 18, 21, 23, 25, 26, 29, 30, 32, 37, 38, 39], "R": [5, 6, 15, 16, 22, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 15, 16, 18, 21, 23, 25, 26, 30, 32, 37, 38, 39], "R": [5, 6, 9, 15, 16, 22, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 15, 16, 21, 23, 25, 26, 29, 30, 32, 38], "R": [5, 6, 15, 16, 20, 22, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 15, 16, 21, 23, 25, 26, 30, 32, 38], "R": [5, 6, 9, 15, 16, 20, 22, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 16, 18, 21, 23, 25, 26, 29, 30, 32, 37, 38, 39], "R": [5, 6, 14, 15, 16, 22, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 16, 18, 21, 23, 25, 26, 30, 32, 37, 38, 39], "R": [5, 6, 9, 14, 15, 16, 22, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 16, 18, 21, 23, 25, 30, 32, 37, 38, 39], "R": [5, 6, 9, 14, 15, 16, 22, 25, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 16, 21, 23, 25, 26, 29, 30, 32, 38], "R": [5, 6, 14, 15, 16, 20, 22, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 16, 21, 23, 25, 26, 30, 32, 38], "R": [5, 6, 9, 14, 15, 16, 20, 22, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 11, 14, 16, 21, 23, 25, 30, 32, 38], "R": [5, 6, 9, 14, 15, 16, 20, 22, 25, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 14, 15, 16, 18, 21, 23, 25, 26, 30, 32, 37, 38, 39], "R": [5, 6, 9, 15, 16, 22, 26, 27], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 14, 15, 16, 21, 23, 25, 26, 30, 32, 38], "R": [5, 6, 9, 15, 16, 20, 22, 26, 27, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 14, 16, 18, 21, 23, 25, 26, 30, 32, 37, 38, 39], "R": [5, 6, 9, 14, 15, 16, 22, 26, 27], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 14, 16, 18, 21, 23, 25, 30, 32, 37, 38, 39], "R": [5, 6, 9, 14, 15, 16, 22, 25, 26, 27, 28], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 14, 16, 21, 23, 25, 26, 30, 32, 38], "R": [5, 6, 9, 14, 15, 16, 20, 22, 26, 27, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 9, 14, 16, 21, 23, 25, 30, 32, 38], "R": [5, 6, 9, 14, 15, 16, 20, 22, 25, 26, 27, 28, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 11, 14, 16, 18, 21, 23, 25, 29, 30, 32, 37, 38, 39], "R": [5, 6, 8, 14, 15, 16, 22, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 11, 14, 16, 18, 21, 23, 25, 30, 32, 37, 38, 39], "R": [5, 6, 8, 9, 14, 15, 16, 22, 25, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 11, 14, 16, 21, 23, 25, 29, 30, 32, 38], "R": [5, 6, 8, 14, 15, 16, 20, 22, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 11, 14, 16, 21, 23, 25, 30, 32, 38], "R": [5, 6, 8, 9, 14, 15, 16, 20, 22, 25, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 14, 16, 18, 21, 23, 25, 30, 32, 37, 38, 39], "R": [5, 6, 8, 9, 14, 15, 16, 22, 25, 26, 27, 28], "hereditary": false}, {"L": [1, 4, 5, 7, 8, 14, 16, 21, 23, 25, 30, 32, 38], "R": [5, 6, 8, 9, 14, 15, 16, 20, 22, 25, 26, 27, 28, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 15, 16, 18, 21, 25, 26, 29, 30, 32, 37, 38, 39], "R": [5, 6, 10, 15, 16, 22, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 15, 16, 18, 21, 25, 26, 30, 32, 37, 38, 39], "R": [5, 6, 9, 10, 15, 16, 22, 26, 27], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 15, 16, 21, 25, 26, 29, 30, 32, 38], "R": [5, 6, 10, 15, 16, 20, 22, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 15, 16, 21, 25, 26, 30, 32, 38], "R": [5, 6, 9, 10, 15, 16, 20, 22, 26, 27, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 16, 18, 21, 25, 26, 29, 30, 32, 37, 38, 39], "R": [5, 6, 10, 14, 15, 16, 22, 26], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 16, 18, 21, 25, 26, 30, 32, 37, 38, 39], "R": [5, 6, 9, 10, 14, 15, 16, 22, 26, 27], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 16, 18, 21, 25, 30, 32, 37, 38, 39], "R": [5, 6, 9, 10, 14, 15, 16, 22, 25, 26, 27, 28], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 16, 21, 25, 26, 29, 30, 32, 38], "R": [5, 6, 10, 14, 15, 16, 20, 22, 26, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 16, 21, 25, 26, 30, 32, 38], "R": [5, 6, 9, 10, 14, 15, 16, 20, 22, 26, 27, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 9, 14, 16, 21, 25, 30, 32, 38], "R": [5, 6, 9, 10, 14, 15, 16, 20, 22, 25, 26, 27, 28, 37], "hereditary": false}, {"L": [1, 4, 5, 7, 14, 16, 18, 21, 25, 29, 30, 32, 37, 38, 39], "R": [5, 6, 8, 10, 14, 15, 16, 22, 26], "hereditary": true}, {"L": [1, 4, 5, 7, 14, 16, 18, 21, 25, 30, 32, 37, 38, 39], "R": [5, 6, 8, 9, 10, 14, 15, 16, 22, 25, 26, 27, 28], "hereditary": false}, {"L": [1, 4, 5, 7, 14, 16, 21, 25, 29, 30, 32, 38], "R": [5, 6, 8, 10, 14, 15, 16, 20, 22, 26, 37], "hereditary": true}, {"L": [1, 4, 5, 7, 14, 16, 21, 25, 30, 32, 38], "R": [5, 6, 8, 9, 10, 14, 15, 16, 20, 22, 25, 26, 27, 28, 37], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 11, 16, 18, 20, 23, 26, 29, 30, 32, 35, 36, 39], "R": [6, 7, 15, 16, 26], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 11, 16, 18, 20, 23, 26, 30, 32, 35, 36, 39], "R": [6, 7, 9, 15, 16, 26], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 11, 16, 23, 26, 29, 30, 32, 35, 36], "R": [6, 7, 15, 16, 20, 26], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 11, 16, 23, 26, 30, 32, 35, 36], "R": [6, 7, 9, 15, 16, 20, 26], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 16, 18, 20, 23, 26, 30, 32, 35, 36, 39], "R": [6, 7, 9, 15, 16, 26, 27], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 16, 18, 20, 26, 29, 30, 32, 35, 36, 39], "R": [6, 7, 10, 15, 16, 26], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 16, 18, 20, 26, 30, 32, 35, 36, 39], "R": [6, 7, 9, 10, 15, 16, 26, 27], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 16, 23, 26, 30, 32, 35, 36], "R": [6, 7, 9, 15, 16, 20, 26, 27], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 16, 26, 29, 30, 32, 35, 36], "R": [6, 7, 10, 15, 16, 20, 26], "hereditary": false}, {"L": [1, 4, 6, 7, 9, 16, 26, 30, 32, 35, 36], "R": [6, 7, 9, 10, 15, 16, 20, 26, 27], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 11, 14, 16, 18, 23, 25, 26, 29, 30, 32, 39], "R": [4, 5, 6, 14, 15, 16, 21, 22, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 11, 14, 16, 18, 23, 25, 26, 30, 32, 39], "R": [4, 5, 6, 9, 14, 15, 16, 21, 22, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 11, 14, 16, 18, 23, 25, 30, 32, 39], "R": [4, 5, 6, 9, 14, 15, 16, 21, 22, 25, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 11, 14, 16, 23, 25, 26, 29, 30, 32], "R": [4, 5, 6, 14, 15, 16, 20, 21, 22, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 11, 14, 16, 23, 25, 26, 30, 32], "R": [4, 5, 6, 9, 14, 15, 16, 20, 21, 22, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 11, 14, 16, 23, 25, 30, 32], "R": [4, 5, 6, 9, 14, 15, 16, 20, 21, 22, 25, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 11, 16, 18, 23, 25, 30, 32, 39], "R": [4, 5, 6, 9, 14, 15, 16, 21, 22, 25, 26, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 11, 16, 23, 25, 30, 32], "R": [4, 5, 6, 9, 14, 15, 16, 20, 21, 22, 25, 26, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 14, 16, 18, 23, 25, 26, 30, 32, 39], "R": [4, 5, 6, 9, 14, 15, 16, 21, 22, 26, 27, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 14, 16, 18, 23, 25, 30, 32, 39], "R": [4, 5, 6, 9, 14, 15, 16, 21, 22, 25, 26, 27, 28, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 14, 16, 23, 25, 26, 30, 32], "R": [4, 5, 6, 9, 14, 15, 16, 20, 21, 22, 26, 27, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 14, 16, 23, 25, 30, 32], "R": [4, 5, 6, 9, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 16, 18, 23, 25, 30, 32, 39], "R": [4, 5, 6, 9, 13, 14, 15, 16, 21, 22, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 9, 16, 23, 25, 30, 32], "R": [4, 5, 6, 9, 13, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 14, 16, 18, 23, 25, 29, 30, 32, 39], "R": [4, 5, 6, 8, 14, 15, 16, 21, 22, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 14, 16, 18, 23, 25, 30, 32, 39], "R": [4, 5, 6, 8, 9, 14, 15, 16, 21, 22, 25, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 14, 16, 23, 25, 29, 30, 32], "R": [4, 5, 6, 8, 14, 15, 16, 20, 21, 22, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 14, 16, 23, 25, 30, 32], "R": [4, 5, 6, 8, 9, 14, 15, 16, 20, 21, 22, 25, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 16, 18, 23, 25, 30, 32, 39], "R": [4, 5, 6, 8, 9, 14, 15, 16, 21, 22, 25, 26, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 16, 18, 23, 29, 30, 32, 39], "R": [4, 5, 6, 8, 14, 15, 16, 21, 22, 23, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 16, 18, 23, 30, 32, 39], "R": [4, 5, 6, 8, 9, 14, 15, 16, 21, 22, 23, 25, 26, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 16, 23, 25, 30, 32], "R": [4, 5, 6, 8, 9, 14, 15, 16, 20, 21, 22, 25, 26, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 16, 23, 29, 30, 32], "R": [4, 5, 6, 8, 14, 15, 16, 20, 21, 22, 23, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 11, 16, 23, 30, 32], "R": [4, 5, 6, 8, 9, 14, 15, 16, 20, 21, 22, 23, 25, 26, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 14, 16, 18, 23, 25, 30, 32, 39], "R": [4, 5, 6, 8, 9, 14, 15, 16, 21, 22, 25, 26, 27, 28, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 14, 16, 23, 25, 30, 32], "R": [4, 5, 6, 8, 9, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 16, 18, 23, 25, 30, 32, 39], "R": [4, 5, 6, 8, 9, 13, 14, 15, 16, 21, 22, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 16, 18, 23, 30, 32, 39], "R": [4, 5, 6, 8, 9, 13, 14, 15, 16, 21, 22, 23, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 8, 16, 23, 25, 30, 32], "R": [4, 5, 6, 8, 9, 13, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 8, 16, 23, 30, 32], "R": [4, 5, 6, 8, 9, 13, 14, 15, 16, 20, 21, 22, 23, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 11, 16, 18, 23, 26, 29, 30, 32, 39], "R": [4, 5, 6, 7, 14, 15, 16, 21, 22, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 11, 16, 18, 23, 26, 30, 32, 39], "R": [4, 5, 6, 7, 9, 14, 15, 16, 21, 22, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 11, 16, 18, 23, 30, 32, 39], "R": [4, 5, 6, 7, 9, 14, 15, 16, 21, 22, 25, 26, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 11, 16, 23, 26, 29, 30, 32], "R": [4, 5, 6, 7, 14, 15, 16, 20, 21, 22, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 11, 16, 23, 26, 30, 32], "R": [4, 5, 6, 7, 9, 14, 15, 16, 20, 21, 22, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 11, 16, 23, 30, 32], "R": [4, 5, 6, 7, 9, 14, 15, 16, 20, 21, 22, 25, 26, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 14, 16, 18, 25, 26, 29, 30, 32, 39], "R": [4, 5, 6, 10, 14, 15, 16, 21, 22, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 14, 16, 18, 25, 26, 30, 32, 39], "R": [4, 5, 6, 9, 10, 14, 15, 16, 21, 22, 26, 27, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 14, 16, 18, 25, 30, 32, 39], "R": [4, 5, 6, 9, 10, 14, 15, 16, 21, 22, 25, 26, 27, 28, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 14, 16, 25, 26, 29, 30, 32], "R": [4, 5, 6, 10, 14, 15, 16, 20, 21, 22, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 14, 16, 25, 26, 30, 32], "R": [4, 5, 6, 9, 10, 14, 15, 16, 20, 21, 22, 26, 27, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 14, 16, 25, 30, 32], "R": [4, 5, 6, 9, 10, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 18, 23, 26, 30, 32, 39], "R": [4, 5, 6, 7, 9, 14, 15, 16, 21, 22, 26, 27, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 18, 23, 30, 32, 39], "R": [4, 5, 6, 7, 9, 13, 14, 15, 16, 21, 22, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 18, 25, 30, 32, 39], "R": [4, 5, 6, 9, 10, 13, 14, 15, 16, 21, 22, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 18, 26, 29, 30, 32, 39], "R": [4, 5, 6, 7, 10, 14, 15, 16, 21, 22, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 18, 26, 30, 32, 39], "R": [4, 5, 6, 7, 9, 10, 14, 15, 16, 21, 22, 26, 27, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 18, 30, 32, 39], "R": [4, 5, 6, 7, 9, 10, 13, 14, 15, 16, 21, 22, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 23, 26, 30, 32], "R": [4, 5, 6, 7, 9, 14, 15, 16, 20, 21, 22, 26, 27, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 23, 30, 32], "R": [4, 5, 6, 7, 9, 13, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 25, 30, 32], "R": [4, 5, 6, 9, 10, 13, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 26, 29, 30, 32], "R": [4, 5, 6, 7, 10, 14, 15, 16, 20, 21, 22, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 26, 30, 32], "R": [4, 5, 6, 7, 9, 10, 14, 15, 16, 20, 21, 22, 26, 27, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 9, 16, 30, 32], "R": [4, 5, 6, 7, 9, 10, 13, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 11, 16, 18, 23, 29, 30, 32, 39], "R": [4, 5, 6, 7, 8, 14, 15, 16, 21, 22, 23, 26, 36], "hereditary": false}, {"L": [1, 4, 7, 11, 16, 18, 23, 30, 32, 39], "R": [4, 5, 6, 7, 8, 9, 14, 15, 16, 21, 22, 23, 25, 26, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 11, 16, 23, 29, 30, 32], "R": [4, 5, 6, 7, 8, 14, 15, 16, 20, 21, 22, 23, 26, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 11, 16, 23, 30, 32], "R": [4, 5, 6, 7, 8, 9, 14, 15, 16, 20, 21, 22, 23, 25, 26, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 14, 16, 18, 25, 29, 30, 32, 39], "R": [4, 5, 6, 8, 10, 14, 15, 16, 21, 22, 26, 36], "hereditary": true}, {"L": [1, 4, 7, 14, 16, 18, 25, 30, 32, 39], "R": [4, 5, 6, 8, 9, 10, 14, 15, 16, 21, 22, 25, 26, 27, 28, 36], "hereditary": false}, {"L": [1, 4, 7, 14, 16, 25, 29, 30, 32], "R": [4, 5, 6, 8, 10, 14, 15, 16, 20, 21, 22, 26, 36, 37, 39], "hereditary": true}, {"L": [1, 4, 7, 14, 16, 25, 30, 32], "R": [4, 5, 6, 8, 9, 10, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 16, 18, 23, 30, 32, 39], "R": [4, 5, 6, 7, 8, 9, 13, 14, 15, 16, 21, 22, 23, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 16, 18, 25, 30, 32, 39], "R": [4, 5, 6, 8, 9, 10, 13, 14, 15, 16, 21, 22, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 16, 18, 29, 30, 32, 39], "R": [4, 5, 6, 7, 8, 10, 14, 15, 16, 21, 22, 23, 26, 36], "hereditary": true}, {"L": [1, 4, 7, 16, 18, 30, 32, 39], "R": [4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 21, 22, 23, 25, 26, 27, 28, 30, 36], "hereditary": false}, {"L": [1, 4, 7, 16, 23, 30, 32], "R": [4, 5, 6, 7, 8, 9, 13, 14, 15, 16, 20, 21, 22, 23, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 16, 25, 30, 32], "R": [4, 5, 6, 8, 9, 10, 13, 14, 15, 16, 20, 21, 22, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 4, 7, 16, 29, 30, 32], "R": [4, 5, 6, 7, 8, 10, 14, 15, 16, 20, 21, 22, 23, 26, 36, 37, 39], "hereditary": true}, {"L": [1, 4, 7, 16, 30, 32], "R": [4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 20, 21, 22, 23, 25, 26, 27, 28, 30, 36, 37, 39], "hereditary": false}, {"L": [1, 6, 7, 9, 11, 16, 18, 20, 35], "R": [6, 7, 9, 15, 16, 26, 29], "hereditary": false}, {"L": [1, 6, 7, 9, 11, 16, 35], "R": [6, 7, 9, 15, 16, 20, 26, 29], "hereditary": false}, {"L": [1, 6, 7, 9, 16, 18, 20, 35], "R": [6, 7, 9, 10, 15, 16, 24, 26, 27, 29], "hereditary": false}, {"L": [1, 6, 7, 9, 16, 35], "R": [6, 7, 9, 10, 15, 16, 20, 24, 26, 27, 29], "hereditary": false}, {"L": [1, 7, 8, 9, 11, 12, 16, 18, 23, 25, 30, 31], "R": [1, 5, 6, 9, 15, 16, 22, 25, 35, 38], "hereditary": false}, {"L": [1, 7, 8, 9, 11, 12, 16, 23, 25, 30, 31], "R": [1, 5, 6, 9, 15, 16, 18, 20, 22, 25, 35, 37, 38], "hereditary": false}, {"L": [1, 7, 8, 9, 11, 16, 18, 23, 25, 30], "R": [1, 4, 5, 6, 9, 14, 15, 16, 21, 22, 25, 26, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 8, 9, 11, 16, 23, 25, 30], "R": [1, 4, 5, 6, 9, 14, 15, 16, 18, 20, 21, 22, 25, 26, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 8, 9, 12, 16, 18, 23, 25, 30], "R": [1, 3, 5, 6, 9, 12, 15, 16, 17, 22, 25, 27, 28, 34, 35, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 9, 12, 16, 23, 25, 30], "R": [1, 3, 5, 6, 9, 12, 15, 16, 17, 18, 20, 22, 25, 27, 28, 33, 34, 35, 37, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 9, 16, 18, 23, 25, 30], "R": [1, 3, 4, 5, 6, 9, 12, 13, 14, 15, 16, 17, 19, 21, 22, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 9, 16, 23, 25, 30], "R": [1, 3, 4, 5, 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 8, 11, 12, 16, 18, 23, 25, 30, 31], "R": [1, 5, 6, 8, 9, 15, 16, 22, 25, 35, 38], "hereditary": false}, {"L": [1, 7, 8, 11, 12, 16, 23, 25, 30, 31], "R": [1, 5, 6, 8, 9, 15, 16, 18, 20, 22, 25, 35, 37, 38], "hereditary": false}, {"L": [1, 7, 8, 11, 16, 18, 23], "R": [1, 4, 5, 6, 8, 9, 11, 14, 15, 16, 21, 22, 23, 25, 26, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 8, 11, 16, 18, 23, 25, 30], "R": [1, 4, 5, 6, 8, 9, 14, 15, 16, 21, 22, 25, 26, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 8, 11, 16, 18, 23, 30], "R": [1, 4, 5, 6, 8, 9, 14, 15, 16, 21, 22, 23, 25, 26, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 8, 11, 16, 18, 23, 31], "R": [1, 5, 6, 8, 9, 11, 15, 16, 22, 25, 35, 38], "hereditary": false}, {"L": [1, 7, 8, 11, 16, 23], "R": [1, 4, 5, 6, 8, 9, 11, 14, 15, 16, 18, 20, 21, 22, 23, 25, 26, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 8, 11, 16, 23, 25, 30], "R": [1, 4, 5, 6, 8, 9, 14, 15, 16, 18, 20, 21, 22, 25, 26, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 8, 11, 16, 23, 30], "R": [1, 4, 5, 6, 8, 9, 14, 15, 16, 18, 20, 21, 22, 23, 25, 26, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 8, 11, 16, 23, 31], "R": [1, 5, 6, 8, 9, 11, 15, 16, 18, 20, 22, 25, 35, 37, 38], "hereditary": false}, {"L": [1, 7, 8, 12, 16, 18, 23], "R": [1, 3, 5, 6, 8, 9, 12, 15, 16, 17, 22, 25, 27, 28, 31, 34, 35, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 12, 16, 18, 23, 25, 30], "R": [1, 3, 5, 6, 8, 9, 12, 15, 16, 17, 22, 25, 27, 28, 34, 35, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 12, 16, 23], "R": [1, 3, 5, 6, 8, 9, 12, 15, 16, 17, 18, 20, 22, 25, 27, 28, 31, 33, 34, 35, 37, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 12, 16, 23, 25, 30], "R": [1, 3, 5, 6, 8, 9, 12, 15, 16, 17, 18, 20, 22, 25, 27, 28, 33, 34, 35, 37, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 16, 18, 23], "R": [1, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 25, 26, 27, 28, 30, 31, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 16, 18, 23, 25, 30], "R": [1, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 16, 17, 19, 21, 22, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 16, 18, 23, 30], "R": [1, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 8, 16, 23], "R": [1, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 8, 16, 23, 25, 30], "R": [1, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 8, 16, 23, 30], "R": [1, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 9, 11, 16], "R": [1, 4, 5, 6, 7, 9, 14, 15, 16, 18, 20, 21, 22, 25, 26, 29, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 9, 11, 16, 18], "R": [1, 4, 5, 6, 7, 9, 14, 15, 16, 21, 22, 25, 26, 29, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 9, 11, 16, 18, 23, 30], "R": [1, 4, 5, 6, 7, 9, 14, 15, 16, 21, 22, 25, 26, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 9, 11, 16, 23, 30], "R": [1, 4, 5, 6, 7, 9, 14, 15, 16, 18, 20, 21, 22, 25, 26, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 9, 12, 16], "R": [1, 3, 5, 6, 9, 10, 12, 15, 16, 17, 18, 20, 22, 24, 25, 27, 28, 33, 34, 35, 37, 38, 40], "hereditary": false}, {"L": [1, 7, 9, 12, 16, 18], "R": [1, 3, 5, 6, 9, 10, 12, 15, 16, 17, 22, 24, 25, 27, 28, 34, 35, 38, 40], "hereditary": false}, {"L": [1, 7, 9, 12, 16, 18, 25, 30], "R": [1, 3, 5, 6, 9, 10, 12, 15, 16, 17, 22, 25, 27, 28, 34, 35, 38, 40], "hereditary": false}, {"L": [1, 7, 9, 12, 16, 25, 30], "R": [1, 3, 5, 6, 9, 10, 12, 15, 16, 17, 18, 20, 22, 25, 27, 28, 33, 34, 35, 37, 38, 40], "hereditary": false}, {"L": [1, 7, 9, 16], "R": [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 9, 16, 18], "R": [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 22, 24, 25, 26, 27, 28, 29, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 9, 16, 18, 23, 30], "R": [1, 3, 4, 5, 6, 7, 9, 12, 13, 14, 15, 16, 17, 19, 21, 22, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 9, 16, 18, 25, 30], "R": [1, 3, 4, 5, 6, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 22, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 9, 16, 18, 30], "R": [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 22, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 9, 16, 23, 30], "R": [1, 3, 4, 5, 6, 7, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 9, 16, 25, 30], "R": [1, 3, 4, 5, 6, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 9, 16, 30], "R": [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 11, 16], "R": [1, 4, 5, 6, 7, 8, 9, 11, 14, 15, 16, 18, 20, 21, 22, 23, 25, 26, 29, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 11, 16, 18], "R": [1, 4, 5, 6, 7, 8, 9, 11, 14, 15, 16, 21, 22, 23, 25, 26, 29, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 11, 16, 18, 23], "R": [1, 4, 5, 6, 7, 8, 9, 11, 14, 15, 16, 21, 22, 23, 25, 26, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 11, 16, 18, 23, 30], "R": [1, 4, 5, 6, 7, 8, 9, 14, 15, 16, 21, 22, 23, 25, 26, 30, 32, 35, 36, 38], "hereditary": false}, {"L": [1, 7, 11, 16, 23], "R": [1, 4, 5, 6, 7, 8, 9, 11, 14, 15, 16, 18, 20, 21, 22, 23, 25, 26, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 11, 16, 23, 30], "R": [1, 4, 5, 6, 7, 8, 9, 14, 15, 16, 18, 20, 21, 22, 23, 25, 26, 30, 32, 35, 36, 37, 38, 39], "hereditary": false}, {"L": [1, 7, 12, 16], "R": [1, 3, 5, 6, 8, 9, 10, 12, 15, 16, 17, 18, 20, 22, 24, 25, 27, 28, 31, 33, 34, 35, 37, 38, 40], "hereditary": true}, {"L": [1, 7, 12, 16, 18], "R": [1, 3, 5, 6, 8, 9, 10, 12, 15, 16, 17, 22, 24, 25, 27, 28, 31, 34, 35, 38, 40], "hereditary": true}, {"L": [1, 7, 12, 16, 18, 25, 30], "R": [1, 3, 5, 6, 8, 9, 10, 12, 15, 16, 17, 22, 25, 27, 28, 34, 35, 38, 40], "hereditary": false}, {"L": [1, 7, 12, 16, 25, 30], "R": [1, 3, 5, 6, 8, 9, 10, 12, 15, 16, 17, 18, 20, 22, 25, 27, 28, 33, 34, 35, 37, 38, 40], "hereditary": false}, {"L": [1, 7, 16], "R": [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": true}, {"L": [1, 7, 16, 18], "R": [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 35, 36, 38, 40], "hereditary": true}, {"L": [1, 7, 16, 18, 23], "R": [1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 25, 26, 27, 28, 30, 31, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 16, 18, 23, 30], "R": [1, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 16, 18, 25, 30], "R": [1, 3, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 22, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 16, 18, 30], "R": [1, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 25, 26, 27, 28, 30, 32, 34, 35, 36, 38, 40], "hereditary": false}, {"L": [1, 7, 16, 23], "R": [1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 16, 23, 30], "R": [1, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 16, 25, 30], "R": [1, 3, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}, {"L": [1, 7, 16, 30], "R": [1, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40], "hereditary": false}];
+      const supportTauTiltingData = [{"P": [], "M": [1, 7, 11]}, {"P": [], "M": [1, 7, 16]}, {"P": [], "M": [1, 9, 12]}, {"P": [], "M": [1, 12, 16]}, {"P": [], "M": [3, 9, 12]}, {"P": [], "M": [3, 9, 27]}, {"P": [], "M": [3, 10, 16]}, {"P": [], "M": [3, 10, 27]}, {"P": [], "M": [3, 12, 16]}, {"P": [], "M": [6, 9, 27]}, {"P": [], "M": [6, 10, 27]}, {"P": [1], "M": [7, 11]}, {"P": [1], "M": [7, 16]}, {"P": [1], "M": [10, 16]}, {"P": [1, 7], "M": [10]}, {"P": [1, 7, 16], "M": []}, {"P": [1, 16], "M": [11]}, {"P": [7], "M": [6, 10]}, {"P": [7, 16], "M": [6]}, {"P": [16], "M": [1, 9]}, {"P": [16], "M": [1, 11]}, {"P": [16], "M": [6, 9]}];
+      const almostSupportTauTiltingData = [{"P": [], "M": [1, 7]}, {"P": [], "M": [1, 9]}, {"P": [], "M": [1, 11]}, {"P": [], "M": [1, 12]}, {"P": [], "M": [1, 16]}, {"P": [], "M": [3, 9]}, {"P": [], "M": [3, 10]}, {"P": [], "M": [3, 12]}, {"P": [], "M": [3, 16]}, {"P": [], "M": [3, 27]}, {"P": [], "M": [6, 9]}, {"P": [], "M": [6, 10]}, {"P": [], "M": [6, 27]}, {"P": [], "M": [7, 11]}, {"P": [], "M": [7, 16]}, {"P": [], "M": [9, 12]}, {"P": [], "M": [9, 27]}, {"P": [], "M": [10, 16]}, {"P": [], "M": [10, 27]}, {"P": [], "M": [12, 16]}, {"P": [1], "M": [7]}, {"P": [1], "M": [10]}, {"P": [1], "M": [11]}, {"P": [1], "M": [16]}, {"P": [1, 7], "M": []}, {"P": [1, 16], "M": []}, {"P": [7], "M": [6]}, {"P": [7], "M": [10]}, {"P": [7, 16], "M": []}, {"P": [16], "M": [1]}, {"P": [16], "M": [6]}, {"P": [16], "M": [9]}, {"P": [16], "M": [11]}];
+      const pdidMap = {"1": {"pd": 0, "id": -1}, "2": {"pd": 0, "id": 0}, "3": {"pd": 1, "id": -1}, "4": {"pd": -1, "id": 3}, "5": {"pd": -1, "id": 1}, "6": {"pd": -1, "id": 0}, "7": {"pd": 0, "id": 3}, "8": {"pd": 2, "id": 1}, "9": {"pd": -1, "id": -1}, "10": {"pd": 1, "id": 2}, "11": {"pd": -1, "id": -1}, "12": {"pd": 1, "id": -1}, "13": {"pd": -1, "id": -1}, "14": {"pd": -1, "id": 3}, "15": {"pd": -1, "id": 0}, "16": {"pd": 0, "id": 0}, "17": {"pd": 1, "id": -1}, "18": {"pd": -1, "id": -1}, "19": {"pd": -1, "id": -1}, "20": {"pd": -1, "id": -1}, "21": {"pd": -1, "id": 3}, "22": {"pd": -1, "id": 1}, "23": {"pd": 2, "id": 3}, "24": {"pd": -1, "id": -1}, "25": {"pd": -1, "id": -1}, "26": {"pd": -1, "id": 3}, "27": {"pd": -1, "id": -1}, "28": {"pd": -1, "id": -1}, "29": {"pd": -1, "id": -1}, "30": {"pd": -1, "id": -1}, "31": {"pd": -1, "id": -1}, "32": {"pd": -1, "id": -1}, "33": {"pd": -1, "id": -1}, "34": {"pd": -1, "id": -1}, "35": {"pd": -1, "id": -1}, "36": {"pd": -1, "id": 3}, "37": {"pd": -1, "id": -1}, "38": {"pd": -1, "id": -1}, "39": {"pd": -1, "id": -1}, "40": {"pd": -1, "id": -1}};
+      const quiverStructure = "[-2-;1-3]";
+      const goldenEdgeSet = new Set(goldenEdges.map(e => `${e[0]}->${e[1]}`));
+      var options = {
+        "edges": {
+          // (1) 选中只加粗，不改变颜色；改为绿色细边框高亮
+          "selectionWidth": 2,
+          "color": { "color": "#000000", "highlight": "#00aa00", "hover": "#00aa00", "inherit": true },
+          // (2) 所有边为直线（可被键盘调弧度）
+          "smooth": { "enabled": false }
+        },
+        "interaction": { "multiselect": true },
+        "physics": { "enabled": true }
+      };
+      network.setOptions(options);
+
+      // After physics stabilization, snap all nodes to grid and disable physics
+      network.once('stabilizationIterationsDone', function() {
+        const allNodeIds = network.body.data.nodes.getIds();
+        allNodeIds.forEach(id => snapNode(id));
+        network.setOptions({ physics: { enabled: false } });
+        snapshot();
+      });
+
+      (function hideManipulationPanel() {
+        const style = document.createElement('style');
+        style.textContent = '.vis-manipulation { display: none !important; }';
+        document.head.appendChild(style);
+      })();
+
+      (function addTiltingButtonStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+          .tilting-btn-active {
+            background: #ffe9a6 !important;
+            font-weight: 700 !important;
+          }
+        `;
+        document.head.appendChild(style);
+      })();
+
+      function parseEdgeColor(choice) {
+        const c = (choice || 'black').toLowerCase().replace(/\s+/g, '');
+        if (c === 'gold' || c === 'g') {
+          return { color: 'gold', width: 3 };
+        }
+        if (c === 'lightgold' || c === 'lg') {
+          return { color: '#ffe9a6', width: 3 };
+        }
+        if (c === 'pink' || c === 'p') {
+          return { color: 'pink', width: 2 };
+        }
+        if (c === 'lightgray' || c === 'lightgrey') {
+          return { color: '#cccccc', width: 1 };
+        }
+        return { color: '#000000', width: 1 };
+      }
+
+      function assignMultiEdgeCurves(netObj) {
+        if (!netObj) return;
+        const allEdges = netObj.body.data.edges.get().filter(e => !e.hidden);
+        const pairMap = {};
+        allEdges.forEach(e => {
+          const a = (typeof e.from === 'number') ? e.from : parseInt(e.from);
+          const b = (typeof e.to === 'number') ? e.to : parseInt(e.to);
+          const key = Math.min(a, b) + '-' + Math.max(a, b);
+          if (!pairMap[key]) pairMap[key] = [];
+          pairMap[key].push(e.id);
+        });
+        const updates = [];
+        Object.values(pairMap).forEach(ids => {
+          if (ids.length <= 1) return;
+          const n = ids.length;
+          const step = 0.2;
+          ids.forEach((id, i) => {
+            const curvature = (i - (n - 1) / 2) * step;
+            if (Math.abs(curvature) < 0.01) {
+              updates.push({ id, smooth: false });
+            } else {
+              updates.push({
+                id,
+                smooth: {
+                  enabled: true,
+                  type: curvature > 0 ? 'curvedCW' : 'curvedCCW',
+                  roundness: Math.abs(curvature)
+                }
+              });
+            }
+          });
+        });
+        if (updates.length) netObj.body.data.edges.update(updates);
+      }
+
+      function addLabeledEdges(prefix, edges, color, width) {
+        const toAdd = edges.map((e, i) => {
+          const label = (e[2] || '').toString();
+          return {
+            id: `${prefix}_${i}`,
+            from: e[0],
+            to: e[1],
+            label: label && label !== '0' ? label : undefined,
+            color: color,
+            width: width,
+            arrows: 'to',
+            dashes: false
+          };
+        });
+        network.body.data.edges.add(toAdd);
+      }
+
+      function removeEdgesByPrefix(prefix) {
+        const existing = network.body.data.edges.get({
+          filter: (edge) => edge.id && String(edge.id).startsWith(prefix)
+        }).map(e => e.id);
+        if (existing.length) network.body.data.edges.remove(existing);
+      }
+
+      // --- Buttons (right) ---
+      let editMode = false;
+      let miniQuiver = null;
+      let miniContainer = null;
+      let showLabels = false;
+      let showBorders = true;
+      let showPdid = false;
+      let idLabelLayer = null;
+      let pdidLabelLayer = null;
+      const idLabelMap = new Map();
+      const pdidLabelMap = new Map();
+      let hoverTip = null;
+      let hoverNodeId = null;
+      const baseNodeStyles = new Map();
+      let tiltingHighlighted = new Set();
+      function toBaseStyle(n) {
+        return {
+          id: n.id,
+          label: n.label,
+          title: n.title,
+          color: n.color,
+          shape: n.shape || 'ellipse',
+          borderWidth: n.borderWidth,
+          borderWidthSelected: n.borderWidthSelected,
+          shapeProperties: n.shapeProperties,
+          font: n.font,
+          shadow: n.shadow || { enabled: false }
+        };
+      }
+      function normalizeId(id) {
+        const n = Number(id);
+        return Number.isFinite(n) ? n : null;
+      }
+      function getExistingNode(id) {
+        const n = normalizeId(id);
+        if (n === null) return null;
+        return network.body.data.nodes.get(n);
+      }
+      (function cacheBaseNodeStyles() {
+        network.body.data.nodes.get().forEach(n => {
+          baseNodeStyles.set(n.id, toBaseStyle(n));
+        });
+      })();
+      (function addRightButtons() {
+        const container = document.createElement('div');
+        container.id = 'arControlPanel';
+        container.style.position = 'absolute';
+        container.style.top = '10px';
+        container.style.right = '10px';
+        container.style.zIndex = '999';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '6px';
+        container.innerHTML = `
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <button id="torsBtn" style="padding:4px 8px;">Torsionless</button>
+            <button id="reflBtn" style="padding:4px 8px;">Reflexive</button>
+            <button id="gpBtn" style="padding:4px 8px;">GProj</button>
+            <button id="giBtn" style="padding:4px 8px;">GInj</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="syzToggle" type="checkbox" /> Syzygy
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="homToggle" type="checkbox" /> HomDim
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="extToggle" type="checkbox" /> ExtDim
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="irrToggle" type="checkbox" checked /> Irr
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="trToggle" type="checkbox" checked /> tau
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="quiverToggle" type="checkbox" /> Quiver
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="tiltingToggle" type="checkbox" /> Tilting
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="torsionPairToggle" type="checkbox" /> TorsionCls
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="cotorsionPairToggle" type="checkbox" /> CotorsionCls
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="supportTauToggle" type="checkbox" /> sTauTilt
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="almostSupportTauToggle" type="checkbox" /> almost sTauTilt
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="showLabelToggle" type="checkbox" /> Label
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="pdidToggle" type="checkbox" /> PDID
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="borderToggle" type="checkbox" checked /> Border
+            </label>
+          </div>
+          <div id="tiltingList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:240px; overflow:auto; font-size:12px;"></div>
+          <div id="torsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
+          <div id="cotorsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
+          <div id="supportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
+          <div id="almostSupportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
+        `;
+        document.body.appendChild(container);
+        let controlPanelVisible = true;
+        document.addEventListener('keydown', (event) => {
+          const key = (event.key || '').toLowerCase();
+          if ((event.ctrlKey || event.metaKey) && key === 'l') {
+            event.preventDefault();
+            event.stopPropagation();
+            controlPanelVisible = !controlPanelVisible;
+            container.style.display = controlPanelVisible ? 'flex' : 'none';
+          }
+        }, true);
+        function emphasizeNodeSet(ids, color) {
+          const idsArray = (ids || []).map(Number).filter(x => !Number.isNaN(x));
+          if (!idsArray.length) return false;
+          const allNodes = network.body.data.nodes.get();
+          const idSet = new Set(idsArray);
+          const updates = allNodes.map(n => {
+            const base = baseNodeStyles.get(n.id) || {};
+            if (idSet.has(Number(n.id))) {
+              return { id: n.id, color: { border: color, background: '#fff7cc', highlight: { border: color, background: '#ffe680' } }, borderWidth: 5 };
+            }
+            return { id: n.id, color: base.color || n.color, borderWidth: base.borderWidth || n.borderWidth || 1 };
+          });
+          network.body.data.nodes.update(updates);
+          network.selectNodes(idsArray);
+          if (idsArray.length === 1) network.focus(idsArray[0], { scale: 1.2, animation: true });
+          else network.fit({ nodes: idsArray, animation: true });
+          return true;
+        }
+        document.getElementById('torsBtn').addEventListener('click', () => {
+          if (!emphasizeNodeSet(torsionlessIds, '#0ea5e9')) alert('不存在');
+        });
+        document.getElementById('reflBtn').addEventListener('click', () => {
+          if (!emphasizeNodeSet(reflexiveIds, '#8b5cf6')) alert('不存在');
+        });
+        document.getElementById('gpBtn').addEventListener('click', () => {
+          if (!emphasizeNodeSet(gorensteinProjectiveIds, '#16a34a')) alert('不存在');
+        });
+        document.getElementById('giBtn').addEventListener('click', () => {
+          if (!emphasizeNodeSet(gorensteinInjectiveIds, '#dc2626')) alert('不存在');
+        });
+        document.getElementById('syzToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          const existing = network.body.data.edges.get({
+            filter: (edge) => edge.id && String(edge.id).startsWith('syz_')
+          }).map(e => e.id);
+          if (checked) {
+            const toAdd = syzygyEdges.map((e, i) => ({
+              id: `syz_${i}` ,
+              from: e[0],
+              to: e[1],
+              color: 'pink',
+              width: 2,
+              arrows: 'to',
+              dashes: false
+            }));
+            network.body.data.edges.add(toAdd);
+          } else {
+            if (existing.length) network.body.data.edges.remove(existing);
+          }
+        });
+        document.getElementById('homToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          if (checked) {
+            addLabeledEdges('hom', homEdges, '#8b5a2b', 1);
+          } else {
+            removeEdgesByPrefix('hom');
+          }
+        });
+        document.getElementById('extToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          if (checked) {
+            addLabeledEdges('ext', extEdges, 'red', 1);
+          } else {
+            removeEdgesByPrefix('ext');
+          }
+        });
+        document.getElementById('irrToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          toggleEdges((edge) => isBlackEdge(edge), checked);
+        });
+        document.getElementById('trToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          if (checked) {
+            const toAdd = goldenEdges.map((e, i) => ({
+              id: `tr_${i}`,
+              from: e[0],
+              to: e[1],
+              color: 'gold',
+              width: 3,
+              arrows: 'to',
+              dashes: false
+            }));
+            network.body.data.edges.add(toAdd);
+          } else {
+            removeEdgesByPrefix('tr');
+          }
+        });
+        // Initialize tau edges manually on load since checked=true
+        if (document.getElementById('trToggle').checked && goldenEdges.length > 0) {
+           const toAdd = goldenEdges.map((e, i) => ({
+              id: `tr_${i}`,
+              from: e[0],
+              to: e[1],
+              color: 'gold',
+              width: 3,
+              arrows: 'to',
+              dashes: false
+           }));
+           network.body.data.edges.add(toAdd);
+        }
+        
+        document.getElementById('quiverToggle').addEventListener('change', (e) => {
+          toggleMiniQuiver(e.target.checked);
+        });
+        document.getElementById('tiltingToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          const listEl = document.getElementById('tiltingList');
+          if (!checked) {
+            listEl.style.display = 'none';
+            resetTiltingStyles();
+            clearActiveTilting();
+            return;
+          }
+          if (!tiltingData || tiltingData.length === 0) {
+            alert('No tilting data found.');
+            listEl.style.display = 'none';
+            return;
+          }
+          listEl.style.display = 'block';
+          renderTiltingList();
+        });
+        function clearPairListHighlight() {
+          const hadPairHighlight = pairHighlighted && pairHighlighted.size > 0;
+          resetPairStyles();
+          if (hadPairHighlight) {
+            resetTiltingStyles();
+            clearActiveTilting();
+          }
+        }
+        document.getElementById('torsionPairToggle').addEventListener('change', (e) => {
+          const el = document.getElementById('torsionPairList');
+          if (!el) return;
+          el.style.display = e.target.checked ? 'block' : 'none';
+          if (e.target.checked) {
+            renderPairList('torsionPairList', torsionPairData, 'T', 'F', 'Torsion pairs', null, { kind: 'torsion' });
+          } else {
+            clearPairListHighlight();
+          }
+        });
+        document.getElementById('cotorsionPairToggle').addEventListener('change', (e) => {
+          const el = document.getElementById('cotorsionPairList');
+          if (!el) return;
+          el.style.display = e.target.checked ? 'block' : 'none';
+          if (e.target.checked) {
+            renderPairList('cotorsionPairList', cotorsionPairData, 'L', 'R', 'Cotorsion pairs', item => `<td style="border:1px solid #ddd; padding:3px;">${item.hereditary ? 'hereditary' : 'non-hereditary'}</td>`);
+          } else {
+            clearPairListHighlight();
+          }
+        });
+        document.getElementById('supportTauToggle').addEventListener('change', (e) => {
+          const el = document.getElementById('supportTauList');
+          if (!el) return;
+          el.style.display = e.target.checked ? 'block' : 'none';
+          if (e.target.checked) {
+            renderSupportTauList('supportTauList', supportTauTiltingData, 'Support tau-tilting modules');
+          } else {
+            clearPairListHighlight();
+          }
+        });
+        document.getElementById('almostSupportTauToggle').addEventListener('change', (e) => {
+          const el = document.getElementById('almostSupportTauList');
+          if (!el) return;
+          el.style.display = e.target.checked ? 'block' : 'none';
+          if (e.target.checked) {
+            renderSupportTauList('almostSupportTauList', almostSupportTauTiltingData, 'Almost support tau-tilting modules');
+          } else {
+            clearPairListHighlight();
+          }
+        });
+        document.getElementById('showLabelToggle').addEventListener('change', (e) => {
+          showLabels = e.target.checked;
+          toggleShowLabels(showLabels);
+        });
+        document.getElementById('pdidToggle').addEventListener('change', (e) => {
+          showPdid = e.target.checked;
+          togglePdidLabels(showPdid);
+        });
+        document.getElementById('borderToggle').addEventListener('change', (e) => {
+          showBorders = e.target.checked;
+          toggleNodeBorders(showBorders);
+        });
+      })();
+
+      let pairHighlighted = new Set();
+      let splitPairHighlights = new Map();
+
+      network.on('afterDrawing', function(ctx) {
+        if (!splitPairHighlights || splitPairHighlights.size === 0) return;
+        splitPairHighlights.forEach((parts, rawId) => {
+          const id = Number(rawId);
+          const pos = network.getPositions([id])[id];
+          const node = network.body.nodes[id];
+          if (!pos || !node) return;
+          const w = Math.max(42, (node.shape && node.shape.width) ? node.shape.width : 46);
+          const h = Math.max(30, (node.shape && node.shape.height) ? node.shape.height : 32);
+          parts.forEach(part => {
+            ctx.save();
+            ctx.globalAlpha = 0.55;
+            ctx.beginPath();
+            if (part.part === 'left') {
+              ctx.rect(pos.x - w / 2, pos.y - h / 2, w / 2, h);
+            } else if (part.part === 'right') {
+              ctx.rect(pos.x, pos.y - h / 2, w / 2, h);
+            } else if (part.part === 'top') {
+              ctx.rect(pos.x - w / 2, pos.y - h / 2, w, h / 2);
+            } else if (part.part === 'bottom') {
+              ctx.rect(pos.x - w / 2, pos.y, w, h / 2);
+            }
+            ctx.clip();
+            ctx.beginPath();
+            ctx.ellipse(pos.x, pos.y, w / 2, h / 2, 0, 0, 2 * Math.PI);
+            ctx.fillStyle = part.color;
+            ctx.fill();
+            ctx.restore();
+          });
+        });
+      });
+
+      function zeroNodeIds() {
+        return new Set((zeroObjectIds || []).map(Number));
+      }
+
+      function sortedKey(arr) {
+        const zeros = zeroNodeIds();
+        return (arr || []).map(Number).filter(n => Number.isFinite(n) && !zeros.has(n)).sort((a, b) => a - b).join(',');
+      }
+
+      function findTiltingForTorsionPair(item) {
+        const keyT = sortedKey(item.T);
+        const keyF = sortedKey(item.F);
+        for (let i = 0; i < tiltingData.length; i += 1) {
+          const t = tiltingData[i] || {};
+          if (sortedKey(t.T) === keyT && sortedKey(t.F) === keyF) {
+            return { index: i, item: t };
+          }
+        }
+        return null;
+      }
+
+      function resetPairStyles() {
+        pairHighlighted.forEach(id => restoreNodeBase(id));
+        pairHighlighted = new Set();
+        splitPairHighlights = new Map();
+        network.unselectAll();
+        network.redraw();
+      }
+
+      function addSplitFill(ids, part, colorHex, nextSet) {
+        (ids || []).forEach(raw => {
+          const id = Number(raw);
+          if (!Number.isFinite(id) || !getExistingNode(id)) return;
+          const key = String(id);
+          const parts = splitPairHighlights.get(key) || [];
+          parts.push({ part, color: colorHex });
+          splitPairHighlights.set(key, parts);
+          nextSet.add(id);
+        });
+      }
+
+      function applyFullFill(ids, colorHex, nextSet) {
+        (ids || []).forEach(raw => {
+          const id = Number(raw);
+          const node = getExistingNode(id);
+          if (!Number.isFinite(id) || !node) return;
+          let base = baseNodeStyles.get(node.id);
+          if (!base) {
+            base = toBaseStyle(node);
+            baseNodeStyles.set(node.id, base);
+          }
+          const baseColor = base.color;
+          let colorObj;
+          if (typeof baseColor === 'string') {
+            colorObj = { border: baseColor, background: colorHex };
+          } else {
+            colorObj = { ...(baseColor || {}), background: colorHex };
+          }
+          network.body.data.nodes.update({ id: node.id, color: colorObj });
+          nextSet.add(node.id);
+        });
+      }
+
+      function applyTiltingTorsionPairHighlight(tiltingItem) {
+        resetTiltingStyles();
+        resetPairStyles();
+        const nextSet = new Set();
+        const L = new Set((tiltingItem.L || []).map(Number).filter(Number.isFinite));
+        const T = (tiltingItem.T || []).map(Number).filter(id => Number.isFinite(id) && !L.has(id));
+        const F = (tiltingItem.F || []).map(Number).filter(id => Number.isFinite(id) && !L.has(id));
+        applyFullFill([...L], '#b5b5b5', nextSet);
+        applyFullFill(T, '#ffe1c7', nextSet);
+        applyFullFill(F, '#d9f2d9', nextSet);
+        tiltingHighlighted = nextSet;
+        pairHighlighted = nextSet;
+        network.unselectAll();
+        network.redraw();
+      }
+
+      function applyTorsionPairHighlight(item) {
+        resetTiltingStyles();
+        resetPairStyles();
+        const nextSet = new Set();
+        applyFullFill(item.T || [], '#ffe1c7', nextSet);
+        applyFullFill(item.F || [], '#d9f2d9', nextSet);
+        pairHighlighted = nextSet;
+        network.unselectAll();
+        network.redraw();
+      }
+
+      function applyCotorsionPairHighlight(item) {
+        resetTiltingStyles();
+        resetPairStyles();
+        const nextSet = new Set();
+        addSplitFill(item.L || [], 'top', '#93c5fd', nextSet);
+        addSplitFill(item.R || [], 'bottom', '#fca5a5', nextSet);
+        pairHighlighted = nextSet;
+        network.unselectAll();
+        network.redraw();
+      }
+
+      function applySupportTauHighlight(item) {
+        resetTiltingStyles();
+        resetPairStyles();
+        const nextSet = new Set();
+        applyFullFill(item.P || [], '#dbeafe', nextSet);
+        applyFullFill(item.M || [], '#d1d5db', nextSet);
+        pairHighlighted = nextSet;
+        network.unselectAll();
+        network.redraw();
+      }
+
+      function displayClassList(arr) {
+        return (!arr || arr.length === 0) ? '0' : arr.join(',');
+      }
+
+      const listStates = new Map();
+
+      function listLexCompare(a, b) {
+        const aa = (a || []).map(Number);
+        const bb = (b || []).map(Number);
+        const n = Math.min(aa.length, bb.length);
+        for (let i = 0; i < n; i += 1) {
+          if (aa[i] !== bb[i]) return aa[i] - bb[i];
+        }
+        return aa.length - bb.length;
+      }
+
+      function compareByColumn(a, b, key, mode) {
+        const av = a.item[key] || [];
+        const bv = b.item[key] || [];
+        if (mode === 'lenlex' && av.length !== bv.length) return av.length - bv.length;
+        const c = listLexCompare(av, bv);
+        if (c !== 0) return c;
+        return a.originalIndex - b.originalIndex;
+      }
+
+      function ensureListState(containerId, defaultKey) {
+        if (!listStates.has(containerId)) {
+          listStates.set(containerId, { sortKey: defaultKey, sortMode: 'lex', selectedIndex: 0, rows: [] });
+        }
+        return listStates.get(containerId);
+      }
+
+      function activateButtonListRow(containerId, displayIndex) {
+        const state = listStates.get(containerId);
+        if (!state || !state.rows.length) return;
+        const bounded = Math.max(0, Math.min(displayIndex, state.rows.length - 1));
+        state.selectedIndex = bounded;
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        el.querySelectorAll('button[data-row]').forEach((btn, idx) => {
+          const active = idx === bounded;
+          btn.classList.toggle('tilting-btn-active', active);
+          if (active) btn.focus({ preventScroll: true });
+        });
+        state.apply(state.rows[bounded].item);
+      }
+
+      function renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        if (!data || data.length === 0) {
+          el.innerHTML = `<b>${title}</b><br/><span style="color:#666;">No data.</span>`;
+          return;
+        }
+        const state = ensureListState(containerId, columns[0].key);
+        state.apply = applyFn;
+        let rows = data.map((item, originalIndex) => ({ item, originalIndex }));
+        rows.sort((a, b) => compareByColumn(a, b, state.sortKey, state.sortMode));
+        state.rows = rows;
+        if (state.selectedIndex >= rows.length) state.selectedIndex = rows.length - 1;
+
+        const modeText = state.sortMode === 'lex' ? '字典序' : '数量+字典序';
+        const headerButtons = columns.map(col => {
+          const active = state.sortKey === col.key;
+          return `<button type="button" data-sort-key="${col.key}" style="font-size:11px; margin-right:4px; padding:2px 6px; border:1px solid ${active ? '#0f766e' : '#ccc'}; border-radius:4px; background:${active ? '#ccfbf1' : '#fff'}; cursor:pointer;">${col.label}${active ? ` (${modeText})` : ''}</button>`;
+        }).join('');
+        const items = rows.map((row, idx) => {
+          const body = columns.map(col => `${col.label}=[${displayClassList(row.item[col.key] || [])}]`).join(' | ');
+          const extra = formatExtra ? formatExtra(row.item) : '';
+          return `<button type="button" data-row="${idx}" style="display:block; width:100%; text-align:left; margin:2px 0; padding:4px 6px; border:1px solid #ddd; border-radius:4px; background:#fff; font-family:monospace; font-size:11px; cursor:pointer;">${idx + 1}. ${body}${extra}</button>`;
+        }).join('');
+        el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
+        el.querySelectorAll('button[data-sort-key]').forEach(btn => btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-sort-key');
+          if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
+          else { state.sortKey = key; state.sortMode = 'lex'; }
+          state.selectedIndex = 0;
+          renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
+        }));
+        el.querySelectorAll('button[data-row]').forEach(btn => {
+          btn.addEventListener('click', () => activateButtonListRow(containerId, Number(btn.getAttribute('data-row'))));
+          btn.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowDown') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex + 1); }
+            if (event.key === 'ArrowUp') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex - 1); }
+          });
+        });
+      }
+
+      function renderSupportTauList(containerId, data, title) {
+        renderButtonRecordList(containerId, data, title, [{ key: 'P', label: 'P' }, { key: 'M', label: 'M' }], applySupportTauHighlight);
+      }
+
+      function renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer, options = {}) {
+        const isTorsion = options.kind === 'torsion';
+        const applyFn = (item) => {
+          if (isTorsion) {
+            const tilting = findTiltingForTorsionPair(item);
+            if (tilting) {
+              applyTiltingTorsionPairHighlight(tilting.item);
+              setActiveTilting(tilting.index);
+              const tl = document.getElementById('tiltingList');
+              const tt = document.getElementById('tiltingToggle');
+              if (tl) tl.style.display = 'block';
+              if (tt) tt.checked = true;
+            } else {
+              applyTorsionPairHighlight(item);
+            }
+          } else {
+            applyCotorsionPairHighlight(item);
+          }
+        };
+        const formatExtra = (item) => {
+          if (isTorsion) {
+            const tilting = findTiltingForTorsionPair(item);
+            return tilting ? ` | Tilting=yes L=[${displayClassList(tilting.item.L || [])}]` : ' | Tilting=no';
+          }
+          if (extraRenderer) return ` | ${item.hereditary ? 'hereditary' : 'non-hereditary'}`;
+          return '';
+        };
+        renderButtonRecordList(containerId, data, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra);
+      }
+
+      function renderTiltingList() {
+        const listEl = document.getElementById('tiltingList');
+        listEl.innerHTML = '';
+        tiltingData.forEach((item, idx) => {
+          const btn = document.createElement('button');
+          btn.style.display = 'block';
+          btn.style.width = '100%';
+          btn.style.margin = '2px 0';
+          btn.textContent = `L${idx + 1}: [${(item.L || []).join(', ')}]`;
+          btn.addEventListener('click', () => {
+            resetPairStyles();
+            applyTiltingHighlight(item);
+            setActiveTilting(idx);
+          });
+          listEl.appendChild(btn);
+        });
+      }
+
+      function setActiveTilting(idx) {
+        const listEl = document.getElementById('tiltingList');
+        const buttons = listEl.querySelectorAll('button');
+        buttons.forEach((b, i) => {
+          if (i === idx) {
+            b.classList.add('tilting-btn-active');
+          } else {
+            b.classList.remove('tilting-btn-active');
+          }
+        });
+      }
+
+      function clearActiveTilting() {
+        const listEl = document.getElementById('tiltingList');
+        const buttons = listEl.querySelectorAll('button');
+        buttons.forEach((b) => b.classList.remove('tilting-btn-active'));
+      }
+
+      function getActiveTiltingIndex() {
+        const listEl = document.getElementById('tiltingList');
+        const buttons = listEl.querySelectorAll('button');
+        for (let i = 0; i < buttons.length; i++) {
+          if (buttons[i].classList.contains('tilting-btn-active')) return i;
+        }
+        return -1;
+      }
+
+      function selectTiltingByIndex(nextIdx) {
+        const listEl = document.getElementById('tiltingList');
+        const buttons = listEl.querySelectorAll('button');
+        if (!buttons.length) return;
+        let idx = nextIdx;
+        if (idx < 0) idx = 0;
+        if (idx >= buttons.length) idx = buttons.length - 1;
+        buttons[idx].click();
+        buttons[idx].scrollIntoView({ block: 'nearest' });
+      }
+
+      function ensureIdLabelLayer() {
+        if (idLabelLayer) return;
+        idLabelLayer = document.createElement('div');
+        idLabelLayer.style.position = 'absolute';
+        idLabelLayer.style.left = '0';
+        idLabelLayer.style.top = '0';
+        idLabelLayer.style.width = '100%';
+        idLabelLayer.style.height = '100%';
+        idLabelLayer.style.pointerEvents = 'none';
+        idLabelLayer.style.zIndex = '997';
+        network.body.container.appendChild(idLabelLayer);
+      }
+
+      function ensurePdidLabelLayer() {
+        if (pdidLabelLayer) return;
+        pdidLabelLayer = document.createElement('div');
+        pdidLabelLayer.style.position = 'absolute';
+        pdidLabelLayer.style.left = '0';
+        pdidLabelLayer.style.top = '0';
+        pdidLabelLayer.style.width = '100%';
+        pdidLabelLayer.style.height = '100%';
+        pdidLabelLayer.style.pointerEvents = 'none';
+        pdidLabelLayer.style.zIndex = '998';
+        network.body.container.appendChild(pdidLabelLayer);
+      }
+
+      function updateIdLabels() {
+        if (!showLabels || !idLabelLayer) return;
+        const positions = network.getPositions();
+        Object.keys(positions).forEach(idStr => {
+          const id = Number(idStr);
+          if (!Number.isFinite(id)) return;
+          const node = network.body.nodes[id];
+          if (!node) return;
+          let el = idLabelMap.get(id);
+          if (!el) {
+            el = document.createElement('div');
+            el.style.position = 'absolute';
+            el.style.fontSize = '12px';
+            el.style.color = '#5b3a1e';
+            el.style.fontFamily = 'monospace';
+            el.style.fontWeight = 'normal';
+            el.style.transform = 'translate(-50%, 0)';
+            el.style.background = 'rgba(255,255,255,0.95)';
+            el.style.border = '1px solid #c8b08b';
+            el.style.borderRadius = '4px';
+            el.style.padding = '1px 4px';
+            el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+            el.textContent = String(id);
+            idLabelLayer.appendChild(el);
+            idLabelMap.set(id, el);
+          }
+          const dom = network.canvasToDOM(positions[id]);
+          const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 8) : 18;
+          el.style.left = `${dom.x}px`;
+          el.style.top = `${dom.y + offset}px`;
+        });
+      }
+
+      function updatePdidLabels() {
+        if (!showPdid || !pdidLabelLayer) return;
+        const positions = network.getPositions();
+        Object.keys(positions).forEach(idStr => {
+          const id = Number(idStr);
+          if (!Number.isFinite(id)) return;
+          const entry = (pdidMap && (pdidMap[id] || pdidMap[String(id)]));
+          if (!entry) return;
+          const node = network.body.nodes[id];
+          if (!node) return;
+          let el = pdidLabelMap.get(id);
+          if (!el) {
+            el = document.createElement('div');
+            el.style.position = 'absolute';
+            el.style.fontSize = '12px';
+            el.style.color = '#1f4a7a';
+            el.style.fontFamily = 'monospace';
+            el.style.fontWeight = 'normal';
+            el.style.transform = 'translate(-50%, 0)';
+            el.style.background = 'rgba(255,255,255,0.95)';
+            el.style.border = '1px solid #9eb6d3';
+            el.style.borderRadius = '4px';
+            el.style.padding = '1px 4px';
+            el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+            el.style.whiteSpace = 'pre';
+            el.textContent = `pd = ${entry.pd}
+id = ${entry.id}`;
+            pdidLabelLayer.appendChild(el);
+            pdidLabelMap.set(id, el);
+          }
+          const dom = network.canvasToDOM(positions[id]);
+          const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 26) : 30;
+          el.style.left = `${dom.x}px`;
+          el.style.top = `${dom.y - offset}px`;
+        });
+      }
+
+      function showIdLabels() {
+        ensureIdLabelLayer();
+        idLabelLayer.style.display = 'block';
+        updateIdLabels();
+      }
+
+      function showPdidLabels() {
+        ensurePdidLabelLayer();
+        pdidLabelLayer.style.display = 'block';
+        updatePdidLabels();
+      }
+
+      function hideIdLabels() {
+        if (idLabelLayer) idLabelLayer.style.display = 'none';
+      }
+
+      function hidePdidLabels() {
+        if (pdidLabelLayer) pdidLabelLayer.style.display = 'none';
+      }
+
+      function ensureHoverTip() {
+        if (hoverTip) return;
+        hoverTip = document.createElement('div');
+        hoverTip.style.position = 'absolute';
+        hoverTip.style.pointerEvents = 'none';
+        hoverTip.style.background = 'rgba(255,255,255,0.95)';
+        hoverTip.style.border = '1px solid #c8b08b';
+        hoverTip.style.borderRadius = '4px';
+        hoverTip.style.padding = '2px 6px';
+        hoverTip.style.fontSize = '12px';
+        hoverTip.style.fontFamily = 'monospace';
+        hoverTip.style.color = '#000';
+        hoverTip.style.zIndex = '996';
+        hoverTip.style.display = 'none';
+        network.body.container.appendChild(hoverTip);
+      }
+
+      function updateHoverTip() {
+        if (!hoverTip || hoverNodeId === null) return;
+        const pos = network.getPositions([hoverNodeId])[hoverNodeId];
+        const node = network.body.nodes[hoverNodeId];
+        if (!pos || !node) return;
+        const dom = network.canvasToDOM(pos);
+        const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 18) : 28;
+        hoverTip.style.left = `${dom.x}px`;
+        hoverTip.style.top = `${dom.y - offset}px`;
+      }
+
+      function showHoverTip(id) {
+        const entry = (pdidMap && (pdidMap[id] || pdidMap[String(id)]));
+        if (!entry) return;
+        ensureHoverTip();
+        hoverNodeId = id;
+        hoverTip.textContent = `pd=${entry.pd === -1 ? '∞' : entry.pd}, id=${entry.id === -1 ? '∞' : entry.id}`;
+        hoverTip.style.display = 'block';
+        updateHoverTip();
+      }
+
+      function hideHoverTip() {
+        if (!hoverTip) return;
+        hoverNodeId = null;
+        hoverTip.style.display = 'none';
+      }
+
+      function toggleShowLabels(visible) {
+        showLabels = visible;
+        if (showLabels) {
+          showIdLabels();
+        } else {
+          hideIdLabels();
+        }
+      }
+
+      function togglePdidLabels(visible) {
+        showPdid = visible;
+        if (showPdid) {
+          showPdidLabels();
+        } else {
+          hidePdidLabels();
+        }
+      }
+
+      function toggleNodeBorders(visible) {
+        const nodes = network.body.data.nodes.get();
+        const updates = nodes.map(n => {
+          let base = baseNodeStyles.get(n.id);
+          if (!base) {
+            base = toBaseStyle(n);
+            baseNodeStyles.set(n.id, base);
+          }
+          return { id: n.id, borderWidth: visible ? (base.borderWidth || 3) : 0, borderWidthSelected: visible ? (base.borderWidthSelected || 5) : 0 };
+        });
+        if (updates.length) network.body.data.nodes.update(updates);
+      }
+
+      function restoreNodeBase(id) {
+        const node = getExistingNode(id);
+        if (!node) return;
+        let base = baseNodeStyles.get(node.id);
+        if (!base) {
+          base = toBaseStyle(node);
+          baseNodeStyles.set(node.id, base);
+        }
+        let colorObj;
+        if (typeof base.color === 'string') {
+          colorObj = { border: base.color, background: 'white' };
+        } else {
+          colorObj = { ...(base.color || {}), background: (base.color && base.color.background) || 'white' };
+        }
+        network.body.data.nodes.update({
+          id: node.id,
+          color: colorObj,
+          shadow: { enabled: false }
+        });
+      }
+
+      function resetTiltingStyles() {
+        tiltingHighlighted.forEach(id => restoreNodeBase(id));
+        tiltingHighlighted = new Set();
+      }
+
+      function applyTiltingHighlight(item) {
+        resetPairStyles();
+        const toIdSet = (arr) => new Set((arr || []).map(n => Number(n)).filter(n => Number.isFinite(n)));
+        const L = toIdSet(item.L);
+        const F = toIdSet(item.F);
+        const T = toIdSet(item.T);
+        L.forEach(id => {
+          F.delete(id);
+          T.delete(id);
+        });
+
+        const newHighlighted = new Set([...L, ...F, ...T]);
+        tiltingHighlighted.forEach(id => {
+          if (!newHighlighted.has(id)) {
+            restoreNodeBase(id);
+          }
+        });
+
+        const applyFill = (id, colorHex) => {
+          const node = getExistingNode(id);
+          if (!node) return;
+          let base = baseNodeStyles.get(node.id);
+          if (!base) {
+            base = toBaseStyle(node);
+            baseNodeStyles.set(node.id, base);
+          }
+          const baseColor = base.color;
+          let colorObj;
+          if (typeof baseColor === 'string') {
+            colorObj = { border: baseColor, background: colorHex };
+          } else {
+            colorObj = { ...(baseColor || {}), background: colorHex };
+          }
+          network.body.data.nodes.update({ id: node.id, color: colorObj });
+        };
+
+        L.forEach(id => applyFill(id, '#b5b5b5'));
+        F.forEach(id => applyFill(id, '#d9f2d9'));
+        T.forEach(id => applyFill(id, '#ffe1c7'));
+        tiltingHighlighted = newHighlighted;
+      }
+
+      // --- Format quiver node label using QuiverStructure layout ---
+      function formatQuiverNodeLabel(vertexId) {
+        // Use the quiverStructure to produce a layout like the dimension vector display
+        // e.g. QuiverStructure = "[1-2]" means vertices 1 and 2 side by side
+        if (!quiverStructure) return 'v' + vertexId;
+        let s = quiverStructure.trim();
+        if (s.startsWith('[') && s.endsWith(']')) s = s.slice(1, -1);
+        const rows = s.split(';');
+        const rendered = [];
+        for (const row of rows) {
+          let cells = [];
+          for (const ch of row) {
+            if (/\d/.test(ch)) {
+              const idx = parseInt(ch);
+              if (idx === vertexId) {
+                cells.push('*');
+              } else {
+                cells.push(' ');
+              }
+            } else if (ch === '-' || ch === ' ') {
+              cells.push(' ');
+            } else {
+              cells.push(' ');
+            }
+          }
+          rendered.push(cells.join(' '));
+        }
+        // For single-row structures like "1-2", show e.g. "v1" but positioned
+        // Actually show the vertex name directly - matching main canvas style
+        return 'v' + vertexId;
+      }
+
+      function ensureMiniQuiver() {
+        if (miniContainer) return;
+        miniContainer = document.createElement('div');
+        miniContainer.id = 'quiverMiniContainer';
+        miniContainer.style.position = 'absolute';
+        miniContainer.style.bottom = '10px';
+        miniContainer.style.right = '10px';
+        miniContainer.style.width = '360px';
+        miniContainer.style.background = 'rgba(255,255,255,0.95)';
+        miniContainer.style.border = '1px solid #ccc';
+        miniContainer.style.padding = '6px';
+        miniContainer.style.borderRadius = '6px';
+        miniContainer.style.zIndex = '998';
+        miniContainer.innerHTML = `
+          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600;">Quiver Q</div>
+          <div id="quiverMini" style="width:340px; height:220px; border:1px solid #ddd; background:white;"></div>
+          <div id="quiverRel" style="margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;"></div>
+        `;
+        document.body.appendChild(miniContainer);
+        makeDraggable(miniContainer, miniContainer.querySelector('#quiverMiniHeader'));
+        const relBox = miniContainer.querySelector('#quiverRel');
+        relBox.textContent = quiverRel ? `rel := ${quiverRel}` : 'rel := []';
+        if (!quiverNodes || quiverNodes.length === 0) {
+          miniContainer.querySelector('#quiverMini').textContent = 'No Q data.';
+          return;
+        }
+
+        // Layout nodes using QuiverStructure
+        let layoutPositions = {};
+        if (quiverStructure) {
+          let s = quiverStructure.trim();
+          if (s.startsWith('[') && s.endsWith(']')) s = s.slice(1, -1);
+          const rows = s.split(';');
+          rows.forEach((row, rowIdx) => {
+            let colIdx = 0;
+            for (let i = 0; i < row.length; i++) {
+              if (/\d/.test(row[i])) {
+                const nid = parseInt(row[i]);
+                layoutPositions[nid] = { x: colIdx * 100, y: rowIdx * 100 };
+                colIdx++;
+              } else {
+                colIdx++;
+              }
+            }
+          });
+        }
+
+        const nodes = new vis.DataSet(quiverNodes.map(n => {
+          const pos = layoutPositions[n.id] || {};
+          return {
+            id: n.id,
+            label: String(n.label),
+            shape: 'ellipse',
+            font: { face: 'monospace', size: 14, bold: true, color: 'black', vadjust: 0, align: 'center' },
+            color: { border: 'gray', background: 'white' },
+            borderWidth: 2,
+            ...(pos.x !== undefined ? { x: pos.x, y: pos.y } : {})
+          };
+        }));
+        const edges = new vis.DataSet(quiverEdges.map((e, i) => ({
+          id: `q_${i}` ,
+          from: e[0],
+          to: e[1],
+          label: e[2] || '',
+          arrows: 'to',
+          font: { align: 'horizontal', size: 12, face: 'monospace', color: '#333', vadjust: 0 },
+          smooth: false
+        })));
+        miniQuiver = new vis.Network(miniContainer.querySelector('#quiverMini'), { nodes, edges }, {
+          physics: false,
+          interaction: { dragNodes: true, zoomView: true, dragView: true },
+          edges: { arrows: { to: true }, font: { align: 'horizontal' }, smooth: false }
+        });
+        setTimeout(() => assignMultiEdgeCurves(miniQuiver), 50);
+      }
+
+      function makeDraggable(container, handle) {
+        let isDown = false;
+        let offsetX = 0;
+        let offsetY = 0;
+        handle.addEventListener('mousedown', (e) => {
+          isDown = true;
+          const rect = container.getBoundingClientRect();
+          offsetX = e.clientX - rect.left;
+          offsetY = e.clientY - rect.top;
+          e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => {
+          if (!isDown) return;
+          container.style.left = `${e.clientX - offsetX}px`;
+          container.style.top = `${e.clientY - offsetY}px`;
+          container.style.right = 'auto';
+          container.style.bottom = 'auto';
+        });
+        document.addEventListener('mouseup', () => {
+          isDown = false;
+        });
+      }
+
+      function toggleMiniQuiver(show) {
+        if (show) {
+          ensureMiniQuiver();
+          if (miniContainer) miniContainer.style.display = 'block';
+        } else {
+          if (miniContainer) miniContainer.style.display = 'none';
+        }
+      }
+
+      function updateEdgeCurvature(netObj, delta) {
+        if (!netObj) return;
+        const selectedEdges = netObj.getSelectedEdges();
+        if (selectedEdges.length > 0) {
+          snapshot();
+          selectedEdges.forEach(id => {
+            const edge = netObj.body.data.edges.get(id);
+            let round = 0;
+            let type = 'curvedCW';
+            if (edge.smooth && typeof edge.smooth === 'object') {
+              round = edge.smooth.roundness || 0;
+              type = edge.smooth.type || 'curvedCW';
+            }
+            let signed = (type === 'curvedCCW') ? -round : round;
+            let next = Math.max(-1, Math.min(1, signed + delta));
+            let nextType = next < 0 ? 'curvedCCW' : 'curvedCW';
+            let nextRound = Math.abs(next);
+            netObj.body.data.edges.update({ id, smooth: { enabled: true, type: nextType, roundness: nextRound } });
+          });
+        }
+      }
+
+      // --- Undo / Redo (with positions) ---
+      const undoStack = [];
+      const redoStack = [];
+      let isRestoring = false;
+      function snapshot() {
+        if (isRestoring) return;
+        const positions = network.getPositions();
+        const nodes = network.body.data.nodes.get().map(n => {
+          const pos = positions[n.id];
+          if (pos) {
+            return { ...n, x: pos.x, y: pos.y };
+          }
+          return n;
+        });
+        const edges = network.body.data.edges.get();
+        undoStack.push({ nodes, edges });
+        redoStack.length = 0;
+      }
+      function restore(state) {
+        if (!state) return;
+        isRestoring = true;
+        network.body.data.nodes.clear();
+        network.body.data.edges.clear();
+        network.body.data.nodes.add(state.nodes);
+        network.body.data.edges.add(state.edges);
+        state.nodes.forEach(n => {
+          if (typeof n.x === 'number' && typeof n.y === 'number') {
+            network.moveNode(n.id, n.x, n.y);
+          }
+        });
+        isRestoring = false;
+      }
+      function undo() {
+        if (undoStack.length === 0) return;
+        const current = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
+        const prev = undoStack.pop();
+        redoStack.push(current);
+        restore(prev);
+      }
+      function redo() {
+        if (redoStack.length === 0) return;
+        const current = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
+        const next = redoStack.pop();
+        undoStack.push(current);
+        restore(next);
+      }
+      document.addEventListener('keydown', function(e) {
+        const listEl = document.getElementById('tiltingList');
+        const tiltingVisible = listEl && listEl.style.display !== 'none';
+        if (tiltingVisible && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault();
+          const dir = (e.key === 'ArrowUp') ? -1 : 1;
+          const idx = getActiveTiltingIndex();
+          selectTiltingByIndex(idx + dir);
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          undo();
+        } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+          e.preventDefault();
+          redo();
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          snapshot();
+          network.deleteSelected();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          const delta = (e.key === 'ArrowRight') ? 0.1 : -0.1;
+          updateEdgeCurvature(network, delta);
+          updateEdgeCurvature(miniQuiver, delta);
+        }
+      });
+      // initial snapshot
+      snapshot();
+
+      function snapNode(nodeId) {
+        const position = network.getPositions([nodeId]);
+        const x = position[nodeId].x, y = position[nodeId].y;
+        const snappedX = Math.round(x / gridSize) * gridSize;
+        const snappedY = Math.round(y / gridSize) * gridSize;
+        network.moveNode(nodeId, snappedX, snappedY);
+      }
+
+      function getEdgeColor(edge) {
+        if (edge.color && typeof edge.color === 'object' && edge.color.color) {
+          return edge.color.color;
+        }
+        if (typeof edge.color === 'string') {
+          return edge.color;
+        }
+        return '#000000';
+      }
+
+      function isGoldenEdge(edge) {
+        return goldenEdgeSet.has(`${edge.from}->${edge.to}`);
+      }
+
+      function isBlackEdge(edge) {
+        const c = getEdgeColor(edge);
+        return c === '#000000' || c === 'black';
+      }
+
+      function isTranslationEdge(edge) {
+        const c = getEdgeColor(edge);
+        return isGoldenEdge(edge) || c === '#ffd700' || c === '#ffe9a6' || c === 'gold';
+      }
+
+      function isOrangeEdge(edge) {
+        const c = getEdgeColor(edge);
+        return isGoldenEdge(edge) || c === '#ffd700' || c === '#ffe9a6' || c === 'gold' || c === 'orange' || c === '#ffa500';
+      }
+
+      function toggleEdges(predicate, visible) {
+        const edges = network.body.data.edges.get();
+        const updates = edges.filter(predicate).map(e => ({ id: e.id, hidden: !visible }));
+        if (updates.length) network.body.data.edges.update(updates);
+      }
+
+      function getComponentNodes(startNodeId, edges) {
+        const adj = new Map();
+        edges.forEach(e => {
+          if (!adj.has(e.from)) adj.set(e.from, new Set());
+          if (!adj.has(e.to)) adj.set(e.to, new Set());
+          adj.get(e.from).add(e.to);
+          adj.get(e.to).add(e.from);
+        });
+        const visited = new Set();
+        const stack = [startNodeId];
+        visited.add(startNodeId);
+        while (stack.length) {
+          const n = stack.pop();
+          const nbrs = adj.get(n) || new Set();
+          nbrs.forEach(m => {
+            if (!visited.has(m)) {
+              visited.add(m);
+              stack.push(m);
+            }
+          });
+        }
+        return visited;
+      }
+
+      function hasDirectedCycle(nodesSet, edges) {
+        const adj = new Map();
+        nodesSet.forEach(n => adj.set(n, []));
+        edges.forEach(e => {
+          if (nodesSet.has(e.from) && nodesSet.has(e.to)) {
+            adj.get(e.from).push(e.to);
+          }
+        });
+        const WHITE = 0, GRAY = 1, BLACK = 2;
+        const color = new Map();
+        nodesSet.forEach(n => color.set(n, WHITE));
+        let found = false;
+        function dfs(u) {
+          if (found) return;
+          color.set(u, GRAY);
+          for (const v of adj.get(u)) {
+            const c = color.get(v);
+            if (c === GRAY) {
+              found = true;
+              return;
+            }
+            if (c === WHITE) dfs(v);
+          }
+          color.set(u, BLACK);
+        }
+        for (const n of nodesSet) {
+          if (color.get(n) === WHITE) dfs(n);
+          if (found) break;
+        }
+        return found;
+      }
+
+      function adjustIncomingEdgePosition(a, b, edges, requireOrange) {
+        // Find incoming edge c -> b (prefer orange edges)
+        let candidate = null;
+        let foundOrange = null;
+        for (const e of edges) {
+          if (e.to === b) {
+            if (!candidate) candidate = e;
+            if (isOrangeEdge(e)) {
+              foundOrange = e;
+              break;
+            }
+          }
+        }
+        const chosen = requireOrange ? foundOrange : (foundOrange || candidate);
+        if (!chosen || chosen.from === a) return null;
+        const c = chosen.from;
+        const posA = network.getPositions([a])[a];
+        const posB = network.getPositions([b])[b];
+        if (!posA || !posB) return null;
+        const newCx = 2 * posB.x - posA.x;
+        const newCy = 2 * posB.y - posA.y;
+        network.moveNode(c, newCx, newCy);
+        return { a: b, b: c };
+      }
+
+      function handleLongPressOnOrangeEdge(edge) {
+        const edges = network.body.data.edges.get();
+        const component = getComponentNodes(edge.from, edges);
+        const hasCycle = hasDirectedCycle(component, edges);
+        let a = edge.to;
+        let b = edge.from;
+        if (hasCycle) {
+          adjustIncomingEdgePosition(a, b, edges, true);
+          return;
+        }
+        // No directed cycle: recurse along chain until no incoming edge
+        const visited = new Set();
+        while (true) {
+          const key = `${a}->${b}`;
+          if (visited.has(key)) break;
+          visited.add(key);
+          const step = adjustIncomingEdgePosition(a, b, edges, true);
+          if (!step) break;
+          a = step.a;
+          b = step.b;
+        }
+      }
+
+      network.on("dragStart", function (params) {
+        if (params.nodes.length > 0) {
+          snapshot();
+        }
+      });
+      network.on("dragEnd", function (params) {
+        if (params.nodes.length > 0) {
+          snapNode(params.nodes[0]);
+          if (showLabels) updateIdLabels();
+          if (showPdid) updatePdidLabels();
+        }
+      });
+
+      network.on('afterDrawing', function() {
+        if (showLabels) updateIdLabels();
+        if (showPdid) updatePdidLabels();
+        if (hoverNodeId !== null) updateHoverTip();
+      });
+
+      network.on('hoverNode', function(p) {
+        showHoverTip(p.node);
+      });
+      network.on('blurNode', function() {
+        hideHoverTip();
+      });
+
+      network.on('hold', function(p) {
+        if (p.edges.length > 0) {
+          const edge_id = p.edges[0];
+          const edge = network.body.data.edges.get(edge_id);
+          if (edge && isOrangeEdge(edge)) {
+            snapshot();
+            handleLongPressOnOrangeEdge(edge);
+            network.unselectAll();
+          }
+        }
+      });
+
+      network.on('doubleClick', function(p) {
+        if (editMode) {
+          if (p.nodes.length > 0) {
+            const n_id = p.nodes[0];
+            const node = network.body.data.nodes.get(n_id);
+            const newLabel = prompt('New node label', node.label);
+            if (newLabel !== null) {
+              const currentBorder = (node.color && node.color.border) ? node.color.border : 'gray';
+              const colorInput = (prompt('Border color (red/blue/purple/green/gray)', currentBorder) || currentBorder).toLowerCase();
+              const allowed = ['red','blue','purple','green','gray'];
+              const border = allowed.includes(colorInput) ? colorInput : currentBorder;
+              snapshot();
+              const newColor = { border: border, background: 'white', highlight: { border: border, background: '#D2E5FF' } };
+              network.body.data.nodes.update({
+                id: n_id,
+                label: newLabel,
+                title: `Node ${n_id}<br>${newLabel}`,
+                color: newColor,
+                borderWidth: showBorders ? 3 : 0,
+                borderWidthSelected: showBorders ? 5 : 0,
+                font: { color: 'black', face: 'monospace', size: 14, bold: true, vadjust: 0, align: 'center' }
+              });
+              const updated = network.body.data.nodes.get(n_id);
+              if (updated) {
+                baseNodeStyles.set(n_id, toBaseStyle({ ...updated, label: newLabel }));
+              }
+            }
+          } else if (p.edges.length > 0) {
+            const e_id = p.edges[0];
+            const edge = network.body.data.edges.get(e_id);
+            const newLabel = prompt('New edge label', edge.label || '');
+            if (newLabel !== null) {
+              snapshot();
+              network.body.data.edges.update({ id: e_id, label: newLabel });
+            }
+          }
+          return;
+        }
+        if (p.nodes.length > 0) {
+          snapshot();
+          const n_id = p.nodes[0];
+          const n_pos = network.getPositions([n_id])[n_id];
+          const o_node = network.body.data.nodes.get(n_id);
+          const new_id = 'copy_' + n_id + '_' + Date.now();
+          network.body.data.nodes.add({ id: new_id, label: o_node.label, shape: 'ellipse', color: o_node.color, font: {color: 'black', face: 'monospace', size: 14, bold: true, vadjust: 0, align: 'center'}, x: n_pos.x + 50, y: n_pos.y + 50, title: `Copy of ${o_node.id}`, borderWidth: showBorders ? 3 : 0, borderWidthSelected: showBorders ? 5 : 0});
+          network.getConnectedEdges(n_id).forEach(function(e_id) {
+            const edge = network.body.data.edges.get(e_id);
+            network.body.data.edges.add({
+              from: (edge.from === n_id) ? new_id : edge.from,
+              to: (edge.to === n_id) ? new_id : edge.to,
+              arrows: 'to',
+              color: edge.color || '#000000',
+              width: edge.width || 1
+            });
+          });
+        } else if (p.edges.length > 0) {
+          const edge_id = p.edges[0];
+          const edge = network.body.data.edges.get(edge_id);
+          const blackColor = '#000000';
+          const lightGray = '#cccccc';
+          const goldColor = '#ffd700';
+          const lightGold = '#ffe9a6';
+
+          const currentColor = getEdgeColor(edge);
+          const isGold = isGoldenEdge(edge) || currentColor === goldColor || currentColor === lightGold || currentColor === 'gold';
+          let newColor = currentColor;
+          if (isGold) {
+              if (currentColor === lightGold) {
+                  newColor = goldColor;
+              } else {
+                  newColor = lightGold;
+              }
+          } else {
+              if (currentColor === lightGray) {
+                  newColor = blackColor;
+              } else {
+                  newColor = lightGray;
+              }
+          }
+          snapshot();
+          network.body.data.edges.update({ id: edge_id, color: { color: newColor } });
+        }
+      });
+
+      // Auto-reassign multi-edge curves when any edge toggle changes
+      ['syzToggle','homToggle','extToggle','irrToggle','trToggle'].forEach(tid => {
+        const el = document.getElementById(tid);
+        if (el) el.addEventListener('change', () => {
+          setTimeout(() => assignMultiEdgeCurves(network), 50);
+        });
+      });
+      assignMultiEdgeCurves(network);
+
+      // defaults
+      toggleShowLabels(false);
+      togglePdidLabels(false);
+      toggleNodeBorders(true);
+    </script>
+    
+
+    <script type=\"text/javascript\">
+
+    /* TILTING_GRAPH_INJECT */
+
+    (function() {
+
+      let tiltingGraphContainer = null;
+
+      let tiltingGraphNetwork = null;
+
+      let tiltingDataLocal = [];
+
+
+
+      function diffByOne(a, b) {
+
+        if (!a || !b || a.size !== b.size) return false;
+
+        let diff = 0;
+
+        for (const x of a) if (!b.has(x)) diff++;
+
+        for (const x of b) if (!a.has(x)) diff++;
+
+        return diff === 2;
+
+      }
+
+
+
+      function makeDraggable(container, handle) {
+
+        let isDown = false;
+
+        let offsetX = 0;
+
+        let offsetY = 0;
+
+        handle.addEventListener('mousedown', (e) => {
+
+          isDown = true;
+
+          const rect = container.getBoundingClientRect();
+
+          offsetX = e.clientX - rect.left;
+
+          offsetY = e.clientY - rect.top;
+
+          e.preventDefault();
+
+        });
+
+        document.addEventListener('mousemove', (e) => {
+
+          if (!isDown) return;
+
+          container.style.left = `${e.clientX - offsetX}px`;
+
+          container.style.top = `${e.clientY - offsetY}px`;
+
+          container.style.right = 'auto';
+
+          container.style.bottom = 'auto';
+
+        });
+
+        document.addEventListener('mouseup', () => { isDown = false; });
+
+      }
+
+
+
+      function ensureTiltingGraphContainer() {
+
+        if (tiltingGraphContainer) return tiltingGraphContainer;
+
+        tiltingGraphContainer = document.createElement('div');
+
+        tiltingGraphContainer.id = 'tiltingGraphContainer';
+
+        tiltingGraphContainer.style.position = 'absolute';
+
+        tiltingGraphContainer.style.bottom = '10px';
+
+        tiltingGraphContainer.style.left = '10px';
+
+        tiltingGraphContainer.style.width = '360px';
+
+        tiltingGraphContainer.style.background = 'rgba(255,255,255,0.95)';
+
+        tiltingGraphContainer.style.border = '1px solid #ccc';
+
+        tiltingGraphContainer.style.padding = '6px';
+
+        tiltingGraphContainer.style.borderRadius = '6px';
+
+        tiltingGraphContainer.style.zIndex = '998';
+
+        tiltingGraphContainer.innerHTML = `
+
+          <div id=\"tiltingGraphHeader\" style=\"font-size:12px; margin-bottom:4px; cursor:move; font-weight:600;\">Tilting L</div>
+
+          <div id=\"tiltingGraph\" style=\"width:340px; height:220px; border:1px solid #ddd; background:white;\"></div>
+
+          <div id=\"tiltingDetails\" style=\"margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;\"></div>
+
+        `;
+
+        document.body.appendChild(tiltingGraphContainer);
+
+        makeDraggable(tiltingGraphContainer, tiltingGraphContainer.querySelector('#tiltingGraphHeader'));
+
+        return tiltingGraphContainer;
+
+      }
+
+
+
+      function showTiltingDetails(idx) {
+
+        const detail = document.getElementById('tiltingDetails');
+
+        if (!detail || !tiltingDataLocal || !tiltingDataLocal.length) return;
+
+        const item = tiltingDataLocal[idx];
+
+        if (!item) return;
+
+        const L = (item.L || []).join(', ');
+
+        const F = (item.F || []).join(', ');
+
+        const T = (item.T || []).join(', ');
+
+        detail.innerHTML = `L${idx + 1}: [${L}]<br>F: [${F}]<br>T: [${T}]`;
+
+      }
+
+
+
+      function selectTiltingNode(idx) {
+
+        if (!tiltingDataLocal || !tiltingDataLocal.length) return;
+
+        const clamped = Math.max(0, Math.min(idx, tiltingDataLocal.length - 1));
+
+        if (tiltingGraphNetwork) {
+
+          tiltingGraphNetwork.selectNodes([clamped]);
+
+          tiltingGraphNetwork.focus(clamped, { scale: 1.0 });
+
+        }
+
+        showTiltingDetails(clamped);
+
+        if (window.applyTiltingHighlight) window.applyTiltingHighlight(tiltingDataLocal[clamped]);
+
+      }
+
+
+
+      function buildTiltingGraph() {
+
+        tiltingDataLocal = (window.tiltingData || (typeof tiltingData !== 'undefined' ? tiltingData : [])) || [];
+
+        if (!tiltingDataLocal.length) return;
+
+
+
+        const listEl = document.getElementById('tiltingList');
+
+        if (listEl) listEl.style.display = 'none';
+
+
+
+        const container = ensureTiltingGraphContainer();
+
+        container.style.display = 'block';
+
+        const graphDiv = container.querySelector('#tiltingGraph');
+
+        graphDiv.innerHTML = '';
+
+
+
+        const nodes = [];
+
+        const edges = [];
+
+        const sets = tiltingDataLocal.map(item => new Set((item.L || []).map(Number)));
+
+        for (let i = 0; i < tiltingDataLocal.length; i++) {
+
+          nodes.push({ id: i, label: `L${i + 1}` });
+
+        }
+
+        for (let i = 0; i < sets.length; i++) {
+
+          for (let j = i + 1; j < sets.length; j++) {
+
+            if (diffByOne(sets[i], sets[j])) {
+
+              edges.push({ from: i, to: j });
+
+            }
+
+          }
+
+        }
+
+
+
+        const data = {
+
+          nodes: new vis.DataSet(nodes),
+
+          edges: new vis.DataSet(edges)
+
+        };
+
+        const options = {
+
+          physics: { enabled: true },
+
+          interaction: { dragNodes: true, dragView: true, zoomView: true },
+
+          edges: { smooth: false },
+
+          nodes: { shape: 'dot', size: 12, font: { size: 12 } }
+
+        };
+
+        tiltingGraphNetwork = new vis.Network(graphDiv, data, options);
+
+        tiltingGraphNetwork.on('click', function(params) {
+
+          if (params.nodes.length > 0) {
+
+            selectTiltingNode(params.nodes[0]);
+
+          }
+
+        });
+
+        selectTiltingNode(0);
+
+      }
+
+
+
+      function hookToggleHide() {
+
+        const toggle = document.getElementById('tiltingToggle');
+
+        if (!toggle || toggle.__tiltingGraphHooked) return;
+
+        toggle.__tiltingGraphHooked = true;
+
+        toggle.addEventListener('change', (e) => {
+
+          if (!e.target.checked && tiltingGraphContainer) {
+
+            tiltingGraphContainer.style.display = 'none';
+
+          }
+
+        });
+
+      }
+
+
+
+      // Override tilting UI hooks
+
+      window.renderTiltingList = function() {
+
+        buildTiltingGraph();
+
+        hookToggleHide();
+
+      };
+
+      window.setActiveTilting = function(idx) {
+
+        selectTiltingNode(idx);
+
+      };
+
+      window.getActiveTiltingIndex = function() {
+
+        if (tiltingGraphNetwork) {
+
+          const sel = tiltingGraphNetwork.getSelectedNodes();
+
+          return sel.length ? sel[0] : -1;
+
+        }
+
+        return -1;
+
+      };
+
+      window.selectTiltingByIndex = function(idx) {
+
+        selectTiltingNode(idx);
+
+      };
+
+
+
+      // Disable hover pd/id tooltip
+
+      window.showHoverTip = function() {};
+
+      window.hideHoverTip = function() {};
+
+    })();
+
+    </script>
+
+    </body>
+</html>

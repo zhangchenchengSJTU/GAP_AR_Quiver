@@ -582,6 +582,14 @@ WriteProjInjDimsFromCache := function(fname, pdid)
     AppendTo(fname, "PDID := ", pdid, ";\n");
 end;;
 
+PdidValueString := function(x)
+    if x = -1 then
+        return "∞";
+    fi;
+    return String(x);
+end;;
+
+
 # ===== Step2.ipynb cell 9 =====
 # 画 irreducible morphism 的 diagram
 
@@ -877,7 +885,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
     for i in [1..Length(verts)] do
         label_str := String(DimensionVector(verts[i]));
         if IsBound(pdid_map[i]) and IsList(pdid_map[i]) and Length(pdid_map[i]) >= 3 then
-            label_str := Concatenation("pd=", String(pdid_map[i][2]), ", id=", String(pdid_map[i][3]));
+            label_str := Concatenation("pd=", PdidValueString(pdid_map[i][2]), ", id=", PdidValueString(pdid_map[i][3]));
         fi;
         PrintTo(out, "  ", String(i), " [label=\"", label_str, "\"];");
         PrintTo(out, "\n");
@@ -922,12 +930,12 @@ DrawIrreducibleDiagram := function(A, N, arg)
 end;
 
 DrawIrreducibleDiagramHybrid := function(A, N, arg)
-    local fname, outDir, P, I, SI, queue, verts, edges, depthMap, outAdj,
-        expanded, pendingMeshEdges, meshSeen, irr_call_count, mesh_added_count,
-        X0, Y, f, current, uX, uY, depth, irr, irrCall, out, e, u, v, i,
+    local fname, outDir, P, I, SI, queue, verts, edges, depthLeft, depthRight, outAdj,
+        expandedLeft, expandedRight, pendingMeshEdges, meshSeen, irr_from_count, irr_to_count, mesh_added_count,
+        X0, Y, f, current, uX, uY, depth, side, irrCall, out, e, u, v, i,
         label_str, projective_node_ids, injective_node_ids, p_mod, i_mod, pos,
-        pdid_map, AddVertex, AddEdge, Enqueue, EdgeKey, AddMeshFromEdge,
-        CloseMesh, ExpandByIrr;
+        pdid_map, AddVertexRaw, AddVertex, CloseTauOrbit, AddEdge, EnqueueLeft, EnqueueRight, EdgeKey, AddMeshFromEdge,
+        CloseMesh, ExpandForwardByIrr, ExpandBackwardByIrr, srcM, uSrc, orbitQueue, orbitCurrent, orbitCall, orbitM, orbitPos;
 
     outDir := Directory(".");
     if IsBoundGlobal("output_log_path") and output_log_path <> fail then
@@ -938,6 +946,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         fname := Filename(outDir, Concatenation(arg, ".log"));
     fi;
 
+    Progress("computing projective and injective modules");
     P := IndecProjectiveModules(A);;
     I := IndecInjectiveModules(A);;
     SI := Filtered(I, X -> Dimension(X) = 1);;
@@ -945,20 +954,61 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     queue := [];
     verts := [];
     edges := [];
-    depthMap := [];
+    depthLeft := [];
+    depthRight := [];
     outAdj := [];
-    expanded := [];
+    expandedLeft := [];
+    expandedRight := [];
     pendingMeshEdges := [];
     meshSeen := [];
-    irr_call_count := 0;
+    irr_from_count := 0;
+    irr_to_count := 0;
     mesh_added_count := 0;
 
-    AddVertex := function(M)
+    AddVertexRaw := function(M)
         local posM;
         posM := PositionIsomorphic(verts, M);
         if posM = fail then
             Add(verts, M);
+            Add(depthLeft, fail);
+            Add(depthRight, fail);
+            Add(outAdj, []);
             posM := Length(verts);
+            CheckModuleCountGuard(posM);
+        fi;
+        return posM;
+    end;
+
+    CloseTauOrbit := function(startIdx)
+        local q, curIdx, dirName, tauCall, tauM, tauIdx;
+        q := [startIdx];
+        while Length(q) > 0 do
+            curIdx := q[1];
+            Remove(q, 1);
+            for dirName in ["DTr", "TrD"] do
+                if dirName = "DTr" then
+                    tauCall := CALL_WITH_CATCH(DTr, [verts[curIdx]]);
+                else
+                    tauCall := CALL_WITH_CATCH(TrD, [verts[curIdx]]);
+                fi;
+                if tauCall[1] <> true then continue; fi;
+                tauM := tauCall[2];
+                if IsInt(tauM) or tauM = 0 then continue; fi;
+                tauIdx := PositionIsomorphic(verts, tauM);
+                if tauIdx = fail then
+                    tauIdx := AddVertexRaw(tauM);
+                    Add(q, tauIdx);
+                fi;
+            od;
+        od;
+    end;
+
+    AddVertex := function(M)
+        local oldLen, posM;
+        oldLen := Length(verts);
+        posM := AddVertexRaw(M);
+        if Length(verts) > oldLen then
+            CloseTauOrbit(posM);
         fi;
         return posM;
     end;
@@ -978,51 +1028,51 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         return true;
     end;
 
-    Enqueue := function(uV, d)
+    EnqueueLeft := function(uV, d)
         if d > N then return; fi;
-        if not IsBound(depthMap[uV]) or d < depthMap[uV] then
-            depthMap[uV] := d;
-            if d < N then
-                Add(queue, rec(id := uV, depth := d));
-            fi;
+        if IsBound(depthRight[uV]) and depthRight[uV] <> fail then
+            if not IsBound(depthLeft[uV]) or d < depthLeft[uV] then depthLeft[uV] := d; fi;
+            return;
+        fi;
+        if not IsBound(depthLeft[uV]) or depthLeft[uV] = fail or d < depthLeft[uV] then
+            depthLeft[uV] := d;
+            if d < N then Add(queue, rec(id := uV, depth := d, side := "left")); fi;
+        fi;
+    end;
+
+    EnqueueRight := function(uV, d)
+        if d > N then return; fi;
+        if IsBound(depthLeft[uV]) and depthLeft[uV] <> fail then
+            if not IsBound(depthRight[uV]) or d < depthRight[uV] then depthRight[uV] := d; fi;
+            return;
+        fi;
+        if not IsBound(depthRight[uV]) or depthRight[uV] = fail or d < depthRight[uV] then
+            depthRight[uV] := d;
+            if d < N then Add(queue, rec(id := uV, depth := d, side := "right")); fi;
         fi;
     end;
 
     AddMeshFromEdge := function(uS, uT)
         local key, trdCall, trdM, uTrd, newDepth;
         key := EdgeKey(uS, uT);
-        if key in meshSeen then
-            return false;
-        fi;
+        if key in meshSeen then return false; fi;
         Add(meshSeen, key);
-
         trdCall := CALL_WITH_CATCH(TrD, [verts[uS]]);
-        if trdCall[1] <> true then
-            return false;
-        fi;
+        if trdCall[1] <> true then return false; fi;
         trdM := trdCall[2];
-        if IsInt(trdM) or trdM = 0 then
-            return false;
-        fi;
-
+        if IsInt(trdM) or trdM = 0 then return false; fi;
         uTrd := AddVertex(trdM);
-        if IsBound(outAdj[uT]) and Number(outAdj[uT], x -> x = uTrd) > 0 then
-            return false;
-        fi;
-
-        if IsBound(depthMap[uT]) then
-            newDepth := depthMap[uT] + 1;
-        elif IsBound(depthMap[uS]) then
-            newDepth := depthMap[uS] + 2;
+        if IsBound(outAdj[uT]) and Number(outAdj[uT], x -> x = uTrd) > 0 then return false; fi;
+        if IsBound(depthLeft[uT]) and depthLeft[uT] <> fail then
+            newDepth := depthLeft[uT] + 1;
+        elif IsBound(depthLeft[uS]) and depthLeft[uS] <> fail then
+            newDepth := depthLeft[uS] + 2;
         else
             newDepth := N + 1;
         fi;
-        if newDepth > N then
-            return false;
-        fi;
-
+        if newDepth > N then return false; fi;
         AddEdge(uT, uTrd);
-        Enqueue(uTrd, newDepth);
+        EnqueueLeft(uTrd, newDepth);
         mesh_added_count := mesh_added_count + 1;
         return true;
     end;
@@ -1036,44 +1086,48 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         od;
     end;
 
-    ExpandByIrr := function(uV, d)
+    ExpandForwardByIrr := function(uV, d)
         local M, irrCallLocal, irrLocal, fLocal, YLocal, uYLocal;
-        if IsBound(expanded[uV]) and expanded[uV] = true then
-            return;
-        fi;
+        if IsBound(expandedLeft[uV]) and expandedLeft[uV] = true then return; fi;
         M := verts[uV];
-        if d >= N then
-            expanded[uV] := true;
-            return;
-        fi;
+        if d >= N then expandedLeft[uV] := true; return; fi;
         if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
             irrCallLocal := CALL_WITH_CATCH(IrrFromGuess, [M]);
         else
             irrCallLocal := CALL_WITH_CATCH(IrrFrom, [M]);
         fi;
-        irr_call_count := irr_call_count + 1;
-        if irrCallLocal[1] = false then
-            expanded[uV] := true;
-            return;
-        fi;
-        irrLocal := irrCallLocal[2];
-        if not IsList(irrLocal) then
-            expanded[uV] := true;
-            return;
-        fi;
-        for fLocal in irrLocal do
+        irr_from_count := irr_from_count + 1;
+        if irrCallLocal[1] = false or not IsList(irrCallLocal[2]) then expandedLeft[uV] := true; return; fi;
+        for fLocal in irrCallLocal[2] do
             if not IsBound(fLocal) then continue; fi;
             YLocal := Range(fLocal);
             uYLocal := AddVertex(YLocal);
             AddEdge(uV, uYLocal);
-            Enqueue(uYLocal, d + 1);
+            EnqueueLeft(uYLocal, d + 1);
         od;
-        expanded[uV] := true;
+        expandedLeft[uV] := true;
     end;
 
+    ExpandBackwardByIrr := function(uV, d)
+        local M, irrCallLocal, irrLocal, fLocal, XLocal, uXLocal;
+        if IsBound(expandedRight[uV]) and expandedRight[uV] = true then return; fi;
+        M := verts[uV];
+        if d >= N then expandedRight[uV] := true; return; fi;
+        # QPA's IrreducibleMorphismsEndingIn requires a finite ground field and can
+        # enter GAP's break loop on the current examples.  Keep injectives as right
+        # seeds for meeting/pruning, but avoid unsafe reverse expansion here.
+        expandedRight[uV] := true;
+        return;
+    end;
+
+    Progress("building AR quiver from projective and injective fronts");
     for X0 in P do
         uX := AddVertex(X0);
-        Enqueue(uX, 0);
+        EnqueueLeft(uX, 0);
+    od;
+    for X0 in I do
+        uX := AddVertex(X0);
+        EnqueueRight(uX, 0);
     od;
 
     while Length(queue) > 0 do
@@ -1081,33 +1135,41 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         Remove(queue, 1);
         uX := current.id;
         depth := current.depth;
-        if IsBound(expanded[uX]) and expanded[uX] = true then
-            CloseMesh();
-            continue;
+        side := current.side;
+        if side = "left" then
+            if IsBound(expandedLeft[uX]) and expandedLeft[uX] = true then CloseMesh(); continue; fi;
+            ExpandForwardByIrr(uX, depth);
+        else
+            if IsBound(expandedRight[uX]) and expandedRight[uX] = true then CloseMesh(); continue; fi;
+            ExpandBackwardByIrr(uX, depth);
         fi;
-        ExpandByIrr(uX, depth);
         CloseMesh();
-        Print("Hybrid AR: ", Length(verts), " vertices, ", Length(edges), " edges, IrrFrom calls=", irr_call_count,
-              ", mesh edges=", mesh_added_count, " (processed vertex ", uX, " at depth ", depth, ")\n");
+        Print("Hybrid AR bidirectional: ", Length(verts), " vertices, ", Length(edges),
+              " edges, IrrFrom calls=", irr_from_count, ", IrrTo calls=", irr_to_count,
+              ", mesh edges=", mesh_added_count, " (processed ", side, " vertex ", uX,
+              " at depth ", depth, ")\n");
     od;
 
-    # Final closure: depth limits should not hide irreducible arrows among already discovered vertices.
-    for uX in [1..Length(verts)] do
+    Progress("closing tau orbits and irreducible arrows among discovered vertices");
+    uX := 1;
+    while uX <= Length(verts) do
+        CloseTauOrbit(uX);
         if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
             irrCall := CALL_WITH_CATCH(IrrFromGuess, [verts[uX]]);
         else
             irrCall := CALL_WITH_CATCH(IrrFrom, [verts[uX]]);
         fi;
+        irr_from_count := irr_from_count + 1;
         if irrCall[1] = true and IsList(irrCall[2]) then
             for f in irrCall[2] do
                 if not IsBound(f) then continue; fi;
                 Y := Range(f);
-                uY := PositionIsomorphic(verts, Y);
-                if uY <> fail then
-                    AddEdge(uX, uY);
-                fi;
+                uY := AddVertex(Y);
+                AddEdge(uX, uY);
             od;
+            CloseMesh();
         fi;
+        uX := uX + 1;
     od;
 
     out := OutputTextFile(fname, false);
@@ -1115,15 +1177,13 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
 
     pdid_map := [];
     for e in ComputeProjInjDims(verts, 6) do
-        if IsList(e) and Length(e) >= 3 then
-            pdid_map[e[1]] := e;
-        fi;
+        if IsList(e) and Length(e) >= 3 then pdid_map[e[1]] := e; fi;
     od;
 
     for i in [1..Length(verts)] do
         label_str := String(DimensionVector(verts[i]));
         if IsBound(pdid_map[i]) and IsList(pdid_map[i]) and Length(pdid_map[i]) >= 3 then
-            label_str := Concatenation("pd=", String(pdid_map[i][2]), ", id=", String(pdid_map[i][3]));
+            label_str := Concatenation("pd=", PdidValueString(pdid_map[i][2]), ", id=", PdidValueString(pdid_map[i][3]));
         fi;
         PrintTo(out, "  ", String(i), " [label=\"", label_str, "\"];\n");
     od;
@@ -1152,8 +1212,9 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     PrintTo(out, "\n# --- AR-Quiver Analysis --- #\n");
     PrintTo(out, "Projective modules found (Node IDs): ", projective_node_ids, "\n");
     PrintTo(out, "Injective modules found (Node IDs):  ", injective_node_ids, "\n");
-    PrintTo(out, "AR strategy: hybrid\n");
-    PrintTo(out, "IrrFrom calls: ", irr_call_count, "\n");
+    PrintTo(out, "AR strategy: hybrid bidirectional\n");
+    PrintTo(out, "IrrFrom calls: ", irr_from_count, "\n");
+    PrintTo(out, "IrrTo calls: ", irr_to_count, "\n");
     PrintTo(out, "Mesh edges added: ", mesh_added_count, "\n");
     CloseStream(out);;
 
