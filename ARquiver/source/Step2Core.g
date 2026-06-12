@@ -1586,6 +1586,28 @@ WriteGorensteinProjectiveInjective := function(fname, gp_ids, gi_ids)
     AppendTo(fname, "Gorenstein injective modules found (Node IDs):  ", gi_ids, "\n");
 end;;
 
+
+ZeroNodeIds := function(verts)
+    local ids, i, dim;
+    ids := [];
+    for i in [1..Length(verts)] do
+        dim := DimensionVector(verts[i]);
+        if ForAll(dim, x -> x = 0) then
+            Add(ids, i);
+        fi;
+    od;
+    return ids;
+end;;
+
+ClassStringWithoutZeros := function(class_set, zero_ids)
+    local cleaned;
+    cleaned := Filtered(class_set, x -> not (x in zero_ids));
+    if Length(cleaned) = 0 then
+        return "0";
+    fi;
+    return CompactListString(cleaned);
+end;;
+
 CotorsionRightOrthogonal := function(ext_dim, left_set)
     local right, j, i, ok;
     right := [];
@@ -1707,7 +1729,7 @@ EnumerateFixedPairs := function(n, rightFromLeft, leftFromRight, extra)
 end;;
 
 WriteTorsionPairs := function(fname, verts, hom_dim)
-    local n, maxN, pairs, pair;
+    local n, maxN, pairs, pair, zero_ids;
     n := Length(verts);
     maxN := 50;
     AppendTo(fname, "\n# --- TorsionPairTable --- #\n");
@@ -1722,14 +1744,15 @@ WriteTorsionPairs := function(fname, verts, hom_dim)
         function(right, extra) return TorsionClassFromFree(extra, right); end,
         hom_dim
     );
+    zero_ids := ZeroNodeIds(verts);
     for pair in pairs do
-        AppendTo(fname, "T := ", CompactListString(pair.left), " | F := ", CompactListString(pair.right), "\n");
+        AppendTo(fname, "T := ", ClassStringWithoutZeros(pair.left, zero_ids), " | F := ", ClassStringWithoutZeros(pair.right, zero_ids), "\n");
     od;
     AppendTo(fname, "TorsionPairCount := ", Length(pairs), ";\n");
 end;;
 
 WriteCotorsionPairs := function(fname, verts, ext_dim, syz_edges)
-    local n, maxN, pairs, pair, hereditary;
+    local n, maxN, pairs, pair, hereditary, zero_ids;
     n := Length(verts);
     maxN := 50;
     AppendTo(fname, "\n# --- CotorsionPairTable --- #\n");
@@ -1744,9 +1767,10 @@ WriteCotorsionPairs := function(fname, verts, ext_dim, syz_edges)
         function(right, extra) return CotorsionLeftOrthogonal(extra, right); end,
         ext_dim
     );
+    zero_ids := ZeroNodeIds(verts);
     for pair in pairs do
         hereditary := IsHereditaryCotorsionPair(pair.left, syz_edges);
-        AppendTo(fname, "L := ", CompactListString(pair.left), " | R := ", CompactListString(pair.right), " | Hereditary := ", hereditary, "\n");
+        AppendTo(fname, "L := ", ClassStringWithoutZeros(pair.left, zero_ids), " | R := ", ClassStringWithoutZeros(pair.right, zero_ids), " | Hereditary := ", hereditary, "\n");
     od;
     AppendTo(fname, "CotorsionPairCount := ", Length(pairs), ";\n");
 end;;
