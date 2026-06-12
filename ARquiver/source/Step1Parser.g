@@ -48,7 +48,7 @@ NormalizeStep1Name := function(s)
 end;;
 
 Step1RelationToProduct := function(s)
-    local t, greek, pieces, out, piece, i, chars;
+    local t, greek, pieces, out, piece, i, chars, operand, last_was_operand;
     t := CleanStep1String(s);
     greek := [
         ["\\alpha", "alpha"], ["\\beta", "beta"], ["\\gamma", "gamma"],
@@ -70,19 +70,31 @@ Step1RelationToProduct := function(s)
     pieces := Filtered(SplitString(t, " ,;"), x -> Length(x) > 0);
 
     out := [];
+    last_was_operand := false;
     for piece in pieces do
-        if piece = "+" or piece = "-" or piece = "*" then
+        if piece = "+" or piece = "-" then
             Add(out, piece);
-        elif piece in List(greek, x -> x[2]) then
-            Add(out, piece);
-        elif ForAll(piece, c -> c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") then
-            chars := [];
-            for i in [1..Length(piece)] do
-                Add(chars, piece{[i..i]});
-            od;
-            Add(out, JoinStringsWithSeparator(chars, "*"));
+            last_was_operand := false;
+        elif piece = "*" then
+            Add(out, "*");
+            last_was_operand := false;
         else
-            Add(out, NormalizeStep1Name(piece));
+            if piece in List(greek, x -> x[2]) then
+                operand := piece;
+            elif ForAll(piece, c -> c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") then
+                chars := [];
+                for i in [1..Length(piece)] do
+                    Add(chars, piece{[i..i]});
+                od;
+                operand := JoinStringsWithSeparator(chars, "*");
+            else
+                operand := NormalizeStep1Name(piece);
+            fi;
+            if last_was_operand then
+                Add(out, "*");
+            fi;
+            Add(out, operand);
+            last_was_operand := true;
         fi;
     od;
 

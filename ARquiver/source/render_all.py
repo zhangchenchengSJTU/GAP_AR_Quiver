@@ -7,6 +7,8 @@ from visualize_core import create_and_save_quiver_html_with_tilting_graph  # noq
 
 def log_files():
     for path in sorted(ROOT.glob("*.log")):
+        if path.name.startswith("_") or path.name.startswith("."):
+            continue
         yield path
 
 

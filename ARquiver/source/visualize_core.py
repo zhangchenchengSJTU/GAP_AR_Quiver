@@ -51,6 +51,7 @@ def parse_quiver_data(quiver_file):
     try:
         with open(quiver_file, 'r', encoding='utf-8') as f:
             content = f.read()
+            content = re.sub(r"\\\s*\n\s*", "", content)
     except FileNotFoundError:
         return None, None, None, None, None, None, None, None, None, None, None, None, None, None
     # Keep a global reference for translation-quiver extraction
@@ -163,14 +164,22 @@ def parse_quiver_data(quiver_file):
             
 
     torsion_pair_data = []
-    for m in re.finditer(r"^T := \[([^\]]*)\]\s*\|\s*F := \[([^\]]*)\]", content, flags=re.M):
+    torsion_section = ""
+    torsion_match = re.search(r"# --- TorsionPairTable --- #[\s\S]*?(?=# --- CotorsionPairTable --- #|PDID :=|$)", content)
+    if torsion_match:
+        torsion_section = torsion_match.group(0)
+    for m in re.finditer(r"^T := \[(.*?)\]\s*\|\s*F :=\s*\[(.*?)\]", torsion_section, flags=re.M | re.S):
         torsion_pair_data.append({
             "T": parse_list_line(m.group(1)),
             "F": parse_list_line(m.group(2)),
         })
 
     cotorsion_pair_data = []
-    for m in re.finditer(r"^L := \[([^\]]*)\]\s*\|\s*R :=\s*\[([^\]]*)\]\s*\|\s*Hereditary :=\s*(true|false)", content, flags=re.M | re.I):
+    cotorsion_section = ""
+    cotorsion_match = re.search(r"# --- CotorsionPairTable --- #[\s\S]*?(?=PDID :=|$)", content)
+    if cotorsion_match:
+        cotorsion_section = cotorsion_match.group(0)
+    for m in re.finditer(r"^L := \[(.*?)\]\s*\|\s*R :=\s*\[(.*?)\]\s*\|\s*Hereditary\s*:\s*=\s*(true|false)", cotorsion_section, flags=re.M | re.S | re.I):
         cotorsion_pair_data.append({
             "L": parse_list_line(m.group(1)),
             "R": parse_list_line(m.group(2)),
@@ -354,9 +363,33 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                      borderWidth=3, borderWidthSelected=5,
                      **pos_args)
 
-    # Filter out edges that reference zero-dimension nodes
+    # Filter out edges that reference zero-dimension nodes, then collapse exact duplicates for display.
+    # GAP may return multiple irreducible maps with the same source/target; drawing them as identical
+    # overlapping vis edges makes the HTML look like accidental duplicates.  We keep the multiplicity
+    # as an edge label/title instead.
     filtered_edges = [e for e in edges_data if e[0] not in zero_node_ids and e[1] not in zero_node_ids]
-    net.add_edges(filtered_edges)
+    edge_counts = {}
+    for e in filtered_edges:
+        key = tuple(e)
+        edge_counts[key] = edge_counts.get(key, 0) + 1
+    collapsed_edges = sorted(edge_counts.items(), key=lambda item: (item[0][0], item[0][1], item[0][2] if len(item[0]) > 2 else ""))
+    if any(count > 1 for _, count in collapsed_edges):
+        dup_summary = [((key[0], key[1]), count) for key, count in collapsed_edges if count > 1]
+        print(f"ℹ️ Collapsing duplicate AR edges for display: {dup_summary}")
+    for key, count in collapsed_edges:
+        u = key[0]
+        v = key[1]
+        base_label = key[2] if len(key) > 2 else ""
+        display_label = base_label or ""
+        if count > 1:
+            display_label = f"{display_label} ×{count}" if display_label else f"×{count}"
+        edge_kwargs = {}
+        if display_label:
+            edge_kwargs["label"] = display_label
+            edge_kwargs["font"] = {"align": "top", "size": 12, "color": "#444"}
+        if count > 1:
+            edge_kwargs["title"] = f"Multiplicity {count}"
+        net.add_edge(u, v, **edge_kwargs)
     # Also filter golden/syz edges referencing zero nodes
     golden_edges = [(u, v) for u, v in golden_edges if u not in zero_node_ids and v not in zero_node_ids]
     syz_edges = [e for e in syz_edges if e[0] not in zero_node_ids and e[1] not in zero_node_ids]
@@ -745,7 +778,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const el = document.getElementById('torsionPairList');
           if (!el) return;
           el.style.display = e.target.checked ? 'block' : 'none';
-          if (e.target.checked) renderPairList('torsionPairList', torsionPairData, 'T', 'F', 'Torsion pairs');
+          if (e.target.checked) renderPairList('torsionPairList', torsionPairData, 'T', 'F', 'Torsion pairs', null, { kind: 'torsion' });
         });
         document.getElementById('cotorsionPairToggle').addEventListener('change', (e) => {
           const el = document.getElementById('cotorsionPairList');
@@ -767,34 +800,133 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         });
       })();
 
-      function renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer) {
+      let pairHighlighted = new Set();
+
+      function sortedKey(arr) {
+        return (arr || []).map(Number).filter(n => Number.isFinite(n)).sort((a, b) => a - b).join(',');
+      }
+
+      function findTiltingForTorsionPair(item) {
+        const keyT = sortedKey(item.T);
+        const keyF = sortedKey(item.F);
+        for (let i = 0; i < tiltingData.length; i += 1) {
+          const t = tiltingData[i] || {};
+          if (sortedKey(t.T) === keyT && sortedKey(t.F) === keyF) {
+            return { index: i, item: t };
+          }
+        }
+        return null;
+      }
+
+      function resetPairStyles() {
+        pairHighlighted.forEach(id => restoreNodeBase(id));
+        pairHighlighted = new Set();
+      }
+
+      function applyPairFill(ids, colorHex, nextSet) {
+        (ids || []).forEach(raw => {
+          const id = Number(raw);
+          const node = getExistingNode(id);
+          if (!node) return;
+          let base = baseNodeStyles.get(node.id);
+          if (!base) {
+            base = toBaseStyle(node);
+            baseNodeStyles.set(node.id, base);
+          }
+          const baseColor = base.color;
+          let colorObj;
+          if (typeof baseColor === 'string') {
+            colorObj = { border: baseColor, background: colorHex };
+          } else {
+            colorObj = { ...(baseColor || {}), background: colorHex };
+          }
+          network.body.data.nodes.update({ id: node.id, color: colorObj });
+          nextSet.add(node.id);
+        });
+      }
+
+      function applyTorsionPairHighlight(item) {
+        resetTiltingStyles();
+        resetPairStyles();
+        const nextSet = new Set();
+        applyPairFill(item.F || [], '#d9f2d9', nextSet);
+        applyPairFill(item.T || [], '#ffe1c7', nextSet);
+        pairHighlighted = nextSet;
+        const ids = [...new Set([...(item.T || []), ...(item.F || [])].map(Number))];
+        if (ids.length) network.selectNodes(ids);
+      }
+
+      function applyCotorsionPairHighlight(item) {
+        resetTiltingStyles();
+        resetPairStyles();
+        const nextSet = new Set();
+        applyPairFill(item.R || [], '#d7e7ff', nextSet);
+        applyPairFill(item.L || [], '#ead7ff', nextSet);
+        pairHighlighted = nextSet;
+        const ids = [...new Set([...(item.L || []), ...(item.R || [])].map(Number))];
+        if (ids.length) network.selectNodes(ids);
+      }
+
+      function renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer, options = {}) {
         const el = document.getElementById(containerId);
         if (!el) return;
         if (!data || data.length === 0) {
           el.innerHTML = `<b>${title}</b><br/><span style="color:#666;">No data.</span>`;
           return;
         }
+        const isTorsion = options.kind === 'torsion';
         const rows = data.map((item, idx) => {
           const left = item[leftKey] || [];
           const right = item[rightKey] || [];
+          const tilting = isTorsion ? findTiltingForTorsionPair(item) : null;
+          const tiltingCell = isTorsion
+            ? `<td style="border:1px solid #ddd; padding:3px; cursor:${tilting ? 'pointer' : 'default'}; color:${tilting ? '#0f766e' : '#999'};" data-tilting="${tilting ? tilting.index : ''}">${tilting ? `yes L=[${(tilting.item.L || []).join(',')}]` : 'no'}</td>`
+            : '';
           const extra = extraRenderer ? extraRenderer(item) : '';
-          return `<tr>
+          return `<tr data-row="${idx}" style="cursor:pointer;">
             <td style="border:1px solid #ddd; padding:3px;">${idx + 1}</td>
-            <td style="border:1px solid #ddd; padding:3px; cursor:pointer;" data-left="${left.join(',')}">${left.join(', ')}</td>
-            <td style="border:1px solid #ddd; padding:3px; cursor:pointer;" data-right="${right.join(',')}">${right.join(', ')}</td>
+            <td style="border:1px solid #ddd; padding:3px;" data-left="${left.join(',')}">${left.join(',')}</td>
+            <td style="border:1px solid #ddd; padding:3px;" data-right="${right.join(',')}">${right.join(',')}</td>
+            ${tiltingCell}
             ${extra}
           </tr>`;
         }).join('');
+        const tiltingHeader = isTorsion ? '<th>Tilting</th>' : '';
         el.innerHTML = `<b>${title}</b><table style="border-collapse:collapse; width:100%; margin-top:4px; font-family:monospace; font-size:11px;">
-          <thead><tr><th>#</th><th>${leftKey}</th><th>${rightKey}</th>${extraRenderer ? '<th>Info</th>' : ''}</tr></thead>
+          <thead><tr><th>#</th><th>${leftKey}</th><th>${rightKey}</th>${tiltingHeader}${extraRenderer ? '<th>Info</th>' : ''}</tr></thead>
           <tbody>${rows}</tbody></table>`;
-        el.querySelectorAll('[data-left]').forEach(cell => cell.addEventListener('click', () => {
-          const ids = cell.getAttribute('data-left').split(',').filter(Boolean).map(Number);
-          emphasizeNodeSet(ids, '#f59e0b');
-        }));
-        el.querySelectorAll('[data-right]').forEach(cell => cell.addEventListener('click', () => {
-          const ids = cell.getAttribute('data-right').split(',').filter(Boolean).map(Number);
-          emphasizeNodeSet(ids, '#10b981');
+        el.querySelectorAll('tr[data-row]').forEach(row => row.addEventListener('click', (event) => {
+          const idx = Number(row.getAttribute('data-row'));
+          const item = data[idx];
+          if (!item) return;
+          if (event.target && event.target.getAttribute && event.target.getAttribute('data-tilting') !== null) {
+            const tIdxRaw = event.target.getAttribute('data-tilting');
+            if (tIdxRaw !== '') {
+              const tIdx = Number(tIdxRaw);
+              if (Number.isFinite(tIdx) && tiltingData[tIdx]) {
+                resetPairStyles();
+                applyTiltingHighlight(tiltingData[tIdx]);
+                setActiveTilting(tIdx);
+                document.getElementById('tiltingList').style.display = 'block';
+                document.getElementById('tiltingToggle').checked = true;
+              }
+            }
+            return;
+          }
+          if (isTorsion) {
+            const tilting = findTiltingForTorsionPair(item);
+            if (tilting) {
+              resetPairStyles();
+              applyTiltingHighlight(tilting.item);
+              setActiveTilting(tilting.index);
+              document.getElementById('tiltingList').style.display = 'block';
+              document.getElementById('tiltingToggle').checked = true;
+            } else {
+              applyTorsionPairHighlight(item);
+            }
+          } else {
+            applyCotorsionPairHighlight(item);
+          }
         }));
       }
 

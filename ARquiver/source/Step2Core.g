@@ -591,9 +591,13 @@ DrawIrreducibleDiagram := function(A, N, arg)
 
     # --- Helper: add permanent directed edge u -> v ---
     AddEdge := function(uS, uT)
+        if IsBound(outAdj[uS]) and uT in outAdj[uS] then
+            return false;
+        fi;
         Add(edges, [uS, uT]);
         if not IsBound(outAdj[uS]) then outAdj[uS] := []; fi;
         Add(outAdj[uS], uT);
+        return true;
     end;
 
     # --- Helper: enqueue vertex at given depth (skip if beyond limit or dead) ---
@@ -792,6 +796,25 @@ DrawIrreducibleDiagram := function(A, N, arg)
     od;
 
     # --- 4. Output TXT file ---
+    # Final closure: depth limits should not hide irreducible arrows among already discovered vertices.
+    for uX in [1..Length(verts)] do
+        if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
+            irrCall := CALL_WITH_CATCH(IrrFromGuess, [verts[uX]]);
+        else
+            irrCall := CALL_WITH_CATCH(IrrFrom, [verts[uX]]);
+        fi;
+        if irrCall[1] = true and IsList(irrCall[2]) then
+            for f in irrCall[2] do
+                if not IsBound(f) then continue; fi;
+                Y := Range(f);
+                uY := PositionIsomorphic(verts, Y);
+                if uY <> fail then
+                    AddEdge(uX, uY);
+                fi;
+            od;
+        fi;
+    od;
+
     out := OutputTextFile(fname, false);
     PrintTo(out, "digraph Quiver {\n");
 
@@ -897,10 +920,14 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     end;
 
     AddEdge := function(uS, uT)
+        if IsBound(outAdj[uS]) and uT in outAdj[uS] then
+            return false;
+        fi;
         Add(edges, [uS, uT]);
         if not IsBound(outAdj[uS]) then outAdj[uS] := []; fi;
         Add(outAdj[uS], uT);
         Add(pendingMeshEdges, [uS, uT]);
+        return true;
     end;
 
     Enqueue := function(uV, d)
@@ -967,7 +994,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
             return;
         fi;
         M := verts[uV];
-        if d >= N or IsIsomorphicToAny(M, SI) then
+        if d >= N then
             expanded[uV] := true;
             return;
         fi;
@@ -1014,6 +1041,25 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         CloseMesh();
         Print("Hybrid AR: ", Length(verts), " vertices, ", Length(edges), " edges, IrrFrom calls=", irr_call_count,
               ", mesh edges=", mesh_added_count, " (processed vertex ", uX, " at depth ", depth, ")\n");
+    od;
+
+    # Final closure: depth limits should not hide irreducible arrows among already discovered vertices.
+    for uX in [1..Length(verts)] do
+        if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
+            irrCall := CALL_WITH_CATCH(IrrFromGuess, [verts[uX]]);
+        else
+            irrCall := CALL_WITH_CATCH(IrrFrom, [verts[uX]]);
+        fi;
+        if irrCall[1] = true and IsList(irrCall[2]) then
+            for f in irrCall[2] do
+                if not IsBound(f) then continue; fi;
+                Y := Range(f);
+                uY := PositionIsomorphic(verts, Y);
+                if uY <> fail then
+                    AddEdge(uX, uY);
+                fi;
+            od;
+        fi;
     od;
 
     out := OutputTextFile(fname, false);
@@ -1323,6 +1369,11 @@ SortRecordsByLeftRight := function(records)
     SortBy(records, r -> [r.left, r.right]);
 end;;
 
+
+CompactListString := function(obj)
+    return ReplacedString(String(obj), ", ", ",");
+end;;
+
 ExtEdgesFromMatrix := function(ext_dim)
     local edges, i, j;
     edges := [];
@@ -1472,9 +1523,9 @@ FindTiltingObjects := function(fname, verts, projective_node_ids, hom_dim, ext_d
         od;
         Sort(T_list);
 
-        AppendTo(fname, "L := ", L_sorted, "\n");
-        AppendTo(fname, "F := ", F_list, "\n");
-        AppendTo(fname, "T := ", T_list, "\n");
+        AppendTo(fname, "L := ", CompactListString(L_sorted), "\n");
+        AppendTo(fname, "F := ", CompactListString(F_list), "\n");
+        AppendTo(fname, "T := ", CompactListString(T_list), "\n");
 
         ft_union := Set(Concatenation(F_list, T_list));
         if Length(ft_union) = Length(verts) then
@@ -1511,7 +1562,7 @@ CollectGorensteinProjectiveInjective := function(verts, projective_node_ids, inj
             fi;
         fi;
 
-        if not (idx in injective_node_ids) and idim = -1 then
+        if not (idx in injective_node_ids) and idim = -1 and idx in torsionless_node_ids and idx in reflexive_node_ids then
             ok := true;
             for inj in injective_node_ids do
                 if ext_dim[inj][idx] <> 0 then
@@ -1598,33 +1649,59 @@ IsHereditaryCotorsionPair := function(left_set, syz_edges)
 end;;
 
 EnumerateFixedPairs := function(n, rightFromLeft, leftFromRight, extra)
-    local pairs, seen, current, Enumerate, right, left, key, pair;
+    local pairs, seen, ClosureLeft, AddPair, current, i, prefix, candidate, closure, ok, j, found;
+
     pairs := [];
     seen := [];
-    current := [];
 
-    Enumerate := function(pos)
-        if pos > n then
-            right := rightFromLeft(current, extra);
-            left := leftFromRight(right, extra);
-            Sort(left);
-            Sort(right);
-            if Set(left) = Set(current) then
-                key := Concatenation(String(left), "|", String(right));
-                if not (key in seen) then
-                    Add(seen, key);
-                    Add(pairs, rec(left := ShallowCopy(left), right := ShallowCopy(right)));
-                fi;
-            fi;
-            return;
-        fi;
-        Enumerate(pos + 1);
-        Add(current, pos);
-        Enumerate(pos + 1);
-        Remove(current, Length(current));
+    ClosureLeft := function(leftSet)
+        local right, left;
+        right := rightFromLeft(leftSet, extra);
+        left := leftFromRight(right, extra);
+        Sort(left);
+        return left;
     end;;
 
-    Enumerate(1);
+    AddPair := function(left)
+        local right, key;
+        right := rightFromLeft(left, extra);
+        Sort(right);
+        key := Concatenation(CompactListString(left), "|", CompactListString(right));
+        if not (key in seen) then
+            Add(seen, key);
+            Add(pairs, rec(left := ShallowCopy(left), right := ShallowCopy(right)));
+        fi;
+    end;;
+
+    current := ClosureLeft([]);
+    while true do
+        AddPair(current);
+        found := false;
+        for i in Reversed([1..n]) do
+            if not (i in current) then
+                prefix := Filtered(current, x -> x < i);
+                candidate := ShallowCopy(prefix);
+                Add(candidate, i);
+                closure := ClosureLeft(candidate);
+                ok := true;
+                for j in [1..i-1] do
+                    if (j in closure) <> (j in current) then
+                        ok := false;
+                        break;
+                    fi;
+                od;
+                if ok then
+                    current := closure;
+                    found := true;
+                    break;
+                fi;
+            fi;
+        od;
+        if not found then
+            break;
+        fi;
+    od;
+
     SortBy(pairs, r -> [r.left, r.right]);
     return pairs;
 end;;
@@ -1632,9 +1709,9 @@ end;;
 WriteTorsionPairs := function(fname, verts, hom_dim)
     local n, maxN, pairs, pair;
     n := Length(verts);
-    maxN := 20;
+    maxN := 50;
     AppendTo(fname, "\n# --- TorsionPairTable --- #\n");
-    AppendTo(fname, "# columns: T, F\n");
+    AppendTo(fname, "# columns: T,F\n");
     if n > maxN then
         AppendTo(fname, "Skipped: too many vertices for exhaustive finite-subquiver search (", n, " > ", maxN, ").\n");
         return;
@@ -1646,7 +1723,7 @@ WriteTorsionPairs := function(fname, verts, hom_dim)
         hom_dim
     );
     for pair in pairs do
-        AppendTo(fname, "T := ", pair.left, " | F := ", pair.right, "\n");
+        AppendTo(fname, "T := ", CompactListString(pair.left), " | F := ", CompactListString(pair.right), "\n");
     od;
     AppendTo(fname, "TorsionPairCount := ", Length(pairs), ";\n");
 end;;
@@ -1654,9 +1731,9 @@ end;;
 WriteCotorsionPairs := function(fname, verts, ext_dim, syz_edges)
     local n, maxN, pairs, pair, hereditary;
     n := Length(verts);
-    maxN := 20;
+    maxN := 50;
     AppendTo(fname, "\n# --- CotorsionPairTable --- #\n");
-    AppendTo(fname, "# columns: L, R, Hereditary\n");
+    AppendTo(fname, "# columns: L,R,Hereditary\n");
     if n > maxN then
         AppendTo(fname, "Skipped: too many vertices for exhaustive finite-subquiver search (", n, " > ", maxN, ").\n");
         return;
@@ -1669,7 +1746,7 @@ WriteCotorsionPairs := function(fname, verts, ext_dim, syz_edges)
     );
     for pair in pairs do
         hereditary := IsHereditaryCotorsionPair(pair.left, syz_edges);
-        AppendTo(fname, "L := ", pair.left, " | R := ", pair.right, " | Hereditary := ", hereditary, "\n");
+        AppendTo(fname, "L := ", CompactListString(pair.left), " | R := ", CompactListString(pair.right), " | Hereditary := ", hereditary, "\n");
     od;
     AppendTo(fname, "CotorsionPairCount := ", Length(pairs), ";\n");
 end;;
