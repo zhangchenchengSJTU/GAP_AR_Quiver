@@ -2298,18 +2298,8 @@ def _inject_tilting_graph_fallback(html: str) -> str:
     return html + js
 
 
-try:
-    with open(output_file, 'r', encoding='utf-8') as f:
-        html = f.read()
 
-    html = _inject_tilting_graph_fallback(html)
 
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(html)
-
-    print("✅ 已追加 tilting 图形 fallback hook")
-except Exception as e:
-    print(f"❌ 追加 tilting fallback 失败: {e}")
 
 
 # ===== Step3.ipynb cell 12 =====
@@ -2484,18 +2474,8 @@ def _inject_tilting_graph_override(html: str) -> str:
     return html + js
 
 
-try:
-    with open(output_file, 'r', encoding='utf-8') as f:
-        html = f.read()
 
-    html = _inject_tilting_graph_override(html)
 
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(html)
-
-    print("✅ 已注入 tilting 图形覆盖逻辑")
-except Exception as e:
-    print(f"❌ 注入 tilting 图形覆盖失败: {e}")
 
 
 # ===== Step3.ipynb cell 13 =====
@@ -2903,24 +2883,8 @@ def _inject_tilting_window_like_quiver(html: str) -> str:
     return html + js
 
 # ===== Step3.ipynb cell 14 =====
-try:
-    if 'output_file' not in locals():
-         output_file = 'quiver_Q.html'
 
-    # Ensure we use the correct file
-    print(f"DEBUG: Auto-Injection target: {output_file}")
 
-    with open(output_file, 'r', encoding='utf-8') as f:
-        html = f.read()
-
-    html = _inject_tilting_window_like_quiver(html)
-
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(html)
-
-    print(f"✅ AUTO-INJECTED V20 Tilting & Quiver Windows into: {output_file}")
-except Exception as e:
-    print(f"❌ Injection Failed: {e}")
 
 # ===== Step3.ipynb cell 15 =====
 def _greekize_text(value: str) -> str:
@@ -2944,20 +2908,8 @@ def _greekize_text(value: str) -> str:
         value = re.sub(rf"\b{key}\b", val, value)
     return value
 
-try:
-    if 'output_file' not in locals():
-        output_file = 'quiver_Q.html'
-    with open(output_file, 'r', encoding='utf-8') as f:
-        html = f.read()
-    new_html = _greekize_text(html)
-    if new_html != html:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(new_html)
-        print("✅ Greek letter conversion applied to output HTML")
-    else:
-        print("ℹ️ No Greek letter replacements needed")
-except Exception as e:
-    print(f"❌ Greek letter conversion failed: {e}")
+
+
 
 # ===== Step3.ipynb cell 16 =====
 def _inject_relation_formatter(html: str) -> str:
@@ -3032,14 +2984,5 @@ def _inject_relation_formatter(html: str) -> str:
         html = html.replace(old, new, 1)
     return html
 
-try:
-    if 'output_file' not in locals():
-        output_file = 'quiver_Q.html'
-    with open(output_file, 'r', encoding='utf-8') as f:
-        html = f.read()
-    html = _inject_relation_formatter(html)
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(html)
-    print("✅ Relation display formatted as requested")
-except Exception as e:
-    print(f"❌ Relation formatter injection failed: {e}")
+
+
