@@ -5,6 +5,7 @@ ARG GAP_PREFIX=/opt/gap
 
 ENV DEBIAN_FRONTEND=noninteractive \
     GAP_ROOT=/opt/gap \
+    LD_LIBRARY_PATH="/opt/gap/lib:${LD_LIBRARY_PATH}" \
     PATH="/opt/gap/bin:${PATH}"
 
 RUN apt-get update \
@@ -35,10 +36,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
-    if [ "${GAP_VERSION}" = "latest" ]; then \
-        GAP_VERSION="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/gap-system/gap/releases/latest | sed 's#.*/tag/v##')"; \
+    resolved_gap_version="${GAP_VERSION}"; \
+    if [ "${resolved_gap_version}" = "latest" ]; then \
+        resolved_gap_version="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/gap-system/gap/releases/latest | sed 's#.*/tag/v##')"; \
     fi; \
-    curl -fsSL "https://github.com/gap-system/gap/releases/download/v${GAP_VERSION}/gap-${GAP_VERSION}.tar.gz" -o /tmp/gap.tar.gz; \
+    curl -fsSL "https://github.com/gap-system/gap/releases/download/v${resolved_gap_version}/gap-${resolved_gap_version}.tar.gz" -o /tmp/gap.tar.gz; \
     mkdir -p /usr/local/src/gap; \
     tar -xzf /tmp/gap.tar.gz -C /usr/local/src/gap --strip-components=1; \
     rm /tmp/gap.tar.gz; \
@@ -47,6 +49,8 @@ RUN set -eux; \
     make -j"$(nproc)"; \
     make bootstrap-pkg-full || make bootstrap-pkg-minimal || true; \
     make install; \
+    echo "${GAP_PREFIX}/lib" > /etc/ld.so.conf.d/gap.conf; \
+    ldconfig; \
     "${GAP_PREFIX}/bin/gap" -q -c 'Print("GAP ", GAPInfo.Version, "\\n"); QUIT;'
 
 WORKDIR /workspace
