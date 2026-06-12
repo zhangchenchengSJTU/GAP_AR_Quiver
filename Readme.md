@@ -97,4 +97,52 @@
 
 ## 其他功能
 
-`Syzygy` 用于转换
+按钮 `Torsionless`, `Reflexive` 与 `GProj` 分别用于显示不可分解且非投射的
+
+- torsionless 模: 投射模的子, 或等价地, 使得 $M \to DDM, \quad m \mapsto [f \mapsto f(m)]$ 为单射的模,
+- reflecxive 模: 使得 $M \to DDM, \quad m \mapsto [f \mapsto f(m)]$ 是同构的模,
+- Gorenstein 投射模: 定义略.
+
+按钮 `GInj` 用于显示不可分解且非内射的 Gorenstein 内射模, 定义略.
+
+`Label` 用于显示不可分解模的编号, 方便对照 `yourfile.log`. 也可以将鼠标拖动到顶点上方以查看编号.
+
+`Syzygy` 显示投射盖的核. `HomDim` 与 `ExtDim` 分别显示 $\mathrm{Hom}$ 与 $\mathrm{Ext}^1$ 的维数. 建议从 `yourfile.log` 中阅读信息.
+
+`quiver` 用于显示路代数的 quiver 表示, 是一个可以自由拖动的小窗.
+
+`PDID` 用于显示投射/内射维数. 其中 $-1$ 表示无限.
+
+`Tilting` 用于显示 tilting 模. 我们采用经典定义: 称一个模 $T$ 是 tilting 模, 若其满足 $\textup{T1-T3}$:
+
+- $\textup{T1}$ $T$ 的投射维数 $\leq 1$,
+- $\textup{T2}$ $\mathrm{Ext}^{\geq 1}(T,T) = 0$,
+- $\textup{T3}$ 存在 $T^0,T^1 \in \mathrm{add}(T)$ 使得有短正合列 $A \rightarrowtail T^0 \twoheadrightarrow T^1$, 此处 $A$ 是路代数.
+
+当选中某个 tilting 模 $T$ 时, 
+
+- 灰色顶点表示 $T$ 的不可分解直和项. 实际上, 灰点数量等于 quiver 的顶点数,
+- 红点与灰点表示 $\mathrm{gen}(T) = \operatorname{Ker}\mathrm{Ext}^1(T,-)$, 即 $T$ 诱导的 torsion class (中的不可分解对象),
+- 绿点表示 $\operatorname{Ker}\mathrm{Hom}(T, -)$, 即 $T$ 诱导的 torsion free class (中的不可分解对象).
+
+![image-20260612222908600](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612222908600.png)
+
+`TorsionCls` 表示 torsion theory. 选中某个 torsion theory 后红/绿点对应 torsion/torsionfree class. 
+
+`CotorsionCls` 表示 cotorsion theory. 选中某个 cotorsion theory 后蓝/红点对应 cotorsion theory 的左/右侧.
+
+- 在 cotorsion theory 中, 部分对象可能同时属于 cotorsion theory 的左/右侧, 我们因此仅对半侧染色.
+- 可以使用 `Ctrl + L` 切至/切回全屏. 
+- 可以双击 `L` 与 `R` 以改变 cotorsion theory 的排序方式.
+
+![image-20260612224442128](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612224442128.png)
+
+`sTauTilt` 表示 support $\tau$-tilting modules. 称二元组 $(P,M)$ 是 support $\tau$-tilting module, 若
+
+- $\mathrm{Hom}(M, \tau M) = 0$, 即 $M$ 是 rigid 的,
+- $\mathrm{Hom}(P, M) = 0$, 其中 $P$ 是投射模,
+- $P$ 的不可分解直和项数与 $M$ 的不可分解直和项数和为 $n$, 即路代数的顶点数.
+
+经合适的排序, 我们可以得到所有 cluster-tilting 对象, 此处也就是 maximal rigid 对象.
+
+`almost sTauTilt` 表示 almost support $\tau$-tilting modules, 介绍略.
