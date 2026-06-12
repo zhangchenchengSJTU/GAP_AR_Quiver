@@ -194,8 +194,22 @@ def parse_quiver_data(quiver_file):
             "hereditary": m.group(3).lower() == "true",
         })
 
+    support_tau_data = []
+    support_tau_match = re.search(r"# --- SupportTauTiltingTable --- #[\s\S]*?(?=# --- AlmostSupportTauTiltingTable --- #|PDID :=|$)", content)
+    support_tau_section = support_tau_match.group(0) if support_tau_match else ""
+    for m in re.finditer(r"^P :=\s*(0|\[[^\]]*\])\s*\|\s*M :=\s*(0|\[[^\]]*\])", support_tau_section, flags=re.M | re.S):
+        support_tau_data.append({"P": parse_class_expr(m.group(1)), "M": parse_class_expr(m.group(2))})
+
+    almost_support_tau_data = []
+    almost_support_tau_match = re.search(r"# --- AlmostSupportTauTiltingTable --- #[\s\S]*?(?=PDID :=|$)", content)
+    almost_support_tau_section = almost_support_tau_match.group(0) if almost_support_tau_match else ""
+    for m in re.finditer(r"^P :=\s*(0|\[[^\]]*\])\s*\|\s*M :=\s*(0|\[[^\]]*\])", almost_support_tau_section, flags=re.M | re.S):
+        almost_support_tau_data.append({"P": parse_class_expr(m.group(1)), "M": parse_class_expr(m.group(2))})
+
     globals()["torsion_pair_data"] = torsion_pair_data
     globals()["cotorsion_pair_data"] = cotorsion_pair_data
+    globals()["support_tau_tilting_data"] = support_tau_data
+    globals()["almost_support_tau_tilting_data"] = almost_support_tau_data
 
     return proj_ids, inj_ids, tors_ids, refl_ids, dot_content, syz_content, translation_content, q_content, rel_content, hom_content, ext_content, tilting_data, quiver_structure, pdid_map
 
@@ -422,6 +436,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     tilting_js = json.dumps(tilting_data or [])
     torsion_pairs_js = json.dumps(globals().get("torsion_pair_data", []))
     cotorsion_pairs_js = json.dumps(globals().get("cotorsion_pair_data", []))
+    support_tau_js = json.dumps(globals().get("support_tau_tilting_data", []))
+    almost_support_tau_js = json.dumps(globals().get("almost_support_tau_tilting_data", []))
     pdid_js = json.dumps(pdid_map or {})
     q_structure_js = json.dumps(quiver_structure or "")
 
@@ -444,6 +460,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const tiltingData = {{TILTING_DATA}};
       const torsionPairData = {{TORSION_PAIR_DATA}};
       const cotorsionPairData = {{COTORSION_PAIR_DATA}};
+      const supportTauTiltingData = {{SUPPORT_TAU_TILTING_DATA}};
+      const almostSupportTauTiltingData = {{ALMOST_SUPPORT_TAU_TILTING_DATA}};
       const pdidMap = {{PDID_MAP}};
       const quiverStructure = {{Q_STRUCTURE}};
       const goldenEdgeSet = new Set(goldenEdges.map(e => `${e[0]}->${e[1]}`));
@@ -649,6 +667,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <input id="cotorsionPairToggle" type="checkbox" /> CotorsionCls
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="supportTauToggle" type="checkbox" /> sTauTilt
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="almostSupportTauToggle" type="checkbox" /> almost sTauTilt
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="showLabelToggle" type="checkbox" /> Label
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
@@ -661,6 +685,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           <div id="tiltingList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:240px; overflow:auto; font-size:12px;"></div>
           <div id="torsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
           <div id="cotorsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
+          <div id="supportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
+          <div id="almostSupportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
         `;
         document.body.appendChild(container);
         function emphasizeNodeSet(ids, color) {
@@ -796,6 +822,18 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           el.style.display = e.target.checked ? 'block' : 'none';
           if (e.target.checked) renderPairList('cotorsionPairList', cotorsionPairData, 'L', 'R', 'Cotorsion pairs', item => `<td style="border:1px solid #ddd; padding:3px;">${item.hereditary ? 'hereditary' : 'non-hereditary'}</td>`);
         });
+        document.getElementById('supportTauToggle').addEventListener('change', (e) => {
+          const el = document.getElementById('supportTauList');
+          if (!el) return;
+          el.style.display = e.target.checked ? 'block' : 'none';
+          if (e.target.checked) renderSupportTauList('supportTauList', supportTauTiltingData, 'Support tau-tilting modules');
+        });
+        document.getElementById('almostSupportTauToggle').addEventListener('change', (e) => {
+          const el = document.getElementById('almostSupportTauList');
+          if (!el) return;
+          el.style.display = e.target.checked ? 'block' : 'none';
+          if (e.target.checked) renderSupportTauList('almostSupportTauList', almostSupportTauTiltingData, 'Almost support tau-tilting modules');
+        });
         document.getElementById('showLabelToggle').addEventListener('change', (e) => {
           showLabels = e.target.checked;
           toggleShowLabels(showLabels);
@@ -867,8 +905,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function resetPairStyles() {
+        pairHighlighted.forEach(id => restoreNodeBase(id));
         pairHighlighted = new Set();
         splitPairHighlights = new Map();
+        network.unselectAll();
         network.redraw();
       }
 
@@ -914,8 +954,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         const T = (tiltingItem.T || []).map(Number).filter(id => Number.isFinite(id) && !L.has(id));
         const F = (tiltingItem.F || []).map(Number).filter(id => Number.isFinite(id) && !L.has(id));
         applyFullFill([...L], '#b5b5b5', nextSet);
-        addSplitFill(T, 'left', '#ffe1c7', nextSet);
-        addSplitFill(F, 'right', '#d9f2d9', nextSet);
+        applyFullFill(T, '#ffe1c7', nextSet);
+        applyFullFill(F, '#d9f2d9', nextSet);
         tiltingHighlighted = nextSet;
         pairHighlighted = nextSet;
         network.unselectAll();
@@ -926,8 +966,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         resetTiltingStyles();
         resetPairStyles();
         const nextSet = new Set();
-        addSplitFill(item.T || [], 'left', '#ffe1c7', nextSet);
-        addSplitFill(item.F || [], 'right', '#d9f2d9', nextSet);
+        applyFullFill(item.T || [], '#ffe1c7', nextSet);
+        applyFullFill(item.F || [], '#d9f2d9', nextSet);
         pairHighlighted = nextSet;
         network.unselectAll();
         network.redraw();
@@ -944,69 +984,137 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         network.redraw();
       }
 
+      function applySupportTauHighlight(item) {
+        resetTiltingStyles();
+        resetPairStyles();
+        const nextSet = new Set();
+        applyFullFill(item.P || [], '#dbeafe', nextSet);
+        applyFullFill(item.M || [], '#d1d5db', nextSet);
+        pairHighlighted = nextSet;
+        network.unselectAll();
+        network.redraw();
+      }
+
       function displayClassList(arr) {
         return (!arr || arr.length === 0) ? '0' : arr.join(',');
       }
 
-      function renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer, options = {}) {
+      const listStates = new Map();
+
+      function listLexCompare(a, b) {
+        const aa = (a || []).map(Number);
+        const bb = (b || []).map(Number);
+        const n = Math.min(aa.length, bb.length);
+        for (let i = 0; i < n; i += 1) {
+          if (aa[i] !== bb[i]) return aa[i] - bb[i];
+        }
+        return aa.length - bb.length;
+      }
+
+      function compareByColumn(a, b, key, mode) {
+        const av = a.item[key] || [];
+        const bv = b.item[key] || [];
+        if (mode === 'lenlex' && av.length !== bv.length) return av.length - bv.length;
+        const c = listLexCompare(av, bv);
+        if (c !== 0) return c;
+        return a.originalIndex - b.originalIndex;
+      }
+
+      function ensureListState(containerId, defaultKey) {
+        if (!listStates.has(containerId)) {
+          listStates.set(containerId, { sortKey: defaultKey, sortMode: 'lex', selectedIndex: 0, rows: [] });
+        }
+        return listStates.get(containerId);
+      }
+
+      function activateButtonListRow(containerId, displayIndex) {
+        const state = listStates.get(containerId);
+        if (!state || !state.rows.length) return;
+        const bounded = Math.max(0, Math.min(displayIndex, state.rows.length - 1));
+        state.selectedIndex = bounded;
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        el.querySelectorAll('button[data-row]').forEach((btn, idx) => {
+          const active = idx === bounded;
+          btn.classList.toggle('tilting-btn-active', active);
+          if (active) btn.focus({ preventScroll: true });
+        });
+        state.apply(state.rows[bounded].item);
+      }
+
+      function renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra) {
         const el = document.getElementById(containerId);
         if (!el) return;
         if (!data || data.length === 0) {
           el.innerHTML = `<b>${title}</b><br/><span style="color:#666;">No data.</span>`;
           return;
         }
-        const isTorsion = options.kind === 'torsion';
-        const rows = data.map((item, idx) => {
-          const left = item[leftKey] || [];
-          const right = item[rightKey] || [];
-          const tilting = isTorsion ? findTiltingForTorsionPair(item) : null;
-          const tiltingCell = isTorsion
-            ? `<td style="border:1px solid #ddd; padding:3px; cursor:${tilting ? 'pointer' : 'default'}; color:${tilting ? '#0f766e' : '#999'};" data-tilting="${tilting ? tilting.index : ''}">${tilting ? `yes L=[${(tilting.item.L || []).join(',')}]` : 'no'}</td>`
-            : '';
-          const extra = extraRenderer ? extraRenderer(item) : '';
-          return `<tr data-row="${idx}" style="cursor:pointer;">
-            <td style="border:1px solid #ddd; padding:3px;">${idx + 1}</td>
-            <td style="border:1px solid #ddd; padding:3px;" data-left="${displayClassList(left)}">${displayClassList(left)}</td>
-            <td style="border:1px solid #ddd; padding:3px;" data-right="${displayClassList(right)}">${displayClassList(right)}</td>
-            ${tiltingCell}
-            ${extra}
-          </tr>`;
+        const state = ensureListState(containerId, columns[0].key);
+        state.apply = applyFn;
+        let rows = data.map((item, originalIndex) => ({ item, originalIndex }));
+        rows.sort((a, b) => compareByColumn(a, b, state.sortKey, state.sortMode));
+        state.rows = rows;
+        if (state.selectedIndex >= rows.length) state.selectedIndex = rows.length - 1;
+
+        const modeText = state.sortMode === 'lex' ? '字典序' : '数量+字典序';
+        const headerButtons = columns.map(col => {
+          const active = state.sortKey === col.key;
+          return `<button type="button" data-sort-key="${col.key}" style="font-size:11px; margin-right:4px; padding:2px 6px; border:1px solid ${active ? '#0f766e' : '#ccc'}; border-radius:4px; background:${active ? '#ccfbf1' : '#fff'}; cursor:pointer;">${col.label}${active ? ` (${modeText})` : ''}</button>`;
         }).join('');
-        const tiltingHeader = isTorsion ? '<th>Tilting</th>' : '';
-        el.innerHTML = `<b>${title}</b><table style="border-collapse:collapse; width:100%; margin-top:4px; font-family:monospace; font-size:11px;">
-          <thead><tr><th>#</th><th>${leftKey}</th><th>${rightKey}</th>${tiltingHeader}${extraRenderer ? '<th>Info</th>' : ''}</tr></thead>
-          <tbody>${rows}</tbody></table>`;
-        el.querySelectorAll('tr[data-row]').forEach(row => row.addEventListener('click', (event) => {
-          const idx = Number(row.getAttribute('data-row'));
-          const item = data[idx];
-          if (!item) return;
-          if (event.target && event.target.getAttribute && event.target.getAttribute('data-tilting') !== null) {
-            const tIdxRaw = event.target.getAttribute('data-tilting');
-            if (tIdxRaw !== '') {
-              const tIdx = Number(tIdxRaw);
-              if (Number.isFinite(tIdx) && tiltingData[tIdx]) {
-                applyTiltingTorsionPairHighlight(tiltingData[tIdx]);
-                setActiveTilting(tIdx);
-                document.getElementById('tiltingList').style.display = 'block';
-                document.getElementById('tiltingToggle').checked = true;
-              }
-            }
-            return;
-          }
+        const items = rows.map((row, idx) => {
+          const body = columns.map(col => `${col.label}=[${displayClassList(row.item[col.key] || [])}]`).join(' | ');
+          const extra = formatExtra ? formatExtra(row.item) : '';
+          return `<button type="button" data-row="${idx}" style="display:block; width:100%; text-align:left; margin:2px 0; padding:4px 6px; border:1px solid #ddd; border-radius:4px; background:#fff; font-family:monospace; font-size:11px; cursor:pointer;">${idx + 1}. ${body}${extra}</button>`;
+        }).join('');
+        el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
+        el.querySelectorAll('button[data-sort-key]').forEach(btn => btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-sort-key');
+          if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
+          else { state.sortKey = key; state.sortMode = 'lex'; }
+          state.selectedIndex = 0;
+          renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
+        }));
+        el.querySelectorAll('button[data-row]').forEach(btn => {
+          btn.addEventListener('click', () => activateButtonListRow(containerId, Number(btn.getAttribute('data-row'))));
+          btn.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowDown') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex + 1); }
+            if (event.key === 'ArrowUp') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex - 1); }
+          });
+        });
+      }
+
+      function renderSupportTauList(containerId, data, title) {
+        renderButtonRecordList(containerId, data, title, [{ key: 'P', label: 'P' }, { key: 'M', label: 'M' }], applySupportTauHighlight);
+      }
+
+      function renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer, options = {}) {
+        const isTorsion = options.kind === 'torsion';
+        const applyFn = (item) => {
           if (isTorsion) {
             const tilting = findTiltingForTorsionPair(item);
             if (tilting) {
               applyTiltingTorsionPairHighlight(tilting.item);
               setActiveTilting(tilting.index);
-              document.getElementById('tiltingList').style.display = 'block';
-              document.getElementById('tiltingToggle').checked = true;
+              const tl = document.getElementById('tiltingList');
+              const tt = document.getElementById('tiltingToggle');
+              if (tl) tl.style.display = 'block';
+              if (tt) tt.checked = true;
             } else {
               applyTorsionPairHighlight(item);
             }
           } else {
             applyCotorsionPairHighlight(item);
           }
-        }));
+        };
+        const formatExtra = (item) => {
+          if (isTorsion) {
+            const tilting = findTiltingForTorsionPair(item);
+            return tilting ? ` | Tilting=yes L=[${displayClassList(tilting.item.L || [])}]` : ' | Tilting=no';
+          }
+          if (extraRenderer) return ` | ${item.hereditary ? 'hereditary' : 'non-hereditary'}`;
+          return '';
+        };
+        renderButtonRecordList(containerId, data, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra);
       }
 
       function renderTiltingList() {
@@ -1871,6 +1979,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     js_injection = js_injection.replace("{{TILTING_DATA}}", tilting_js)
     js_injection = js_injection.replace("{{TORSION_PAIR_DATA}}", torsion_pairs_js)
     js_injection = js_injection.replace("{{COTORSION_PAIR_DATA}}", cotorsion_pairs_js)
+    js_injection = js_injection.replace("{{SUPPORT_TAU_TILTING_DATA}}", support_tau_js)
+    js_injection = js_injection.replace("{{ALMOST_SUPPORT_TAU_TILTING_DATA}}", almost_support_tau_js)
     js_injection = js_injection.replace("{{PDID_MAP}}", pdid_js)
     js_injection = js_injection.replace("{{Q_STRUCTURE}}", q_structure_js)
 

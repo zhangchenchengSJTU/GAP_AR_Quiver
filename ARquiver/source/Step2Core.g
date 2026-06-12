@@ -1775,6 +1775,142 @@ WriteCotorsionPairs := function(fname, verts, ext_dim, syz_edges)
     AppendTo(fname, "CotorsionPairCount := ", Length(pairs), ";\n");
 end;;
 
+
+IsTauRigidSet := function(module_set, hom_dim, tau_map)
+    local i, j, tauj;
+    for i in module_set do
+        for j in module_set do
+            tauj := tau_map[j];
+            if tauj <> fail and hom_dim[i][tauj] <> 0 then
+                return false;
+            fi;
+        od;
+    od;
+    return true;
+end;;
+
+CompatibleProjectivesForTauPair := function(projective_node_ids, module_set, hom_dim)
+    local compatible, p, m, ok;
+    compatible := [];
+    for p in projective_node_ids do
+        ok := true;
+        for m in module_set do
+            if hom_dim[p][m] <> 0 then
+                ok := false;
+                break;
+            fi;
+        od;
+        if ok then
+            Add(compatible, p);
+        fi;
+    od;
+    Sort(compatible);
+    return compatible;
+end;;
+
+ChooseSubsetsOfSize := function(items, reqSize)
+    local result, current, recfun;
+    result := [];
+    current := [];
+    recfun := function(pos)
+        if Length(current) = reqSize then
+            Add(result, ShallowCopy(current));
+            return;
+        fi;
+        if pos > Length(items) then
+            return;
+        fi;
+        if Length(current) + Length(items) - pos + 1 < reqSize then
+            return;
+        fi;
+        Add(current, items[pos]);
+        recfun(pos + 1);
+        Remove(current, Length(current));
+        recfun(pos + 1);
+    end;;
+    if reqSize < 0 then
+        return result;
+    fi;
+    recfun(1);
+    return result;
+end;;
+
+CollectSupportTauPairsBySize := function(verts, projective_node_ids, hom_dim, tau_map, totalSize)
+    local zero_ids, candidates, pairs, seen, current, addPairsForCurrent, backtrack,
+        compatibleP, needP, pset, key, i, canUse, x, taux, taui;
+    zero_ids := ZeroNodeIds(verts);
+    candidates := Filtered([1..Length(verts)], i -> not (i in zero_ids));
+    pairs := [];
+    seen := [];
+    current := [];
+
+    addPairsForCurrent := function()
+        local compatibleP, needP, pset, key;
+        if Length(current) > totalSize then
+            return;
+        fi;
+        compatibleP := CompatibleProjectivesForTauPair(projective_node_ids, current, hom_dim);
+        needP := totalSize - Length(current);
+        for pset in ChooseSubsetsOfSize(compatibleP, needP) do
+            key := Concatenation(CompactListString(pset), "|", CompactListString(current));
+            if not (key in seen) then
+                Add(seen, key);
+                Add(pairs, rec(P := ShallowCopy(pset), M := ShallowCopy(current)));
+            fi;
+        od;
+    end;;
+
+    backtrack := function(pos)
+        local i, canUse, x, taux, taui;
+        if Length(current) <= totalSize and IsTauRigidSet(current, hom_dim, tau_map) then
+            addPairsForCurrent();
+        fi;
+        if pos > Length(candidates) or Length(current) = totalSize then
+            return;
+        fi;
+        for i in [pos..Length(candidates)] do
+            canUse := true;
+            taui := tau_map[candidates[i]];
+            for x in current do
+                taux := tau_map[x];
+                if (taui <> fail and hom_dim[x][taui] <> 0) or (taux <> fail and hom_dim[candidates[i]][taux] <> 0) then
+                    canUse := false;
+                    break;
+                fi;
+            od;
+            if canUse then
+                Add(current, candidates[i]);
+                backtrack(i + 1);
+                Remove(current, Length(current));
+            fi;
+        od;
+    end;;
+
+    backtrack(1);
+    SortBy(pairs, r -> [r.P, r.M]);
+    return pairs;
+end;;
+
+WriteSupportTauTiltingPairs := function(fname, verts, projective_node_ids, hom_dim, tau_map)
+    local support_pairs, almost_pairs, pair;
+    support_pairs := CollectSupportTauPairsBySize(verts, projective_node_ids, hom_dim, tau_map, n_verts);
+    almost_pairs := CollectSupportTauPairsBySize(verts, projective_node_ids, hom_dim, tau_map, n_verts - 1);
+
+    AppendTo(fname, "\n# --- SupportTauTiltingTable --- #\n");
+    AppendTo(fname, "# columns: P,M\n");
+    for pair in support_pairs do
+        AppendTo(fname, "P := ", ClassStringWithoutZeros(pair.P, []), " | M := ", ClassStringWithoutZeros(pair.M, []), "\n");
+    od;
+    AppendTo(fname, "SupportTauTiltingCount := ", Length(support_pairs), ";\n");
+
+    AppendTo(fname, "\n# --- AlmostSupportTauTiltingTable --- #\n");
+    AppendTo(fname, "# columns: P,M\n");
+    for pair in almost_pairs do
+        AppendTo(fname, "P := ", ClassStringWithoutZeros(pair.P, []), " | M := ", ClassStringWithoutZeros(pair.M, []), "\n");
+    od;
+    AppendTo(fname, "AlmostSupportTauTiltingCount := ", Length(almost_pairs), ";\n");
+end;;
+
 WriteTranslationQuiver := function(fname, verts, dim_vectors, tau_map)
     local idx, label_str, posN;
     AppendTo(fname, "\n\ndigraph TranslationQuiver {\n");
@@ -1837,6 +1973,7 @@ GenerateQuiverData := function(A, N, arg)
 
     WriteTorsionPairs(res.fname, res.verts, hom_dim);
     WriteCotorsionPairs(res.fname, res.verts, ext_dim, syz_edges);
+    WriteSupportTauTiltingPairs(res.fname, res.verts, res.projective_node_ids, hom_dim, tau_map);
 
     WriteProjInjDimsFromCache(res.fname, pdid);
 
