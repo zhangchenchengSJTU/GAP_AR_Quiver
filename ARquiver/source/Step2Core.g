@@ -201,23 +201,17 @@ IrrFromGuess := function(M)
     return [];
 end;
 
-# ===== Step2.ipynb cell 4 =====
-# --- Read Config from Step1.txt ---
-candidates := [
-    "Step1.txt",
-    "ARquiver/Step1.txt",
-    "/home/czhang/GapDocs/ARquiver/Step1.txt"
-];;
-step1_path := fail;;
-for path in candidates do
-    if IsReadableFile(path) then
-        step1_path := path;;
-        break;;
-    fi;
-od;
+# ===== Source input config =====
+if not IsBoundGlobal("input_txt_path") then
+    input_txt_path := "Step1.txt";;
+fi;
+if not IsBoundGlobal("output_log_path") then
+    output_log_path := fail;;
+fi;
 
-if step1_path = fail then
-    Error("Step1.txt not found! Checked: ", candidates);
+step1_path := input_txt_path;;
+if not IsReadableFile(step1_path) then
+    Error("Input txt file not found: ", step1_path);
 fi;
 
 Print("Reading config from: ", step1_path, "\n");
@@ -242,9 +236,11 @@ guess := false;;
 
 if PositionSublist(file_content, "\\begin{tikzcd}") <> fail then
     parser_candidates := [
+        "source/Step1Parser.g",
         "Step1Parser.g",
+        "ARquiver/source/Step1Parser.g",
         "ARquiver/Step1Parser.g",
-        "/home/czhang/GapDocs/ARquiver/Step1Parser.g"
+        "/home/czhang/GapDocs/ARquiver/source/Step1Parser.g"
     ];;
     parser_path := fail;;
     for path in parser_candidates do
@@ -562,10 +558,12 @@ DrawIrreducibleDiagram := function(A, N, arg)
     # --- 1. I/O setup ---
     # Use current working directory so Binder/Jupyter can write output
     outDir := Directory(".");
-    if Length(arg) = 0 then
-        fname := Filename(outDir, "quiver_labeled.txt");
+    if IsBoundGlobal("output_log_path") and output_log_path <> fail then
+        fname := output_log_path;
+    elif Length(arg) = 0 then
+        fname := Filename(outDir, "quiver_labeled.log");
     else
-        fname := Filename(outDir, Concatenation("quiver_", arg, ".txt"));
+        fname := Filename(outDir, Concatenation(arg, ".log"));
     fi;
 
     P := IndecProjectiveModules(A);;
@@ -861,10 +859,12 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         CloseMesh, ExpandByIrr;
 
     outDir := Directory(".");
-    if Length(arg) = 0 then
-        fname := Filename(outDir, "quiver_labeled.txt");
+    if IsBoundGlobal("output_log_path") and output_log_path <> fail then
+        fname := output_log_path;
+    elif Length(arg) = 0 then
+        fname := Filename(outDir, "quiver_labeled.log");
     else
-        fname := Filename(outDir, Concatenation("quiver_", arg, ".txt"));
+        fname := Filename(outDir, Concatenation(arg, ".log"));
     fi;
 
     P := IndecProjectiveModules(A);;

@@ -1,174 +1,409 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8">
-        
-            <script src="lib/bindings/utils.js"></script>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-            
-        
-<center>
-<h1></h1>
-</center>
 
-<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
-<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
-        <link
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
-          crossorigin="anonymous"
-        />
-        <script
-          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
-          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
-          crossorigin="anonymous"
-        ></script>
+# ===== Step3.ipynb cell 0 =====
+import re
+import json
+import ast
+from pyvis.network import Network
+from typing import Union
+from pathlib import Path
+BASE_DIR = Path.cwd()
 
-
-        <center>
-          <h1></h1>
-        </center>
-        <style type="text/css">
-
-             #mynetwork {
-                 width: 100%;
-                 height: 750px;
-                 background-color: #ffffff;
-                 border: 1px solid lightgray;
-                 position: relative;
-                 float: left;
-             }
-
-             
-
-             
-
-             
-        </style>
-    </head>
-
-
-    <body>
-        <div class="card" style="width: 100%">
-            
-            
-            <div id="mynetwork" class="card-body"></div>
-        </div>
-
-        
-        
-
-        <script type="text/javascript">
-
-              // initialize global variables.
-              var edges;
-              var nodes;
-              var allNodes;
-              var allEdges;
-              var nodeColors;
-              var originalNodes;
-              var network;
-              var container;
-              var options, data;
-              var filter = {
-                  item : '',
-                  property : '',
-                  value : []
-              };
-
-              
-
-              
-
-              // This method is responsible for drawing the graph, returns the drawn network
-              function drawGraph() {
-                  var container = document.getElementById('mynetwork');
-
-                  
-
-                  // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "blue", "highlight": {"background": "#D2E5FF", "border": "blue"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 1, "label": "1   1  \n  0   0", "shape": "ellipse", "title": "Node 1\u003cbr\u003e1   1  \n  0   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "blue", "highlight": {"background": "#D2E5FF", "border": "blue"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 2, "label": "1   1  \n  1   0", "shape": "ellipse", "title": "Node 2\u003cbr\u003e1   1  \n  1   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "purple", "highlight": {"background": "#D2E5FF", "border": "purple"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 3, "label": "1   1  \n  1   0", "shape": "ellipse", "title": "Node 3\u003cbr\u003e1   1  \n  1   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "blue", "highlight": {"background": "#D2E5FF", "border": "blue"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 4, "label": "1   0  \n  0   1", "shape": "ellipse", "title": "Node 4\u003cbr\u003e1   0  \n  0   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 5, "label": "1   0  \n  0   0", "shape": "ellipse", "title": "Node 5\u003cbr\u003e1   0  \n  0   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 6, "label": "1   0  \n  1   0", "shape": "ellipse", "title": "Node 6\u003cbr\u003e1   0  \n  1   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "red", "highlight": {"background": "#D2E5FF", "border": "red"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 7, "label": "1   1  \n  1   1", "shape": "ellipse", "title": "Node 7\u003cbr\u003e1   1  \n  1   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "red", "highlight": {"background": "#D2E5FF", "border": "red"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 8, "label": "0   0  \n  0   1", "shape": "ellipse", "title": "Node 8\u003cbr\u003e0   0  \n  0   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 10, "label": "1   0  \n  1   1", "shape": "ellipse", "title": "Node 10\u003cbr\u003e1   0  \n  1   1"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 11, "label": "0   0  \n  1   0", "shape": "ellipse", "title": "Node 11\u003cbr\u003e0   0  \n  1   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "red", "highlight": {"background": "#D2E5FF", "border": "red"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 12, "label": "0   1  \n  1   0", "shape": "ellipse", "title": "Node 12\u003cbr\u003e0   1  \n  1   0"}, {"borderWidth": 3, "borderWidthSelected": 5, "color": {"background": "white", "border": "gray", "highlight": {"background": "#D2E5FF", "border": "gray"}}, "font": {"align": "center", "bold": true, "color": "black", "face": "monospace", "size": 14, "vadjust": 0}, "id": 13, "label": "0   1  \n  0   0", "shape": "ellipse", "title": "Node 13\u003cbr\u003e0   1  \n  0   0"}]);
-                  edges = new vis.DataSet([{"arrows": "to", "from": 1, "to": 5}, {"arrows": "to", "from": 1, "to": 3}, {"arrows": "to", "from": 2, "to": 7}, {"arrows": "to", "from": 3, "to": 6}, {"arrows": "to", "from": 4, "to": 10}, {"arrows": "to", "from": 5, "to": 6}, {"arrows": "to", "from": 5, "to": 4}, {"arrows": "to", "from": 7, "to": 12}, {"arrows": "to", "from": 7, "to": 8}, {"arrows": "to", "from": 6, "to": 2}, {"arrows": "to", "from": 6, "to": 10}, {"arrows": "to", "from": 10, "to": 11}, {"arrows": "to", "from": 10, "to": 7}, {"arrows": "to", "from": 11, "to": 12}, {"arrows": "to", "from": 12, "to": 13}, {"arrows": "to", "from": 13, "to": 1}]);
-
-                  nodeColors = {};
-                  allNodes = nodes.get({ returnType: "Object" });
-                  for (nodeId in allNodes) {
-                    nodeColors[nodeId] = allNodes[nodeId].color;
-                  }
-                  allEdges = edges.get({ returnType: "Object" });
-                  // adding nodes and edges to the graph
-                  data = {nodes: nodes, edges: edges};
-
-                  var options = {
-    "configure": {
-        "enabled": false
-    },
-    "edges": {
-        "color": {
-            "inherit": true
-        },
-        "smooth": {
-            "enabled": true,
-            "type": "dynamic"
-        }
-    },
-    "interaction": {
-        "dragNodes": true,
-        "hideEdgesOnDrag": false,
-        "hideNodesOnDrag": false
-    },
-    "physics": {
-        "enabled": true,
-        "stabilization": {
-            "enabled": true,
-            "fit": true,
-            "iterations": 1000,
-            "onlyDynamicEdges": false,
-            "updateInterval": 50
-        }
-    }
-};
-
-                  
-
-
-                  
-
-                  network = new vis.Network(container, data, options);
-
-                  
-
-                  
-
-                  
-
-
-                  
-
-                  return network;
-
-              }
-              drawGraph();
-        </script>
+# ===== Step3.ipynb cell 1 =====
+def parse_dot_string(dot_string):
+    nodes = {}
+    edges = []
     
+    # Determine if we are just parsing simple edges or full nodes
+    # Pattern for nodes: ID [label="..."];
+    # Support alphanumeric IDs
+    # Relaxes regex to handle attributes more flexibly
+    node_pattern = re.compile(r'^\s*(\w+)\s*\[.*?label="(.*?)".*?\]\s*;\s*$', re.MULTILINE)
+    # Pattern for edges: U -> V [label="..."]; or U -> V;
+    edge_pattern = re.compile(r'^\s*(\w+)\s*->\s*(\w+)\s*(?:\[.*?label="(.*?)".*?\])?\s*;\s*$', re.MULTILINE)
+
+    # Parse nodes
+    for match in node_pattern.finditer(dot_string):
+        nid_str = match.group(1)
+        nid = int(nid_str) if nid_str.isdigit() else nid_str
+        label = match.group(2)
+        nodes[nid] = {'label': label}
+
+    # Parse edges
+    for match in edge_pattern.finditer(dot_string):
+        u_str = match.group(1)
+        v_str = match.group(2)
+        u = int(u_str) if u_str.isdigit() else u_str
+        v = int(v_str) if v_str.isdigit() else v_str
+        label = match.group(3)
+        if label:
+            edges.append((u, v, label))
+        else:
+            edges.append((u, v))
+            
+    return nodes, edges
+
+# Alias: parse_dot_string already handles edge labels
+parse_dot_string_with_edge_labels = parse_dot_string
+
+# ===== Step3.ipynb cell 2 =====
+def parse_quiver_data(quiver_file):
+    # 读取文件内容
+    try:
+        with open(quiver_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except FileNotFoundError:
+        return None, None, None, None, None, None, None, None, None, None, None, None, None, None
+    # Keep a global reference for translation-quiver extraction
+    globals()["input_file"] = quiver_file
+    # 使用正则表达式提取投射/内射模
+    proj_match = re.search(r"Projective modules found \(Node IDs\): \[(.*?)\]", content)
+    inj_match = re.search(r"Injective modules found \(Node IDs\):  \[(.*?)\]", content)
+    tors_match = re.search(r"Torsionless modules found \(Node IDs\): \[(.*?)\]", content)
+    refl_match = re.search(r"Reflexive modules found \(Node IDs\):  \[(.*?)\]", content)
+    gp_match = re.search(r"Gorenstein projective modules found \(Node IDs\): \[(.*?)\]", content)
+    gi_match = re.search(r"Gorenstein injective modules found \(Node IDs\):  \[(.*?)\]", content)
+    # 提取投射模/内射模 ID.
+    def parse_id_set(match):
+        if not match or not match.group(1):
+            return set()
+        raw = match.group(1).strip()
+        if not raw:
+            return set()
+        return {int(n) for n in re.split(r"\s*,\s*", raw) if n.strip()}
+    proj_ids = parse_id_set(proj_match)
+    inj_ids = parse_id_set(inj_match)
+    tors_ids = parse_id_set(tors_match)
+    refl_ids = parse_id_set(refl_match)
+    gp_ids = parse_id_set(gp_match)
+    gi_ids = parse_id_set(gi_match)
+    globals()["gorenstein_projective_ids"] = gp_ids
+    globals()["gorenstein_injective_ids"] = gi_ids
+    dot_match = re.search(r"digraph Quiver {([\s\S]*?)}", content)
+    if not dot_match:
+        return None, None, None, None, None, None, None, None, None, None, None, None, None, None
+    dot_content = "digraph Quiver {" + dot_match.group(1) + "}"
+    syz_match = re.search(r"digraph SyzygySummand {([\s\S]*?)}", content)
+    syz_content = None
+    if syz_match:
+        syz_content = "digraph SyzygySummand {" + syz_match.group(1) + "}"
+    trans_match = re.search(r"digraph\s+TranslationQuiver\s*\{([\s\S]*?)\}", content)
+    translation_content = None
+    if trans_match:
+        translation_content = "digraph TranslationQuiver {" + trans_match.group(1) + "}"
+    q_match = re.search(r"digraph Q {([\s\S]*?)}", content)
+    q_content = None
+    if q_match:
+        q_content = "digraph Q {" + q_match.group(1) + "}"
+    hom_match = re.search(r"digraph HomDim {([\s\S]*?)}", content)
+    hom_content = None
+    if hom_match:
+        hom_content = "digraph HomDim {" + hom_match.group(1) + "}"
+    ext_match = re.search(r"digraph ExtDim {([\s\S]*?)}", content)
+    ext_content = None
+    if ext_match:
+        ext_content = "digraph ExtDim {" + ext_match.group(1) + "}"
+    rel_match = re.search(r"rel := ([^;\n]+);", content)
+    rel_content = rel_match.group(1).strip() if rel_match else None
+    # QuiverStructure (optional)
+    structure_matches = re.findall(r"QuiverStructure\s*:=\s*\"(.*?)\"", content)
+    quiver_structure = structure_matches[-1] if structure_matches else None
+    # PD/ID data
+    pdid_map = {}
+    pdid_match = re.search(r"PDID\s*:=\s*(\[[\s\S]*?\]);", content)
+    if pdid_match:
+        try:
+            pdid_list = ast.literal_eval(pdid_match.group(1))
+            for row in pdid_list:
+                if isinstance(row, (list, tuple)) and len(row) >= 3:
+                    pdid_map[int(row[0])] = {"pd": int(row[1]), "id": int(row[2])}
+        except Exception:
+            pdid_map = {}
+    # Tilting data: parse L/F/T blocks
+    def parse_list_line(raw_line: str):
+        raw = (raw_line or "").strip()
+        if not raw:
+            return []
+        return [int(n) for n in re.split(r"\s*,\s*", raw) if n.strip()]
+    
+    tilting_data = []
+# Old line (fails in Python 3.6):
+    # blocks = re.split(r'(?=^L := )', content, flags=re.M)
+
+    # New code (compatible with Python 3.6+):
+    # We split ON the delimiter but KEEP it by using a capturing group (...)
+    split_result = re.split(r'(^L := )', content, flags=re.M)
+    
+    # The output is now like: ['', 'L := ', 'content1', 'L := ', 'content2', ...]
+    # We need to reconstruct the full blocks.
+    blocks = []
+    # If the file doesn't start with the delimiter, the first chunk is valid content
+    if split_result and split_result[0].strip():
+        blocks.append(split_result[0])
+        
+    # Iterate through the list, taking the delimiter and its following text chunk in pairs
+    for i in range(1, len(split_result), 2):
+        # The delimiter is at index i, the content is at i+1
+        delimiter = split_result[i]
+        text_chunk = split_result[i+1] if (i+1) < len(split_result) else ""
+        blocks.append(delimiter + text_chunk)
+    for block in blocks:
+        if not block.strip(): continue
+        l_match = re.search(r"^L := \[(.*?)\]", block, re.M)
+        f_match = re.search(r"^F := \[(.*?)\]", block, re.M)
+        t_match = re.search(r"^T := \[(.*?)\]", block, re.M)
+        
+        if l_match and f_match and t_match:
+            has_split = "Split" in block
+            tilting_data.append({
+                "L": parse_list_line(l_match.group(1)),
+                "F": parse_list_line(f_match.group(1)),
+                "T": parse_list_line(t_match.group(1)),
+                "split": has_split
+            })
+            
+
+    torsion_pair_data = []
+    for m in re.finditer(r"^T := \[([^\]]*)\]\s*\|\s*F := \[([^\]]*)\]", content, flags=re.M):
+        torsion_pair_data.append({
+            "T": parse_list_line(m.group(1)),
+            "F": parse_list_line(m.group(2)),
+        })
+
+    cotorsion_pair_data = []
+    for m in re.finditer(r"^L := \[([^\]]*)\]\s*\|\s*R :=\s*\[([^\]]*)\]\s*\|\s*Hereditary :=\s*(true|false)", content, flags=re.M | re.I):
+        cotorsion_pair_data.append({
+            "L": parse_list_line(m.group(1)),
+            "R": parse_list_line(m.group(2)),
+            "hereditary": m.group(3).lower() == "true",
+        })
+
+    globals()["torsion_pair_data"] = torsion_pair_data
+    globals()["cotorsion_pair_data"] = cotorsion_pair_data
+
+    return proj_ids, inj_ids, tors_ids, refl_ids, dot_content, syz_content, translation_content, q_content, rel_content, hom_content, ext_content, tilting_data, quiver_structure, pdid_map
+
+# ===== Step3.ipynb cell 3 =====
+def calculate_initial_layout(golden_edges, x_spacing=250, y_spacing=150):
+    """
+    Return empty layout to let the physics engine place nodes by default.
+    When positions are provided, those nodes will be fixed in place.
+    """
+    return {}
+
+# ===== Step3.ipynb cell 4 =====
+def create_and_save_quiver_html(quiver_filepath, output_filename):
+    proj_ids, inj_ids, tors_ids, refl_ids, dot_content, syz_content, trans_content, q_dot_content, rel_content, hom_content, ext_content, tilting_data, quiver_structure, pdid_map = parse_quiver_data(quiver_filepath)
+    if dot_content is None:
+        print(f"❌ 未找到 quiver 文件或其中不含 dot 图：{quiver_filepath}")
+        return
+
+    nodes_data, edges_data = parse_dot_string(dot_content)
+    syz_edges = []
+    syz_nodes_data = None
+    if syz_content:
+        syz_nodes_data, syz_edges = parse_dot_string(syz_content)
+
+    golden_edges = []
+    if trans_content:
+        _, trans_edges_data = parse_dot_string(trans_content)
+        # trans_edges_data usually contains tuples (u, v, label). We just want (u, v).
+        golden_edges = [(e[0], e[1]) for e in trans_edges_data]
+    
+    # Prefer dimension vectors from SyzygySummand labels when available
+    dim_map = {}
+    if syz_nodes_data:
+        for nid, attrs in syz_nodes_data.items():
+            lbl = attrs.get('label', '')
+            try:
+                val = json.loads(lbl)
+            except Exception:
+                val = None
+            if isinstance(val, list):
+                dim_map[nid] = val
+    
+    q_nodes = []
+    q_edges = []
+    if q_dot_content:
+        q_nodes_data, q_edges_data = parse_dot_string_with_edge_labels(q_dot_content)
+        # Map "v1" → id=1, "v2" → id=2 etc. so edges (which use numeric IDs) connect correctly
+        # Label uses the numeric part only: "v1" → "1"
+        for nid, attrs in q_nodes_data.items():
+            numeric_id = nid
+            if isinstance(nid, str):
+                m = re.match(r'^[a-zA-Z]+(\d+)$', nid)
+                if m:
+                    numeric_id = int(m.group(1))
+            q_nodes.append({"id": numeric_id, "label": str(numeric_id)})
+        q_edges = q_edges_data
+        if len(q_nodes) == 0 and len(q_edges) > 0:
+            node_ids = sorted({e[0] for e in q_edges} | {e[1] for e in q_edges})
+            q_nodes = [{"id": nid, "label": str(nid)} for nid in node_ids]
+    hom_edges = []
+    if hom_content:
+        _, hom_edges = parse_dot_string_with_edge_labels(hom_content)
+    ext_edges = []
+    if ext_content:
+        _, ext_edges = parse_dot_string_with_edge_labels(ext_content)
+
+# ===== Step3.ipynb cell 5 =====
+def create_and_save_quiver_html(quiver_filepath, output_filename):
+    proj_ids, inj_ids, tors_ids, refl_ids, dot_content, syz_content, trans_content, q_dot_content, rel_content, hom_content, ext_content, tilting_data, quiver_structure, pdid_map = parse_quiver_data(quiver_filepath)
+    if dot_content is None:
+        print(f"❌ 未找到 quiver 文件或其中不含 dot 图：{quiver_filepath}")
+        return
+
+    nodes_data, edges_data = parse_dot_string(dot_content)
+    syz_edges = []
+    syz_nodes_data = None
+    if syz_content:
+        syz_nodes_data, syz_edges = parse_dot_string(syz_content)
+
+    golden_edges = []
+    if trans_content:
+        _, trans_edges_data = parse_dot_string(trans_content)
+        # trans_edges_data usually contains tuples (u, v, label). We just want (u, v).
+        golden_edges = [(e[0], e[1]) for e in trans_edges_data]
+    
+    # Prefer dimension vectors from SyzygySummand labels when available
+    dim_map = {}
+    if syz_nodes_data:
+        for nid, attrs in syz_nodes_data.items():
+            lbl = attrs.get('label', '')
+            try:
+                val = json.loads(lbl)
+            except Exception:
+                val = None
+            if isinstance(val, list):
+                dim_map[nid] = val
+    
+    q_nodes = []
+    q_edges = []
+    if q_dot_content:
+        q_nodes_data, q_edges_data = parse_dot_string_with_edge_labels(q_dot_content)
+        # Map "v1" -> id=1, "v2" -> id=2 etc. so edges (which use numeric IDs) connect correctly
+        # Label uses the numeric part only: "v1" -> "1"
+        for nid, attrs in q_nodes_data.items():
+            numeric_id = nid
+            if isinstance(nid, str):
+                m = re.match(r'^[a-zA-Z]+(\d+)$', nid)
+                if m:
+                    numeric_id = int(m.group(1))
+            q_nodes.append({"id": numeric_id, "label": str(numeric_id)})
+        q_edges = q_edges_data
+        if len(q_nodes) == 0 and len(q_edges) > 0:
+            node_ids = sorted({e[0] for e in q_edges} | {e[1] for e in q_edges})
+            q_nodes = [{"id": nid, "label": str(nid)} for nid in node_ids]
+    hom_edges = []
+    if hom_content:
+        _, hom_edges = parse_dot_string_with_edge_labels(hom_content)
+    ext_edges = []
+    if ext_content:
+        _, ext_edges = parse_dot_string_with_edge_labels(ext_content)
+
+    for node_id, attrs in nodes_data.items():
+        if node_id in dim_map:
+            nodes_data[node_id]['dim'] = dim_map[node_id]
+            continue
+        try:
+            nodes_data[node_id]['dim'] = json.loads(attrs['label'])
+        except (json.JSONDecodeError, TypeError) as e:
+            # Fallback for "pd=0, id=3"
+            lbl = attrs.get('label', '')
+            m = re.search(r'pd=(\d+),\s*id=(\d+)', lbl)
+            if m:
+                nodes_data[node_id]['dim'] = {'pd': int(m.group(1)), 'id': int(m.group(2))}
+            else:
+                print(f"❌ 节点 {node_id} 的 label 不是合法 JSON：{attrs.get('label')}\n原因：{e}")
+                return
+            
+    # 使用默认引擎绘制 + 增加格点吸附/直线边(通过 JS 设置)
+    net = Network(height='750px', width='100%', directed=True, notebook=False)
+    # Note: find_golden_edges removed in favor of trans_content parsing above
+    # golden_edges is already set
+    node_positions = calculate_initial_layout(golden_edges)
+
+    # Filter out zero-dimension nodes (the zero module)
+    def is_zero_dim(dim):
+        if isinstance(dim, list):
+            return all(v == 0 for v in dim)
+        return False
+
+    zero_node_ids = {nid for nid, attrs in nodes_data.items() if is_zero_dim(attrs.get('dim'))}
+    if zero_node_ids:
+        print(f"ℹ️ Excluding zero-dimension nodes: {sorted(zero_node_ids)}")
+
+    proj_and_inj = proj_ids.intersection(inj_ids)
+    for node_id, attrs in nodes_data.items():
+        if node_id in zero_node_ids:
+            continue
+        border_color = 'gray'
+        if node_id in proj_and_inj:
+            border_color = 'purple'
+        elif node_id in proj_ids:
+            border_color = 'blue'
+        elif node_id in inj_ids:
+            border_color = 'red'
+        
+        pos_args = {}
+        if node_id in node_positions:
+            pos_args = {'x': node_positions[node_id]['x'], 'y': node_positions[node_id]['y'], 'physics': False}
+        label_display = format_dim_vector(nodes_data[node_id]['dim'], quiver_structure)
+        net.add_node(node_id, label=label_display, shape='ellipse',
+                     color={'border': border_color, 'background': 'white', 'highlight': {'border': border_color, 'background': '#D2E5FF'}},
+                     font={'color': 'black', 'face': 'monospace', 'size': 14, 'bold': True, 'vadjust': 0, 'align': 'center'}, title=f"Node {node_id}<br>{label_display}",
+                     borderWidth=3, borderWidthSelected=5,
+                     **pos_args)
+
+    # Filter out edges that reference zero-dimension nodes
+    filtered_edges = [e for e in edges_data if e[0] not in zero_node_ids and e[1] not in zero_node_ids]
+    net.add_edges(filtered_edges)
+    # Also filter golden/syz edges referencing zero nodes
+    golden_edges = [(u, v) for u, v in golden_edges if u not in zero_node_ids and v not in zero_node_ids]
+    syz_edges = [e for e in syz_edges if e[0] not in zero_node_ids and e[1] not in zero_node_ids]
+    # NOTE: We DO NOT add golden edges natively here.
+    # We will inject them via JS exactly like Syzygy edges.
+    # This ensures they appear/disappear cleanly on toggle.
+
+    html_content = net.generate_html(notebook=False)
+    
+    golden_edges_js_string = json.dumps(golden_edges)
+    tors_ids_js = json.dumps(sorted(list(tors_ids)))
+    refl_ids_js = json.dumps(sorted(list(refl_ids)))
+    gp_ids_js = json.dumps(sorted(list(globals().get("gorenstein_projective_ids", set()))))
+    gi_ids_js = json.dumps(sorted(list(globals().get("gorenstein_injective_ids", set()))))
+    syz_edges_js = json.dumps(syz_edges)
+    q_nodes_js = json.dumps(q_nodes)
+    q_edges_js = json.dumps(q_edges)
+    q_rel_js = json.dumps(rel_content or "")
+    hom_edges_js = json.dumps(hom_edges)
+    ext_edges_js = json.dumps(ext_edges)
+    tilting_js = json.dumps(tilting_data or [])
+    torsion_pairs_js = json.dumps(globals().get("torsion_pair_data", []))
+    cotorsion_pairs_js = json.dumps(globals().get("cotorsion_pair_data", []))
+    pdid_js = json.dumps(pdid_map or {})
+    q_structure_js = json.dumps(quiver_structure or "")
+
+    # ------------------- JAVASCRIPT MODIFICATION START -------------------
+    js_injection = """
     <script type="text/javascript">
       const gridSize = 100;
-      const goldenEdges = [[5, 13], [6, 1], [7, 6], [8, 2], [10, 5], [11, 4], [12, 10], [13, 11]];
-      const torsionlessIds = [5, 6, 9, 13];
-      const reflexiveIds = [6, 9, 13];
-      const syzygyEdges = [[13, 5], [13, 6], [5, 7], [5, 8], [1, 10], [1, 11], [5, 12], [6, 13]];
-      const quiverNodes = [{"id": 1, "label": "1"}, {"id": 2, "label": "2"}, {"id": 3, "label": "3"}, {"id": 4, "label": "4"}];
-      const quiverEdges = [[1, 2, "α"], [2, 3, "β"], [3, 1, "γ"], [4, 1, "δ"]];
-      const quiverRel = "[α*β,δ*α,β*γ*α]";
-      const homEdges = [[1, 1, "1"], [1, 2, "1"], [1, 3, "1"], [1, 4, "1"], [1, 5, "1"], [1, 6, "1"], [1, 7, "1"], [1, 10, "1"], [2, 1, "1"], [2, 2, "1"], [2, 3, "1"], [2, 7, "1"], [2, 12, "1"], [2, 13, "1"], [3, 2, "1"], [3, 3, "1"], [3, 6, "1"], [3, 7, "1"], [3, 10, "1"], [3, 11, "1"], [3, 12, "1"], [4, 4, "1"], [4, 7, "1"], [4, 8, "1"], [4, 10, "1"], [5, 2, "1"], [5, 4, "1"], [5, 5, "1"], [5, 6, "1"], [5, 7, "1"], [5, 10, "1"], [6, 2, "1"], [6, 6, "1"], [6, 7, "1"], [6, 10, "1"], [6, 11, "1"], [6, 12, "1"], [7, 1, "1"], [7, 3, "1"], [7, 7, "1"], [7, 8, "1"], [7, 12, "1"], [7, 13, "1"], [8, 8, "1"], [10, 7, "1"], [10, 8, "1"], [10, 10, "1"], [10, 11, "1"], [10, 12, "1"], [11, 11, "1"], [11, 12, "1"], [12, 1, "1"], [12, 3, "1"], [12, 12, "1"], [12, 13, "1"], [13, 1, "1"], [13, 3, "1"], [13, 13, "1"]];
-      const extEdges = [[5, 13, "1"], [6, 1, "1"], [6, 13, "1"], [7, 5, "1"], [7, 6, "1"], [8, 2, "1"], [8, 5, "1"], [8, 6, "1"], [10, 1, "1"], [10, 5, "1"], [11, 1, "1"], [11, 4, "1"], [11, 5, "1"], [12, 4, "1"], [12, 5, "1"], [12, 6, "1"], [12, 10, "1"], [13, 6, "1"], [13, 10, "1"], [13, 11, "1"]];
-      const tiltingData = [{"L": [2, 3, 10, 11], "F": [4, 5, 9], "T": [2, 3, 6, 7, 8, 9, 10, 11, 12, 13], "split": false}, {"L": [2, 3, 4, 10], "F": [5, 9], "T": [2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13], "split": false}];
-      const pdidMap = {"1": {"pd": 0, "id": -1}, "2": {"pd": 0, "id": 1}, "3": {"pd": 0, "id": 0}, "4": {"pd": 0, "id": 1}, "5": {"pd": -1, "id": 1}, "6": {"pd": -1, "id": -1}, "7": {"pd": -1, "id": 0}, "8": {"pd": -1, "id": 0}, "9": {"pd": 0, "id": 0}, "10": {"pd": 1, "id": -1}, "11": {"pd": 1, "id": -1}, "12": {"pd": -1, "id": 0}, "13": {"pd": -1, "id": -1}};
-      const quiverStructure = "[1-2-;-3-4]";
+      const goldenEdges = {{GOLDEN_EDGES}};
+      const torsionlessIds = {{TORS_IDS}};
+      const reflexiveIds = {{REFL_IDS}};
+      const gorensteinProjectiveIds = {{GP_IDS}};
+      const gorensteinInjectiveIds = {{GI_IDS}};
+      const syzygyEdges = {{SYZ_EDGES}};
+      const quiverNodes = {{Q_NODES}};
+      const quiverEdges = {{Q_EDGES}};
+      const quiverRel = {{Q_REL}};
+      const homEdges = {{HOM_EDGES}};
+      const extEdges = {{EXT_EDGES}};
+      const tiltingData = {{TILTING_DATA}};
+      const torsionPairData = {{TORSION_PAIR_DATA}};
+      const cotorsionPairData = {{COTORSION_PAIR_DATA}};
+      const pdidMap = {{PDID_MAP}};
+      const quiverStructure = {{Q_STRUCTURE}};
       const goldenEdgeSet = new Set(goldenEdges.map(e => `${e[0]}->${e[1]}`));
-      let addEdgeSticky = false;
       var options = {
         "edges": {
           // (1) 选中只加粗，不改变颜色；改为绿色细边框高亮
@@ -178,49 +413,7 @@
           "smooth": { "enabled": false }
         },
         "interaction": { "multiselect": true },
-        "physics": { "enabled": true },
-        "manipulation": {
-          "enabled": true,
-          "addNode": function(data, callback) {
-            snapshot();
-            const defaultLabel = data.label || `Node ${data.id}`;
-            const newLabel = prompt('New node label', defaultLabel);
-            const label = (newLabel === null || newLabel === '') ? defaultLabel : newLabel;
-            const defaultBorder = 'gray';
-            const colorInput = (prompt('Border color (red/blue/purple/green/gray)', defaultBorder) || defaultBorder).toLowerCase();
-            const allowed = ['red','blue','purple','green','gray'];
-            const border = allowed.includes(colorInput) ? colorInput : defaultBorder;
-            data.label = label;
-            data.title = `Node ${data.id}<br>${label}`;
-            data.color = { border: border, background: 'white', highlight: { border: border, background: '#D2E5FF' } };
-            data.borderWidth = showBorders ? 3 : 0;
-            data.borderWidthSelected = showBorders ? 5 : 0;
-            data.font = { color: 'black', face: 'monospace', size: 14, bold: true, vadjust: 0, align: 'center' };
-            callback(data);
-            const saved = network.body.data.nodes.get(data.id) || data;
-            baseNodeStyles.set(data.id, toBaseStyle(saved));
-          },
-          "addEdge": function(data, callback) {
-            snapshot();
-            data.arrows = 'to';
-            const choice = prompt('Edge color? (black/gold/pink/lightgold/lightgray)', 'black');
-            const parsed = parseEdgeColor(choice);
-            data.color = parsed.color;
-            if (parsed.width) data.width = parsed.width;
-            callback(data);
-            if (addEdgeSticky) {
-              setTimeout(() => network.addEdgeMode(), 0);
-            }
-          },
-          "deleteNode": function(data, callback) {
-            snapshot();
-            callback(data);
-          },
-          "deleteEdge": function(data, callback) {
-            snapshot();
-            callback(data);
-          }
-        }
+        "physics": { "enabled": true }
       };
       network.setOptions(options);
 
@@ -379,10 +572,10 @@
         container.style.gap = '6px';
         container.innerHTML = `
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-            <button id="addNodeBtn" style="padding:4px 8px;">AddNode</button>
-            <button id="addEdgeBtn" style="padding:4px 8px;">AddEdge</button>
             <button id="torsBtn" style="padding:4px 8px;">Torsionless</button>
             <button id="reflBtn" style="padding:4px 8px;">Reflexive</button>
+            <button id="gpBtn" style="padding:4px 8px;">GProj</button>
+            <button id="giBtn" style="padding:4px 8px;">GInj</button>
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
@@ -398,16 +591,19 @@
               <input id="irrToggle" type="checkbox" checked /> Irr
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
-              <input id="trToggle" type="checkbox" checked /> τ
+              <input id="trToggle" type="checkbox" checked /> tau
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="quiverToggle" type="checkbox" /> Quiver
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
-              <input id="editModeToggle" type="checkbox" /> Edit
+              <input id="tiltingToggle" type="checkbox" /> Tilting
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
-              <input id="tiltingToggle" type="checkbox" /> Tilting
+              <input id="torsionPairToggle" type="checkbox" /> TorsionCls
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="cotorsionPairToggle" type="checkbox" /> CotorsionCls
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="showLabelToggle" type="checkbox" /> Label
@@ -420,29 +616,39 @@
             </label>
           </div>
           <div id="tiltingList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:240px; overflow:auto; font-size:12px;"></div>
+          <div id="torsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
+          <div id="cotorsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
         `;
         document.body.appendChild(container);
-        document.getElementById('addNodeBtn').addEventListener('click', () => {
-          addEdgeSticky = false;
-          network.addNodeMode();
-        });
-        document.getElementById('addEdgeBtn').addEventListener('click', () => {
-          addEdgeSticky = true;
-          network.addEdgeMode();
-        });
+        function emphasizeNodeSet(ids, color) {
+          const idsArray = (ids || []).map(Number).filter(x => !Number.isNaN(x));
+          if (!idsArray.length) return false;
+          const allNodes = network.body.data.nodes.get();
+          const idSet = new Set(idsArray);
+          const updates = allNodes.map(n => {
+            const base = baseNodeStyles.get(n.id) || {};
+            if (idSet.has(Number(n.id))) {
+              return { id: n.id, color: { border: color, background: '#fff7cc', highlight: { border: color, background: '#ffe680' } }, borderWidth: 5 };
+            }
+            return { id: n.id, color: base.color || n.color, borderWidth: base.borderWidth || n.borderWidth || 1 };
+          });
+          network.body.data.nodes.update(updates);
+          network.selectNodes(idsArray);
+          if (idsArray.length === 1) network.focus(idsArray[0], { scale: 1.2, animation: true });
+          else network.fit({ nodes: idsArray, animation: true });
+          return true;
+        }
         document.getElementById('torsBtn').addEventListener('click', () => {
-          if (!torsionlessIds || torsionlessIds.length === 0) {
-            alert('No torsionless modules found.');
-            return;
-          }
-          network.selectNodes(torsionlessIds);
+          if (!emphasizeNodeSet(torsionlessIds, '#0ea5e9')) alert('No torsionless modules found.');
         });
         document.getElementById('reflBtn').addEventListener('click', () => {
-          if (!reflexiveIds || reflexiveIds.length === 0) {
-            alert('No reflexive modules found.');
-            return;
-          }
-          network.selectNodes(reflexiveIds);
+          if (!emphasizeNodeSet(reflexiveIds, '#8b5cf6')) alert('No reflexive modules found.');
+        });
+        document.getElementById('gpBtn').addEventListener('click', () => {
+          if (!emphasizeNodeSet(gorensteinProjectiveIds, '#16a34a')) alert('No Gorenstein projective modules found.');
+        });
+        document.getElementById('giBtn').addEventListener('click', () => {
+          if (!emphasizeNodeSet(gorensteinInjectiveIds, '#dc2626')) alert('No Gorenstein injective modules found.');
         });
         document.getElementById('syzToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
@@ -501,7 +707,7 @@
             removeEdgesByPrefix('tr');
           }
         });
-        // Initialize τ edges manually on load since checked=true
+        // Initialize tau edges manually on load since checked=true
         if (document.getElementById('trToggle').checked && goldenEdges.length > 0) {
            const toAdd = goldenEdges.map((e, i) => ({
               id: `tr_${i}`,
@@ -517,9 +723,6 @@
         
         document.getElementById('quiverToggle').addEventListener('change', (e) => {
           toggleMiniQuiver(e.target.checked);
-        });
-        document.getElementById('editModeToggle').addEventListener('change', (e) => {
-          editMode = e.target.checked;
         });
         document.getElementById('tiltingToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
@@ -538,6 +741,18 @@
           listEl.style.display = 'block';
           renderTiltingList();
         });
+        document.getElementById('torsionPairToggle').addEventListener('change', (e) => {
+          const el = document.getElementById('torsionPairList');
+          if (!el) return;
+          el.style.display = e.target.checked ? 'block' : 'none';
+          if (e.target.checked) renderPairList('torsionPairList', torsionPairData, 'T', 'F', 'Torsion pairs');
+        });
+        document.getElementById('cotorsionPairToggle').addEventListener('change', (e) => {
+          const el = document.getElementById('cotorsionPairList');
+          if (!el) return;
+          el.style.display = e.target.checked ? 'block' : 'none';
+          if (e.target.checked) renderPairList('cotorsionPairList', cotorsionPairData, 'L', 'R', 'Cotorsion pairs', item => `<td style="border:1px solid #ddd; padding:3px;">${item.hereditary ? 'hereditary' : 'non-hereditary'}</td>`);
+        });
         document.getElementById('showLabelToggle').addEventListener('change', (e) => {
           showLabels = e.target.checked;
           toggleShowLabels(showLabels);
@@ -551,6 +766,37 @@
           toggleNodeBorders(showBorders);
         });
       })();
+
+      function renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        if (!data || data.length === 0) {
+          el.innerHTML = `<b>${title}</b><br/><span style="color:#666;">No data.</span>`;
+          return;
+        }
+        const rows = data.map((item, idx) => {
+          const left = item[leftKey] || [];
+          const right = item[rightKey] || [];
+          const extra = extraRenderer ? extraRenderer(item) : '';
+          return `<tr>
+            <td style="border:1px solid #ddd; padding:3px;">${idx + 1}</td>
+            <td style="border:1px solid #ddd; padding:3px; cursor:pointer;" data-left="${left.join(',')}">${left.join(', ')}</td>
+            <td style="border:1px solid #ddd; padding:3px; cursor:pointer;" data-right="${right.join(',')}">${right.join(', ')}</td>
+            ${extra}
+          </tr>`;
+        }).join('');
+        el.innerHTML = `<b>${title}</b><table style="border-collapse:collapse; width:100%; margin-top:4px; font-family:monospace; font-size:11px;">
+          <thead><tr><th>#</th><th>${leftKey}</th><th>${rightKey}</th>${extraRenderer ? '<th>Info</th>' : ''}</tr></thead>
+          <tbody>${rows}</tbody></table>`;
+        el.querySelectorAll('[data-left]').forEach(cell => cell.addEventListener('click', () => {
+          const ids = cell.getAttribute('data-left').split(',').filter(Boolean).map(Number);
+          emphasizeNodeSet(ids, '#f59e0b');
+        }));
+        el.querySelectorAll('[data-right]').forEach(cell => cell.addEventListener('click', () => {
+          const ids = cell.getAttribute('data-right').split(',').filter(Boolean).map(Number);
+          emphasizeNodeSet(ids, '#10b981');
+        }));
+      }
 
       function renderTiltingList() {
         const listEl = document.getElementById('tiltingList');
@@ -691,8 +937,7 @@
             el.style.padding = '1px 4px';
             el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
             el.style.whiteSpace = 'pre';
-            el.textContent = `pd = ${entry.pd}
-id = ${entry.id}`;
+            el.textContent = `pd = ${entry.pd}\nid = ${entry.id}`;
             pdidLabelLayer.appendChild(el);
             pdidLabelMap.set(id, el);
           }
@@ -897,65 +1142,6 @@ id = ${entry.id}`;
         return 'v' + vertexId;
       }
 
-
-      /* RELATION_FORMATTER_INJECT */
-      function formatRelation(rel) {
-        const map = {
-          alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε',
-          zeta: 'ζ', eta: 'η', theta: 'θ', iota: 'ι', kappa: 'κ',
-          lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', omicron: 'ο',
-          pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ',
-          phi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
-          Alpha: 'Α', Beta: 'Β', Gamma: 'Γ', Delta: 'Δ', Epsilon: 'Ε',
-          Zeta: 'Ζ', Eta: 'Η', Theta: 'Θ', Iota: 'Ι', Kappa: 'Κ',
-          Lambda: 'Λ', Mu: 'Μ', Nu: 'Ν', Xi: 'Ξ', Omicron: 'Ο',
-          Pi: 'Π', Rho: 'Ρ', Sigma: 'Σ', Tau: 'Τ', Upsilon: 'Υ',
-          Phi: 'Φ', Chi: 'Χ', Psi: 'Ψ', Omega: 'Ω'
-        };
-        const names = ['alpha','beta','gamma','delta','epsilon','zeta','eta','theta','iota','kappa','lambda','mu','nu','xi','omicron','pi','rho','sigma','tau','upsilon','phi','chi','psi','omega'];
-        const namesSorted = names.slice().sort((a, b) => b.length - a.length);
-        function parseConcat(word) {
-          const lower = word.toLowerCase();
-          let i = 0;
-          const parts = [];
-          while (i < lower.length) {
-            let matched = null;
-            for (const name of namesSorted) {
-              if (lower.startsWith(name, i)) {
-                matched = name;
-                break;
-              }
-            }
-            if (!matched) return null;
-            parts.push(matched);
-            i += matched.length;
-          }
-          return parts;
-        }
-        function toGreekWord(word) {
-          return word.replace(/[A-Za-z]+/g, (m) => map[m] || map[m.toLowerCase()] || m);
-        }
-        function formatToken(token) {
-          const raw = (token || '').trim();
-          if (!raw) return '';
-          const starParts = raw.split('*').map(s => s.trim()).filter(Boolean);
-          const mapped = starParts.map(part => {
-            const parsed = parseConcat(part);
-            if (parsed) {
-              return parsed.map(p => map[p] || p).join('·');
-            }
-            return toGreekWord(part);
-          });
-          return mapped.join('·');
-        }
-        if (!rel) return 'relation = ()';
-        let raw = String(rel).trim();
-        if (raw.startsWith('[') && raw.endsWith(']')) raw = raw.slice(1, -1);
-        if (!raw) return 'relation = ()';
-        const items = raw.split(',').map(s => s.trim()).filter(Boolean).map(formatToken);
-        return `relation = (${items.join(', ')})`;
-      }
-    
       function ensureMiniQuiver() {
         if (miniContainer) return;
         miniContainer = document.createElement('div');
@@ -977,7 +1163,7 @@ id = ${entry.id}`;
         document.body.appendChild(miniContainer);
         makeDraggable(miniContainer, miniContainer.querySelector('#quiverMiniHeader'));
         const relBox = miniContainer.querySelector('#quiverRel');
-        relBox.textContent = formatRelation(quiverRel);
+        relBox.textContent = quiverRel ? `rel := ${quiverRel}` : 'rel := []';
         if (!quiverNodes || quiverNodes.length === 0) {
           miniContainer.querySelector('#quiverMini').textContent = 'No Q data.';
           return;
@@ -1064,7 +1250,7 @@ id = ${entry.id}`;
         }
       }
 
-      function updateEdgeCurvature(netObj, δ) {
+      function updateEdgeCurvature(netObj, delta) {
         if (!netObj) return;
         const selectedEdges = netObj.getSelectedEdges();
         if (selectedEdges.length > 0) {
@@ -1078,7 +1264,7 @@ id = ${entry.id}`;
               type = edge.smooth.type || 'curvedCW';
             }
             let signed = (type === 'curvedCCW') ? -round : round;
-            let next = Math.max(-1, Math.min(1, signed + δ));
+            let next = Math.max(-1, Math.min(1, signed + delta));
             let nextType = next < 0 ? 'curvedCCW' : 'curvedCW';
             let nextRound = Math.abs(next);
             netObj.body.data.edges.update({ id, smooth: { enabled: true, type: nextType, roundness: nextRound } });
@@ -1165,9 +1351,9 @@ id = ${entry.id}`;
           snapshot();
           network.deleteSelected();
         } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-          const δ = (e.key === 'ArrowRight') ? 0.1 : -0.1;
-          updateEdgeCurvature(network, δ);
-          updateEdgeCurvature(miniQuiver, δ);
+          const delta = (e.key === 'ArrowRight') ? 0.1 : -0.1;
+          updateEdgeCurvature(network, delta);
+          updateEdgeCurvature(miniQuiver, delta);
         }
       });
       // initial snapshot
@@ -1456,7 +1642,44 @@ id = ${entry.id}`;
       togglePdidLabels(false);
       toggleNodeBorders(true);
     </script>
+    """
+    js_injection = js_injection.replace("{{GOLDEN_EDGES}}", golden_edges_js_string)
+    js_injection = js_injection.replace("{{TORS_IDS}}", tors_ids_js)
+    js_injection = js_injection.replace("{{REFL_IDS}}", refl_ids_js)
+    js_injection = js_injection.replace("{{GP_IDS}}", gp_ids_js)
+    js_injection = js_injection.replace("{{GI_IDS}}", gi_ids_js)
+    js_injection = js_injection.replace("{{SYZ_EDGES}}", syz_edges_js)
+    js_injection = js_injection.replace("{{Q_NODES}}", q_nodes_js)
+    js_injection = js_injection.replace("{{Q_EDGES}}", q_edges_js)
+    js_injection = js_injection.replace("{{Q_REL}}", q_rel_js)
+    js_injection = js_injection.replace("{{HOM_EDGES}}", hom_edges_js)
+    js_injection = js_injection.replace("{{EXT_EDGES}}", ext_edges_js)
+    js_injection = js_injection.replace("{{TILTING_DATA}}", tilting_js)
+    js_injection = js_injection.replace("{{TORSION_PAIR_DATA}}", torsion_pairs_js)
+    js_injection = js_injection.replace("{{COTORSION_PAIR_DATA}}", cotorsion_pairs_js)
+    js_injection = js_injection.replace("{{PDID_MAP}}", pdid_js)
+    js_injection = js_injection.replace("{{Q_STRUCTURE}}", q_structure_js)
+
+    # ------------------- JAVASCRIPT MODIFICATION END -------------------
+    final_html = html_content.replace('</body>', js_injection + '</body>')
     
+    try:
+        with open(output_filename, 'w', encoding='utf-8') as f:
+            f.write(final_html)
+        print(f"✅ 操作成功！已将交互式图形保存到文件: '{output_filename}'")
+    except Exception as e:
+        print(f"❌ 写入文件时出错: {e}")
+
+# ===== Step3.ipynb cell 6 =====
+def _inject_tilting_graph_js(html: str) -> str:
+
+    marker = "/* TILTING_GRAPH_INJECT */"
+
+    if marker in html:
+
+        return html
+
+    js = r"""
 
     <script type=\"text/javascript\">
 
@@ -1780,7 +2003,226 @@ id = ${entry.id}`;
 
     </script>
 
-    
+    """
+
+    return html.replace("</body>", js + "</body>")
+
+
+
+def create_and_save_quiver_html_with_tilting_graph(quiver_filepath, output_filename):
+
+    create_and_save_quiver_html(quiver_filepath, output_filename)
+
+    try:
+
+        with open(output_filename, 'r', encoding='utf-8') as f:
+
+            html = f.read()
+
+        html = _inject_tilting_graph_js(html)
+
+        with open(output_filename, 'w', encoding='utf-8') as f:
+
+            f.write(html)
+
+        print("✅ 已注入 tilting L 图形与 PDID 悬停禁用")
+
+    except Exception as e:
+
+        print(f"❌ 注入 tilting L 图形失败: {e}")
+
+
+# ===== Step3.ipynb cell 7 =====
+def _inject_tau_toggle_html(html: str) -> str:
+    marker = "/* TAU_TOGGLE_INJECT */"
+    if marker in html:
+        return html
+
+    js = r"""
+    <script type=\"text/javascript\">
+    /* TAU_TOGGLE_INJECT */
+    (function() {
+      function getGoldenEdges() {
+        if (typeof goldenEdges !== 'undefined' && Array.isArray(goldenEdges)) {
+          return goldenEdges;
+        }
+        return [];
+      }
+
+      function removeTranslationEdges() {
+        if (!window.network || !window.network.body || !window.network.body.data) return;
+        const existing = window.network.body.data.edges.get({
+          filter: (edge) => edge.id && String(edge.id).startsWith('tr_')
+        }).map(e => e.id);
+        if (existing.length) window.network.body.data.edges.remove(existing);
+      }
+
+      function addTranslationEdges() {
+        if (!window.network || !window.network.body || !window.network.body.data) return;
+        const edges = getGoldenEdges();
+        if (!edges.length) return;
+        removeTranslationEdges();
+        const toAdd = edges.map((e, i) => ({
+          id: `tr_${i}`,
+          from: e[0],
+          to: e[1],
+          color: 'gold',
+          width: 3,
+          arrows: 'to',
+          dashes: false
+        }));
+        window.network.body.data.edges.add(toAdd);
+      }
+
+      function syncTranslationEdges(visible) {
+        if (visible) {
+          addTranslationEdges();
+        } else {
+          removeTranslationEdges();
+        }
+      }
+
+      function init() {
+        const t = document.getElementById('trToggle');
+        if (!t) return;
+        t.addEventListener('change', (e) => {
+          syncTranslationEdges(e.target.checked);
+        });
+        syncTranslationEdges(t.checked);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+    </script>
+    """
+
+    if "</body>" in html:
+        return html.replace("</body>", js + "</body>")
+    return html + js
+
+
+def patch_tau_toggle_file(html_path: str) -> None:
+    try:
+        with open(html_path, "r", encoding="utf-8") as f:
+            html = f.read()
+        html = _inject_tau_toggle_html(html)
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html)
+        print("✅ Injected tau-toggle translation edges.")
+    except Exception as e:
+        print(f"❌ Failed to inject tau-toggle: {e}")
+
+# ===== Step3.ipynb cell 8 =====
+def format_dim_vector(dim_list, quiver_structure: Union[str, None]):
+    # Special labels like pd/id
+    if isinstance(dim_list, dict) and 'pd' in dim_list and 'id' in dim_list:
+        return f"pd={dim_list['pd']}, id={dim_list['id']}"
+    if isinstance(dim_list, str):
+        return dim_list
+    if not dim_list:
+        return ""
+
+    # Use QuiverStructure layout if provided
+    if quiver_structure:
+        s = quiver_structure.strip()
+        if s.startswith('[') and s.endswith(']'):
+            s = s[1:-1]
+        rows = s.split(';')
+        width = max(len(str(x)) for x in dim_list)
+        rendered_rows = []
+        for row in rows:
+            cells = []
+            for ch in row:
+                if ch.isdigit():
+                    idx = int(ch) - 1
+                    if 0 <= idx < len(dim_list):
+                        cells.append(str(dim_list[idx]).rjust(width))
+                    else:
+                        cells.append('?' * width)
+                elif ch in {'-', ' '}:
+                    cells.append(' ' * width)
+                else:
+                    cells.append(str(ch).rjust(width))
+            rendered_rows.append(' '.join(cells))
+        return '\n'.join(rendered_rows)
+
+    # Fallback: compact list
+    return ''.join(str(dim_list).split())
+
+# ===== Step3.ipynb cell 9 =====
+from pathlib import Path
+
+def locate_project_dir(prefer: Union[Path, None] = None) -> Path:
+    """Try to locate the ARquiver project directory at runtime.
+
+    Strategy:
+    - Prefer an explicit path if given.
+    - Try cwd and some common locations under $HOME.
+    - Validate candidates by checking for project markers.
+    """
+
+    def is_project_dir(p: Path) -> bool:
+        if not p or not p.exists() or not p.is_dir():
+            return False
+        # project markers
+        if (p / "PythonPlot.ipynb").exists():
+            return True
+        if (p / "DrawARquiver.ipynb").exists():
+            return True
+        if (p / "lib").exists() and (p / "lib").is_dir():
+            return True
+        return False
+
+    candidates: list[Path] = []
+    if prefer is not None:
+        candidates.append(prefer)
+
+    cwd = Path.cwd()
+    home = Path.home()
+
+    # common candidates
+    candidates.extend([
+        cwd,
+        cwd / "ARquiver",
+        cwd / "GapDocs" / "ARquiver",
+        home / "GapDocs" / "ARquiver",
+        home / "ARquiver",
+    ])
+
+    # also try scanning a couple of well-known parent folders (cheap, non-recursive)
+    for parent in [cwd, home, home / "GapDocs"]:
+        if parent.exists() and parent.is_dir():
+            candidates.append(parent / "ARquiver")
+
+    seen: set[Path] = set()
+    for p in candidates:
+        p = p.expanduser().resolve()
+        if p in seen:
+            continue
+        seen.add(p)
+        if is_project_dir(p):
+            return p
+
+    raise FileNotFoundError(
+        "Cannot locate ARquiver project directory. "
+        "Tried cwd and common $HOME locations; please set BASE_DIR manually."
+    )
+
+
+# ===== Step3.ipynb cell 11 =====
+def _inject_tilting_graph_fallback(html: str) -> str:
+    if not html.lstrip().lower().startswith("<!doctype html>"):
+        html = "<!DOCTYPE html>\n" + html
+
+    marker = "/* TILTING_GRAPH_FALLBACK */"
+    if marker in html:
+        return html
+
+    js = r"""
     <script type=\"text/javascript\">
     /* TILTING_GRAPH_FALLBACK */
     (function() {
@@ -1849,8 +2291,34 @@ id = ${entry.id}`;
       }
     })();
     </script>
-    
+    """
 
+    if "</body>" in html:
+        return html.replace("</body>", js + "\n</body>")
+    return html + js
+
+
+try:
+    with open(output_file, 'r', encoding='utf-8') as f:
+        html = f.read()
+
+    html = _inject_tilting_graph_fallback(html)
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+    print("✅ 已追加 tilting 图形 fallback hook")
+except Exception as e:
+    print(f"❌ 追加 tilting fallback 失败: {e}")
+
+
+# ===== Step3.ipynb cell 12 =====
+def _inject_tilting_graph_override(html: str) -> str:
+    marker = "/* TILTING_GRAPH_OVERRIDE */"
+    if marker in html:
+        return html
+
+    js = r"""
     <script type=\"text/javascript\">
     /* TILTING_GRAPH_OVERRIDE */
     (function() {
@@ -2009,14 +2477,65 @@ id = ${entry.id}`;
       }
     })();
     </script>
-    
+    """
 
+    if "</body>" in html:
+        return html.replace("</body>", js + "\n</body>")
+    return html + js
+
+
+try:
+    with open(output_file, 'r', encoding='utf-8') as f:
+        html = f.read()
+
+    html = _inject_tilting_graph_override(html)
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+    print("✅ 已注入 tilting 图形覆盖逻辑")
+except Exception as e:
+    print(f"❌ 注入 tilting 图形覆盖失败: {e}")
+
+
+# ===== Step3.ipynb cell 13 =====
+def _inject_tilting_window_like_quiver(html: str) -> str:
+    print("DEBUG: Loading V20 Injection Function with Double-Toggle Sync...")
+    import os
+    import re
+    
+    # --- 1. Python Side: Analyze QuiverStructure & PDID ---
+    quiver_structure = ""
+    pdid_data_str = "[]"
+    targets = []
+    
+    g_input_file = globals().get('input_file')
+    g_input_name = globals().get('input_name')
+    if g_input_file and os.path.exists(g_input_file): targets.append(g_input_file)
+    if g_input_name and os.path.exists(g_input_name): targets.append(g_input_name)
+    
+    candidates = [f for f in os.listdir('.') if f.endswith('.txt') and 'quiver' in f.lower()]
+    candidates.sort(key=lambda x: 0 if '_Q' in x else 1)
+    targets.extend(candidates)
+    
+    for fname in targets:
+        try:
+            with open(fname, 'r', encoding='utf-8') as f: content = f.read()
+            qs = re.search(r'QuiverStructure\s*:=\s*"([^"]+)"', content)
+            pd = re.search(r'PDID\s*:=\s*(\[\s*[\s\S]*?\]);', content)
+            if qs: quiver_structure = qs.group(1)
+            if pd: pdid_data_str = re.sub(r'\s+', ' ', pd.group(1))
+            if qs or pd: break
+        except: continue
+
+    # --- 2. JavaScript Template ---
+    js_template = r"""
     <script>
     (function(){
       console.log("Tilting View Sync Logic Initialized");
       
-      const QUIVER_STRUCT = "[1-2-;-3-4]";
-      const PDID_DATA = [ [ 1, 0, -1 ], [ 2, 0, 1 ], [ 3, 0, 0 ], [ 4, 0, 1 ], [ 5, -1, 1 ], [ 6, -1, -1 ], [ 7, -1, 0 ], [ 8, -1, 0 ], [ 9, 0, 0 ], [ 10, 1, -1 ], [ 11, 1, -1 ], [ 12, -1, 0 ], [ 13, -1, -1 ] ];
+      const QUIVER_STRUCT = "__QUIVER_STRUCTURE_PLACEHOLDER__";
+      const PDID_DATA = __PDID_DATA_PLACEHOLDER__;
       
       // -- Helper: Draggable --
       function makeDraggable(el, handle) {
@@ -2353,9 +2872,9 @@ id = ${entry.id}`;
       if(!window.__keyListenerInstalledV6) {
           document.addEventListener('keydown', e => {
               if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                  const δ = (e.key === 'ArrowRight') ? 0.1 : -0.1;
+                  const delta = (e.key === 'ArrowRight') ? 0.1 : -0.1;
                   if(window.__tiltingMiniNet && window.updateEdgeCurvature && window.__tiltingMiniNet.getSelectedEdges().length > 0) {
-                      window.updateEdgeCurvature(window.__tiltingMiniNet, δ);
+                      window.updateEdgeCurvature(window.__tiltingMiniNet, delta);
                   }
               }
               if(['ArrowUp','ArrowDown'].includes(e.key)) {
@@ -2374,6 +2893,153 @@ id = ${entry.id}`;
 
     })();
     </script>
-    
-</body>
-</html>
+    """
+
+    js = js_template.replace("__QUIVER_STRUCTURE_PLACEHOLDER__", quiver_structure) \
+                     .replace("__PDID_DATA_PLACEHOLDER__", pdid_data_str)
+
+    if "</body>" in html:
+        return html.replace("</body>", js + "\n</body>")
+    return html + js
+
+# ===== Step3.ipynb cell 14 =====
+try:
+    if 'output_file' not in locals():
+         output_file = 'quiver_Q.html'
+
+    # Ensure we use the correct file
+    print(f"DEBUG: Auto-Injection target: {output_file}")
+
+    with open(output_file, 'r', encoding='utf-8') as f:
+        html = f.read()
+
+    html = _inject_tilting_window_like_quiver(html)
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+    print(f"✅ AUTO-INJECTED V20 Tilting & Quiver Windows into: {output_file}")
+except Exception as e:
+    print(f"❌ Injection Failed: {e}")
+
+# ===== Step3.ipynb cell 15 =====
+def _greekize_text(value: str) -> str:
+    if not value:
+        return value
+    mapping = {
+        # lowercase
+        "alpha": "α", "beta": "β", "gamma": "γ", "delta": "δ", "epsilon": "ε",
+        "zeta": "ζ", "eta": "η", "theta": "θ", "iota": "ι", "kappa": "κ",
+        "lambda": "λ", "mu": "μ", "nu": "ν", "xi": "ξ", "omicron": "ο",
+        "pi": "π", "rho": "ρ", "sigma": "σ", "tau": "τ", "upsilon": "υ",
+        "phi": "φ", "chi": "χ", "psi": "ψ", "omega": "ω",
+        # capitalized
+        "Alpha": "Α", "Beta": "Β", "Gamma": "Γ", "Delta": "Δ", "Epsilon": "Ε",
+        "Zeta": "Ζ", "Eta": "Η", "Theta": "Θ", "Iota": "Ι", "Kappa": "Κ",
+        "Lambda": "Λ", "Mu": "Μ", "Nu": "Ν", "Xi": "Ξ", "Omicron": "Ο",
+        "Pi": "Π", "Rho": "Ρ", "Sigma": "Σ", "Tau": "Τ", "Upsilon": "Υ",
+        "Phi": "Φ", "Chi": "Χ", "Psi": "Ψ", "Omega": "Ω",
+    }
+    for key, val in mapping.items():
+        value = re.sub(rf"\b{key}\b", val, value)
+    return value
+
+try:
+    if 'output_file' not in locals():
+        output_file = 'quiver_Q.html'
+    with open(output_file, 'r', encoding='utf-8') as f:
+        html = f.read()
+    new_html = _greekize_text(html)
+    if new_html != html:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(new_html)
+        print("✅ Greek letter conversion applied to output HTML")
+    else:
+        print("ℹ️ No Greek letter replacements needed")
+except Exception as e:
+    print(f"❌ Greek letter conversion failed: {e}")
+
+# ===== Step3.ipynb cell 16 =====
+def _inject_relation_formatter(html: str) -> str:
+    marker = "/* RELATION_FORMATTER_INJECT */"
+    if marker in html:
+        return html
+    helper_js = r"""
+      /* RELATION_FORMATTER_INJECT */
+      function formatRelation(rel) {
+        const map = {
+          alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε',
+          zeta: 'ζ', eta: 'η', theta: 'θ', iota: 'ι', kappa: 'κ',
+          lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', omicron: 'ο',
+          pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ',
+          phi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
+          Alpha: 'Α', Beta: 'Β', Gamma: 'Γ', Delta: 'Δ', Epsilon: 'Ε',
+          Zeta: 'Ζ', Eta: 'Η', Theta: 'Θ', Iota: 'Ι', Kappa: 'Κ',
+          Lambda: 'Λ', Mu: 'Μ', Nu: 'Ν', Xi: 'Ξ', Omicron: 'Ο',
+          Pi: 'Π', Rho: 'Ρ', Sigma: 'Σ', Tau: 'Τ', Upsilon: 'Υ',
+          Phi: 'Φ', Chi: 'Χ', Psi: 'Ψ', Omega: 'Ω'
+        };
+        const names = ['alpha','beta','gamma','delta','epsilon','zeta','eta','theta','iota','kappa','lambda','mu','nu','xi','omicron','pi','rho','sigma','tau','upsilon','phi','chi','psi','omega'];
+        const namesSorted = names.slice().sort((a, b) => b.length - a.length);
+        function parseConcat(word) {
+          const lower = word.toLowerCase();
+          let i = 0;
+          const parts = [];
+          while (i < lower.length) {
+            let matched = null;
+            for (const name of namesSorted) {
+              if (lower.startsWith(name, i)) {
+                matched = name;
+                break;
+              }
+            }
+            if (!matched) return null;
+            parts.push(matched);
+            i += matched.length;
+          }
+          return parts;
+        }
+        function toGreekWord(word) {
+          return word.replace(/[A-Za-z]+/g, (m) => map[m] || map[m.toLowerCase()] || m);
+        }
+        function formatToken(token) {
+          const raw = (token || '').trim();
+          if (!raw) return '';
+          const starParts = raw.split('*').map(s => s.trim()).filter(Boolean);
+          const mapped = starParts.map(part => {
+            const parsed = parseConcat(part);
+            if (parsed) {
+              return parsed.map(p => map[p] || p).join('·');
+            }
+            return toGreekWord(part);
+          });
+          return mapped.join('·');
+        }
+        if (!rel) return 'relation = ()';
+        let raw = String(rel).trim();
+        if (raw.startsWith('[') && raw.endsWith(']')) raw = raw.slice(1, -1);
+        if (!raw) return 'relation = ()';
+        const items = raw.split(',').map(s => s.trim()).filter(Boolean).map(formatToken);
+        return `relation = (${items.join(', ')})`;
+      }
+    """
+    needle = "      function ensureMiniQuiver() {"
+    if needle in html:
+        html = html.replace(needle, helper_js + "\n" + needle, 1)
+    old = "        relBox.textContent = quiverRel ? `rel := ${quiverRel}` : 'rel := []';"
+    new = "        relBox.textContent = formatRelation(quiverRel);"
+    if old in html:
+        html = html.replace(old, new, 1)
+    return html
+
+try:
+    if 'output_file' not in locals():
+        output_file = 'quiver_Q.html'
+    with open(output_file, 'r', encoding='utf-8') as f:
+        html = f.read()
+    html = _inject_relation_formatter(html)
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html)
+    print("✅ Relation display formatted as requested")
+except Exception as e:
+    print(f"❌ Relation formatter injection failed: {e}")
