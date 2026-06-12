@@ -1,23 +1,9 @@
-vertices: 4
-
-edges: 
-    1 2 alpha
-    2 3 beta
-    3 1 gamma
-    4 1 delta
-
-rel: 
-    alpha beta
-    delta alpha
-    beta gamma alpha
-    
-
-style:
-    1-2-
-    -3-4
-    
-depth: 20
-
-file: example
-
-guess: F
+% https://q.uiver.app/#q=WzAsNixbMCwwLCIxIl0sWzEsMCwiMiJdLFswLDEsIjMiXSxbMSwxLCI0Il0sWzIsMCwicmVsOmFiYSxcXGRlbHRhIGEsY1xcZGVsdGEiXSxbMiwxLCJuYW1lOmV4YW1wbGUiXSxbMCwxLCJhIl0sWzEsMCwiYiIsMCx7Im9mZnNldCI6LTN9XSxbMiwwLCJcXGRlbHRhIl0sWzMsMiwiYyJdXQ==
+\begin{tikzcd}[ampersand replacement=\&]
+	1 \& 2 \& {rel:aba,\delta a,c\delta} \\
+	3 \& 4 \& {name:example}
+	\arrow["a", from=1-1, to=1-2]
+	\arrow["b", shift left=3, from=1-2, to=1-1]
+	\arrow["\delta", from=2-1, to=1-1]
+	\arrow["c", from=2-2, to=2-1]
+\end{tikzcd}
