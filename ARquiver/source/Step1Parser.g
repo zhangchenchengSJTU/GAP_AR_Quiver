@@ -48,7 +48,7 @@ NormalizeStep1Name := function(s)
 end;;
 
 Step1RelationToProduct := function(s)
-    local t, greek, pieces, out, piece, ch, i;
+    local t, greek, pieces, out, piece, i, chars;
     t := CleanStep1String(s);
     greek := [
         ["\\alpha", "alpha"], ["\\beta", "beta"], ["\\gamma", "gamma"],
@@ -64,29 +64,29 @@ Step1RelationToProduct := function(s)
     for piece in greek do
         t := ReplacedString(t, piece[1], Concatenation(" ", piece[2], " "));
     od;
-    if PositionSublist(t, "*") <> fail then
-        return ReplacedString(t, " ", "");
-    fi;
-    pieces := Filtered(SplitString(t, " "), x -> Length(x) > 0);
+    t := ReplacedString(t, "+", " + ");
+    t := ReplacedString(t, "-", " - ");
+    t := ReplacedString(t, "*", " * ");
+    pieces := Filtered(SplitString(t, " ,;"), x -> Length(x) > 0);
+
     out := [];
     for piece in pieces do
-        if Length(piece) > 1 and ForAll(piece, c -> c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") then
-            if piece in List(greek, x -> x[2]) then
-                Add(out, piece);
-            else
-                for i in [1..Length(piece)] do
-                    Add(out, piece{[i..i]});
-                od;
-            fi;
-        else
+        if piece = "+" or piece = "-" or piece = "*" then
+            Add(out, piece);
+        elif piece in List(greek, x -> x[2]) then
+            Add(out, piece);
+        elif ForAll(piece, c -> c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") then
+            chars := [];
             for i in [1..Length(piece)] do
-                if piece[i] <> ',' and piece[i] <> ';' then
-                    Add(out, piece{[i..i]});
-                fi;
+                Add(chars, piece{[i..i]});
             od;
+            Add(out, JoinStringsWithSeparator(chars, "*"));
+        else
+            Add(out, NormalizeStep1Name(piece));
         fi;
     od;
-    return JoinStringsWithSeparator(out, "*");
+
+    return JoinStringsWithSeparator(out, "");
 end;;
 
 Step1RandomName4 := function()
@@ -94,7 +94,7 @@ Step1RandomName4 := function()
     alphabet := "abcdefghijklmnopqrstuvwxyz0123456789";
     result := "";
     for i in [1..4] do
-        result := Concatenation(result, String(alphabet[Random([1..Length(alphabet)])]));
+        result := Concatenation(result, alphabet{[Random([1..Length(alphabet)])]});
     od;
     return result;
 end;;

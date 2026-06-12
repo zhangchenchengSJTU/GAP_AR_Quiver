@@ -1,0 +1,10 @@
+% https://q.uiver.app/#q=WzAsNSxbMCwwLCIxIl0sWzEsMCwiMiJdLFswLDEsIjMiXSxbMSwxLCI0Il0sWzIsMCwiUmVsOmFiLWNkLGViLGNlIl0sWzAsMSwiYSJdLFsxLDMsImIiXSxbMCwyLCJjIiwyXSxbMiwzLCJkIiwyXSxbMiwxLCJlIiwxXV0=
+\begin{tikzcd}[ampersand replacement=\&]
+	1 \& 2 \& {Rel:ab-cd,eb,ce} \\
+	3 \& 4
+	\arrow["a", from=1-1, to=1-2]
+	\arrow["c"', from=1-1, to=2-1]
+	\arrow["b", from=1-2, to=2-2]
+	\arrow["e"{description}, from=2-1, to=1-2]
+	\arrow["d"', from=2-1, to=2-2]
+\end{tikzcd}

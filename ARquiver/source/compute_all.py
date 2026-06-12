@@ -40,7 +40,8 @@ QUIT;
         print(f"[compute] {txt_path.name} -> {log_path.name}")
         subprocess.run(["gap", "-q", str(tmp_path)], cwd=ROOT, check=True)
     finally:
-        tmp_path.unlink(missing_ok=True)
+        if tmp_path.exists():
+            tmp_path.unlink()
 
 
 def main() -> None:
