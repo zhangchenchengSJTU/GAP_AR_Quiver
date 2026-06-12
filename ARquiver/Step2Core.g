@@ -537,6 +537,10 @@ WriteProjInjDims := function(fname, verts, maxN)
     AppendTo(fname, "PDID := ", pdid, ";\n");
 end;;
 
+WriteProjInjDimsFromCache := function(fname, pdid)
+    AppendTo(fname, "PDID := ", pdid, ";\n");
+end;;
+
 # ===== Step2.ipynb cell 9 =====
 # 画 irreducible morphism 的 diagram
 
@@ -1300,6 +1304,25 @@ ComputeSyzygyEdges := function(verts, projective_node_ids)
     return edges;
 end;;
 
+
+LexLessList := function(a, b)
+    local i, m;
+    m := Minimum(Length(a), Length(b));
+    for i in [1..m] do
+        if a[i] < b[i] then return true; fi;
+        if a[i] > b[i] then return false; fi;
+    od;
+    return Length(a) < Length(b);
+end;;
+
+LexKeyOfPair := function(left, right)
+    return [left, right];
+end;;
+
+SortRecordsByLeftRight := function(records)
+    SortBy(records, r -> [r.left, r.right]);
+end;;
+
 ExtEdgesFromMatrix := function(ext_dim)
     local edges, i, j;
     edges := [];
@@ -1405,6 +1428,7 @@ FindTiltingObjects := function(fname, verts, projective_node_ids, hom_dim, ext_d
     end;;
 
     backtrack(1, false, fail, false);
+    Sort(solutions);
 
     AppendTo(fname, "\n# --- TiltingModule --- #\n");
     if Length(solutions) = 0 then
@@ -1459,6 +1483,197 @@ FindTiltingObjects := function(fname, verts, projective_node_ids, hom_dim, ext_d
     od;
 end;;
 
+
+CollectGorensteinProjectiveInjective := function(verts, projective_node_ids, injective_node_ids, torsionless_node_ids, reflexive_node_ids, pdid, ext_dim)
+    local gp_ids, gi_ids, idx, row, pd, idim, ok, p, inj;
+
+    gp_ids := [];
+    gi_ids := [];
+
+    for row in pdid do
+        if not (IsList(row) and Length(row) >= 3) then
+            continue;
+        fi;
+        idx := row[1];
+        pd := row[2];
+        idim := row[3];
+
+        if not (idx in projective_node_ids) and pd = -1 and idx in torsionless_node_ids and idx in reflexive_node_ids then
+            ok := true;
+            for p in projective_node_ids do
+                if ext_dim[idx][p] <> 0 then
+                    ok := false;
+                    break;
+                fi;
+            od;
+            if ok then
+                Add(gp_ids, idx);
+            fi;
+        fi;
+
+        if not (idx in injective_node_ids) and idim = -1 then
+            ok := true;
+            for inj in injective_node_ids do
+                if ext_dim[inj][idx] <> 0 then
+                    ok := false;
+                    break;
+                fi;
+            od;
+            if ok then
+                Add(gi_ids, idx);
+            fi;
+        fi;
+    od;
+
+    Sort(gp_ids);
+    Sort(gi_ids);
+    return [gp_ids, gi_ids];
+end;;
+
+WriteGorensteinProjectiveInjective := function(fname, gp_ids, gi_ids)
+    AppendTo(fname, "Gorenstein projective modules found (Node IDs): ", gp_ids, "\n");
+    AppendTo(fname, "Gorenstein injective modules found (Node IDs):  ", gi_ids, "\n");
+end;;
+
+CotorsionRightOrthogonal := function(ext_dim, left_set)
+    local right, j, i, ok;
+    right := [];
+    for j in [1..Length(ext_dim)] do
+        ok := true;
+        for i in left_set do
+            if ext_dim[i][j] <> 0 then ok := false; break; fi;
+        od;
+        if ok then Add(right, j); fi;
+    od;
+    return right;
+end;;
+
+CotorsionLeftOrthogonal := function(ext_dim, right_set)
+    local left, i, j, ok;
+    left := [];
+    for i in [1..Length(ext_dim)] do
+        ok := true;
+        for j in right_set do
+            if ext_dim[i][j] <> 0 then ok := false; break; fi;
+        od;
+        if ok then Add(left, i); fi;
+    od;
+    return left;
+end;;
+
+TorsionFreeClass := function(hom_dim, torsion_set)
+    local free, j, i, ok;
+    free := [];
+    for j in [1..Length(hom_dim)] do
+        ok := true;
+        for i in torsion_set do
+            if hom_dim[i][j] <> 0 then ok := false; break; fi;
+        od;
+        if ok then Add(free, j); fi;
+    od;
+    return free;
+end;;
+
+TorsionClassFromFree := function(hom_dim, free_set)
+    local torsion, i, j, ok;
+    torsion := [];
+    for i in [1..Length(hom_dim)] do
+        ok := true;
+        for j in free_set do
+            if hom_dim[i][j] <> 0 then ok := false; break; fi;
+        od;
+        if ok then Add(torsion, i); fi;
+    od;
+    return torsion;
+end;;
+
+IsHereditaryCotorsionPair := function(left_set, syz_edges)
+    local edge;
+    for edge in syz_edges do
+        if edge[2] in left_set and not (edge[1] in left_set) then
+            return false;
+        fi;
+    od;
+    return true;
+end;;
+
+EnumerateFixedPairs := function(n, rightFromLeft, leftFromRight, extra)
+    local pairs, seen, current, Enumerate, right, left, key, pair;
+    pairs := [];
+    seen := [];
+    current := [];
+
+    Enumerate := function(pos)
+        if pos > n then
+            right := rightFromLeft(current, extra);
+            left := leftFromRight(right, extra);
+            Sort(left);
+            Sort(right);
+            if Set(left) = Set(current) then
+                key := Concatenation(String(left), "|", String(right));
+                if not (key in seen) then
+                    Add(seen, key);
+                    Add(pairs, rec(left := ShallowCopy(left), right := ShallowCopy(right)));
+                fi;
+            fi;
+            return;
+        fi;
+        Enumerate(pos + 1);
+        Add(current, pos);
+        Enumerate(pos + 1);
+        Remove(current, Length(current));
+    end;;
+
+    Enumerate(1);
+    SortBy(pairs, r -> [r.left, r.right]);
+    return pairs;
+end;;
+
+WriteTorsionPairs := function(fname, verts, hom_dim)
+    local n, maxN, pairs, pair;
+    n := Length(verts);
+    maxN := 20;
+    AppendTo(fname, "\n# --- TorsionPairTable --- #\n");
+    AppendTo(fname, "# columns: T, F\n");
+    if n > maxN then
+        AppendTo(fname, "Skipped: too many vertices for exhaustive finite-subquiver search (", n, " > ", maxN, ").\n");
+        return;
+    fi;
+    pairs := EnumerateFixedPairs(
+        n,
+        function(left, extra) return TorsionFreeClass(extra, left); end,
+        function(right, extra) return TorsionClassFromFree(extra, right); end,
+        hom_dim
+    );
+    for pair in pairs do
+        AppendTo(fname, "T := ", pair.left, " | F := ", pair.right, "\n");
+    od;
+    AppendTo(fname, "TorsionPairCount := ", Length(pairs), ";\n");
+end;;
+
+WriteCotorsionPairs := function(fname, verts, ext_dim, syz_edges)
+    local n, maxN, pairs, pair, hereditary;
+    n := Length(verts);
+    maxN := 20;
+    AppendTo(fname, "\n# --- CotorsionPairTable --- #\n");
+    AppendTo(fname, "# columns: L, R, Hereditary\n");
+    if n > maxN then
+        AppendTo(fname, "Skipped: too many vertices for exhaustive finite-subquiver search (", n, " > ", maxN, ").\n");
+        return;
+    fi;
+    pairs := EnumerateFixedPairs(
+        n,
+        function(left, extra) return CotorsionRightOrthogonal(extra, left); end,
+        function(right, extra) return CotorsionLeftOrthogonal(extra, right); end,
+        ext_dim
+    );
+    for pair in pairs do
+        hereditary := IsHereditaryCotorsionPair(pair.left, syz_edges);
+        AppendTo(fname, "L := ", pair.left, " | R := ", pair.right, " | Hereditary := ", hereditary, "\n");
+    od;
+    AppendTo(fname, "CotorsionPairCount := ", Length(pairs), ";\n");
+end;;
+
 WriteTranslationQuiver := function(fname, verts, dim_vectors, tau_map)
     local idx, label_str, posN;
     AppendTo(fname, "\n\ndigraph TranslationQuiver {\n");
@@ -1477,7 +1692,7 @@ end;;
 
 GenerateQuiverData := function(A, N, arg)
     local res, tr_list, torsionless_node_ids, reflexive_node_ids,
-        dim_vectors, hom_dim, ext_dim, tau_map;
+        dim_vectors, hom_dim, ext_dim, tau_map, pdid, syz_edges, gi_gp;
 
     if IsBoundGlobal("ar_strategy") and ar_strategy = "direct" then
         res := DrawIrreducibleDiagram(A, N, arg);
@@ -1489,6 +1704,8 @@ GenerateQuiverData := function(A, N, arg)
     tau_map := ComputeTauMap(res.verts);
     hom_dim := ComputeHomDimMatrix(res.verts);
     ext_dim := ComputeExtDimMatrix(res.verts);
+    syz_edges := ComputeSyzygyEdges(res.verts, res.projective_node_ids);
+    pdid := ComputeProjInjDims(res.verts, 6);
 
     WriteQuiverAndRelations(res.fname, Q, rel);
     WriteSyzygySummand(res.fname, res.verts, res.projective_node_ids);
@@ -1499,6 +1716,17 @@ GenerateQuiverData := function(A, N, arg)
     reflexive_node_ids := tr_list[2];
     WriteTorsionlessReflexive(res.fname, torsionless_node_ids, reflexive_node_ids);
 
+    gi_gp := CollectGorensteinProjectiveInjective(
+        res.verts,
+        res.projective_node_ids,
+        res.injective_node_ids,
+        torsionless_node_ids,
+        reflexive_node_ids,
+        pdid,
+        ext_dim
+    );
+    WriteGorensteinProjectiveInjective(res.fname, gi_gp[1], gi_gp[2]);
+
     WriteHomDimQuiver(res.fname, res.verts, dim_vectors, hom_dim);
     WriteExtDimQuiver(res.fname, res.verts, dim_vectors, ext_dim);
 
@@ -1506,7 +1734,10 @@ GenerateQuiverData := function(A, N, arg)
         FindTiltingObjects(res.fname, res.verts, res.projective_node_ids, hom_dim, ext_dim);
     fi;
 
-    WriteProjInjDims(res.fname, res.verts, 6);
+    WriteTorsionPairs(res.fname, res.verts, hom_dim);
+    WriteCotorsionPairs(res.fname, res.verts, ext_dim, syz_edges);
+
+    WriteProjInjDimsFromCache(res.fname, pdid);
 
     Print("TXT file successfully written to ", res.fname, "\n");
 end;;

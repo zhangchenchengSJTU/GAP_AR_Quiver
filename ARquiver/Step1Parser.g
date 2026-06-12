@@ -138,7 +138,8 @@ end;;
 Step1ParseTikzcd := function()
     local in_matrix, row_idx, max_col, line_raw, line, row_part, cells, col_idx,
           clean, lower, val, pos, rest, pieces, rel_piece, rel_expr,
-          cell_vertex, arrow_lines, from_pos, to_pos, src, dst, lbl, rowstr;
+          cell_vertex, arrow_lines, from_pos, to_pos, src, dst, lbl, rowstr,
+          min_row, max_row, min_col, used_max_col, has_numeric, r, c;
 
     n_verts := 0;
     Q_arrows := [];
@@ -202,17 +203,36 @@ Step1ParseTikzcd := function()
         fi;
     od;
 
-    for row_idx in [1..Length(cell_vertex)] do
-        rowstr := "";
-        for col_idx in [1..max_col] do
-            if IsBound(cell_vertex[row_idx]) and IsBound(cell_vertex[row_idx][col_idx]) then
-                rowstr := Concatenation(rowstr, String(cell_vertex[row_idx][col_idx]));
-            else
-                rowstr := Concatenation(rowstr, "-");
-            fi;
-        od;
-        Add(qs_rows, rowstr);
+    min_row := fail;
+    max_row := fail;
+    min_col := fail;
+    used_max_col := fail;
+    for r in [1..Length(cell_vertex)] do
+        if IsBound(cell_vertex[r]) then
+            for c in [1..Length(cell_vertex[r])] do
+                if IsBound(cell_vertex[r][c]) then
+                    if min_row = fail or r < min_row then min_row := r; fi;
+                    if max_row = fail or r > max_row then max_row := r; fi;
+                    if min_col = fail or c < min_col then min_col := c; fi;
+                    if used_max_col = fail or c > used_max_col then used_max_col := c; fi;
+                fi;
+            od;
+        fi;
     od;
+
+    if min_row <> fail then
+        for row_idx in [min_row..max_row] do
+            rowstr := "";
+            for col_idx in [min_col..used_max_col] do
+                if IsBound(cell_vertex[row_idx]) and IsBound(cell_vertex[row_idx][col_idx]) then
+                    rowstr := Concatenation(rowstr, String(cell_vertex[row_idx][col_idx]));
+                else
+                    rowstr := Concatenation(rowstr, "-");
+                fi;
+            od;
+            Add(qs_rows, rowstr);
+        od;
+    fi;
 
     for line in arrow_lines do
         from_pos := Step1TikzPosition(line, "from=");
