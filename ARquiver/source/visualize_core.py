@@ -1293,6 +1293,99 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           document.addEventListener('mouseup', () => { resizingDrawer = false; });
         }
 
+        let calculatorPanel = null;
+        function calcAllIds() {
+          return network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+        }
+        function calcParseSet(text) {
+          const all = calcAllIds();
+          const raw = String(text || '').trim();
+          if (!raw || raw.toLowerCase() === 'all' || raw === '*') return all;
+          return Array.from(new Set((raw.match(/-?\d+/g) || []).map(Number).filter(x => all.includes(x)))).sort((a, b) => a - b);
+        }
+        function calcFormatSet(ids) {
+          const arr = Array.from(new Set((ids || []).map(Number).filter(Number.isFinite))).sort((a, b) => a - b);
+          return arr.length ? arr.join(' ') : '∅';
+        }
+        function calcNonzero(edges, a, b) {
+          return (edges || []).some(e => Number(e[0]) === Number(a) && Number(e[1]) === Number(b) && String(e[2] == null ? '1' : e[2]) !== '0');
+        }
+        function calcDim(edges, a, b) {
+          const e = (edges || []).find(e => Number(e[0]) === Number(a) && Number(e[1]) === Number(b));
+          return e ? String(e[2] == null ? '1' : e[2]) : '0';
+        }
+        function calcPairs(edges, left, right) {
+          const L = new Set(left.map(Number));
+          const R = new Set(right.map(Number));
+          return (edges || []).filter(e => L.has(Number(e[0])) && R.has(Number(e[1])) && String(e[2] == null ? '1' : e[2]) !== '0')
+            .map(e => `${e[0]}→${e[1]}:${e[2] == null ? 1 : e[2]}`);
+        }
+        function calcImage(edges, input) {
+          const S = new Set(input.map(Number));
+          return (edges || []).filter(e => S.has(Number(e[0]))).map(e => Number(e[1]));
+        }
+        function calcRightPerp(edges, input) {
+          const all = calcAllIds();
+          return all.filter(x => input.every(a => !calcNonzero(edges, a, x)));
+        }
+        function calcLeftPerp(edges, input) {
+          const all = calcAllIds();
+          return all.filter(x => input.every(a => !calcNonzero(edges, x, a)));
+        }
+        function calcRunOperation() {
+          const op = document.getElementById('calcOp').value;
+          const A = calcParseSet(document.getElementById('calcA').value);
+          const B = calcParseSet(document.getElementById('calcB').value);
+          const extI = Number(document.getElementById('calcI').value || '1');
+          let output = '';
+          if (op === 'Hom') output = calcPairs(homEdges, A, B).join(', ') || '0';
+          else if (op === 'Ext') output = extI === 1 ? (calcPairs(extEdges, A, B).join(', ') || '0') : 'Only Ext^1 data is available in this HTML.';
+          else if (op === 'Syzygy') output = calcFormatSet(calcImage(syzygyEdges, A));
+          else if (op === 'Cosyzygy') output = calcFormatSet(calcImage(cosyzygyEdges, A));
+          else if (op === 'Homperp') output = calcFormatSet(calcRightPerp(homEdges, A));
+          else if (op === 'perpHom') output = calcFormatSet(calcLeftPerp(homEdges, A));
+          else if (op === 'Extperp') output = calcFormatSet(calcRightPerp(extEdges, A));
+          else if (op === 'perpExt') output = calcFormatSet(calcLeftPerp(extEdges, A));
+          else if (op === 'Gen') output = calcFormatSet(calcRightPerp(homEdges, []).filter(x => A.some(a => calcNonzero(homEdges, a, x))));
+          else if (op === 'Cog') output = calcFormatSet(calcRightPerp(homEdges, []).filter(x => A.some(a => calcNonzero(homEdges, x, a))));
+          else if (op === 'Extension') output = (calcPairs(extEdges, A, B).join(', ') || 'No nonzero Ext^1 pairs in current data.');
+          document.getElementById('calcOutput').textContent = output;
+        }
+        function showCalculator() {
+          if (!calculatorPanel) {
+            calculatorPanel = document.createElement('div');
+            calculatorPanel.id = 'arCalculatorPanel';
+            calculatorPanel.style.position = 'fixed';
+            calculatorPanel.style.right = '18px';
+            calculatorPanel.style.bottom = '18px';
+            calculatorPanel.style.width = '390px';
+            calculatorPanel.style.background = 'rgba(255,255,255,0.98)';
+            calculatorPanel.style.border = '1px solid #cbd5e1';
+            calculatorPanel.style.borderRadius = '10px';
+            calculatorPanel.style.boxShadow = '0 12px 32px rgba(15,23,42,0.24)';
+            calculatorPanel.style.zIndex = '20002';
+            calculatorPanel.style.fontFamily = 'system-ui,-apple-system,Segoe UI,sans-serif';
+            calculatorPanel.style.fontSize = '13px';
+            calculatorPanel.innerHTML = `
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #e5e7eb; background:#f8fafc; border-radius:10px 10px 0 0; font-weight:650;">
+                <span>Calculator</span><button id="calcClose" style="border:0; background:transparent; font-size:18px; cursor:pointer;">×</button>
+              </div>
+              <div style="padding:10px; display:grid; gap:8px;">
+                <label>Function <select id="calcOp" style="width:100%;"><option>Hom</option><option>Ext</option><option>Syzygy</option><option>Cosyzygy</option><option>Homperp</option><option>perpHom</option><option value="Extperp">Extperp / Extprep</option><option value="perpExt">perpExt / prepExt</option><option>Gen</option><option>Cog</option><option>Extension</option></select></label>
+                <label>A labels <input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
+                <label>B labels <input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="for Hom/Ext/Extension" /></label>
+                <label>i for Ext^i <input id="calcI" style="width:100%; box-sizing:border-box;" value="1" /></label>
+                <button id="calcRun" style="padding:6px 10px; border:1px solid #2563eb; background:#dbeafe; color:#1d4ed8; border-radius:6px; cursor:pointer; font-weight:650;">Run</button>
+                <div style="color:#475569; font-size:12px;">Inputs/outputs use node label numbers. Hom/Ext output shows nonzero pairs a→b:dim. Ext data currently means Ext^1.</div>
+                <pre id="calcOutput" style="min-height:48px; max-height:180px; overflow:auto; white-space:pre-wrap; margin:0; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px;"></pre>
+              </div>`;
+            document.body.appendChild(calculatorPanel);
+            calculatorPanel.querySelector('#calcClose').addEventListener('click', () => { calculatorPanel.style.display = 'none'; });
+            calculatorPanel.querySelector('#calcRun').addEventListener('click', calcRunOperation);
+          }
+          calculatorPanel.style.display = 'block';
+        }
+
         let folderPanel = null;
         function createFolderPanel() {
           if (folderPanel) return;
@@ -1335,7 +1428,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <button data-action="fit">Fit graph</button>
               <button data-action="undo">Undo Ctrl+Z</button>
               <button data-action="redo">Redo Ctrl+Y</button>
-              <button data-action="delete-selected">Delete selected</button>
+              <button data-action="calculator">Calculator</button>
               <button data-action="export-tex">Export AR quiver to TeX</button>
               <button data-action="legend">Color legend</button>
             </div></details>
@@ -1577,7 +1670,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (action === 'clear-colors') clearListColoring();
           if (action === 'undo' && typeof undo === 'function') undo();
           if (action === 'redo' && typeof redo === 'function') redo();
-          if (action === 'delete-selected') { snapshot(); network.deleteSelected(); }
+          if (action === 'calculator') showCalculator();
           if (action === 'export-tex') showTexExport(exportCurrentARQuiverToXyMatrix());
           if (action === 'legend') alert(['Legend:', 'blue border = projective', 'red border = injective', 'purple border = projective-injective', 'gold edge = τ', 'pink edge = syzygy', 'green edge = cosyzygy', 'orange fill = torsion class', 'green fill = torsion-free class', 'gray fill = tilting L'].join('\\n'));
         }
@@ -2508,9 +2601,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
           e.preventDefault();
           redo();
-        } else if (e.key === 'Delete' || e.key === 'Backspace') {
-          snapshot();
-          network.deleteSelected();
         } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
           const delta = (e.key === 'ArrowRight') ? 0.1 : -0.1;
           updateEdgeCurvature(network, delta);
