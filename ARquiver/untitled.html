@@ -369,20 +369,19 @@
       let showId = false;
       let showTop = false;
       let showSoc = false;
-      let customLabelsVisible = false;
       let idLabelLayer = null;
       let pdLabelLayer = null;
       let idValueLabelLayer = null;
       let topLabelLayer = null;
       let socLabelLayer = null;
-      let customLabelLayer = null;
       const idLabelMap = new Map();
       const pdLabelMap = new Map();
       const idValueLabelMap = new Map();
       const topLabelMap = new Map();
       const socLabelMap = new Map();
-      const customLabelMap = new Map();
       const customTexLabels = new Map();
+      let nodeLabelMode = 'dimension';
+      const nodeLabelButtons = new Map();
       const edgeCurveMemory = new Map();
       let hoverTip = null;
       let hoverNodeId = null;
@@ -471,9 +470,6 @@
               <input id="almostSupportTauToggle" type="checkbox" /> almost sTauTilt
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
-              <input id="showLabelToggle" type="checkbox" /> Label
-            </label>
-            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="pdToggle" type="checkbox" /> PD
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
@@ -484,9 +480,6 @@
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="socToggle" type="checkbox" /> Soc
-            </label>
-            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
-              <input id="customLabelToggle" type="checkbox" /> Label
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="borderToggle" type="checkbox" checked /> Border
@@ -504,6 +497,8 @@
         let drawer = null;
         let drawerTitle = null;
         let drawerBody = null;
+        let drawerListId = null;
+        let drawerToggleId = null;
         let uiVisible = true;
         let drawerVisibleBeforeHide = false;
         const activeModuleClasses = new Map();
@@ -723,10 +718,6 @@
             clearPairListHighlight();
           }
         });
-        document.getElementById('showLabelToggle').addEventListener('change', (e) => {
-          showLabels = e.target.checked;
-          toggleShowLabels(showLabels);
-        });
         document.getElementById('pdToggle').addEventListener('change', (e) => {
           togglePdLabels(e.target.checked);
         });
@@ -738,9 +729,6 @@
         });
         document.getElementById('socToggle').addEventListener('change', (e) => {
           toggleSocLabels(e.target.checked);
-        });
-        document.getElementById('customLabelToggle').addEventListener('change', (e) => {
-          toggleCustomLabels(e.target.checked);
         });
         document.getElementById('borderToggle').addEventListener('change', (e) => {
           showBorders = e.target.checked;
@@ -775,6 +763,27 @@
           if (el) el.click();
         }
 
+        function clearButtonListActive(containerId) {
+          const el = document.getElementById(containerId);
+          if (!el) return;
+          el.querySelectorAll('button[data-row]').forEach(btn => btn.classList.remove('tilting-btn-active'));
+        }
+
+        function clearListMenuActive() {
+          if (!folderPanel) return;
+          folderPanel.querySelectorAll('button[data-list]').forEach(btn => btn.classList.remove('ar-control-active'));
+        }
+
+        function closeListDrawer(clearColors) {
+          if (drawer) drawer.style.display = 'none';
+          if (drawerToggleId) setCheckbox(drawerToggleId, false);
+          if (drawerListId) clearButtonListActive(drawerListId);
+          clearListMenuActive();
+          if (clearColors) clearListColoring();
+          drawerListId = null;
+          drawerToggleId = null;
+        }
+
         function showListInDrawer(toggleId, listId, title) {
           ensureDrawer();
           setCheckbox(toggleId, true);
@@ -783,6 +792,8 @@
           while (drawerBody.firstChild) {
             container.appendChild(drawerBody.firstChild);
           }
+          drawerToggleId = toggleId;
+          drawerListId = listId;
           drawerTitle.textContent = title;
           drawerBody.appendChild(listEl);
           listEl.style.display = 'block';
@@ -810,6 +821,12 @@
         function clearListColoring() {
           clearAllNodeHighlights();
           clearActiveTilting();
+          ['tiltingList','torsionPairList','cotorsionPairList','supportTauList','almostSupportTauList'].forEach(clearButtonListActive);
+          clearListMenuActive();
+          ['tiltingToggle','torsionPairToggle','cotorsionPairToggle','supportTauToggle','almostSupportTauToggle'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.checked = false;
+          });
         }
 
         function addMenuStyles() {
@@ -842,6 +859,7 @@
               font: inherit;
             }
             #arTopMenu button:hover { background: rgba(255,255,255,0.22); }
+            #arTopMenu button.ar-top-active { background:#dbeafe; color:#1d4ed8; font-weight:700; }
             #arTopMenu .ar-title { font-weight: 650; margin-right: 8px; }
             #arTopMenu .ar-spacer { flex: 1; }
             #arFolderPanel {
@@ -940,7 +958,7 @@
           drawerTitle = drawer.querySelector('#arDrawerTitle');
           drawerBody = drawer.querySelector('#arListDrawerBody');
           drawer.querySelector('#arDrawerClose').addEventListener('click', () => {
-            drawer.style.display = 'none';
+            closeListDrawer(true);
           });
           const resizeHandle = drawer.querySelector('#arListDrawerResizeHandle');
           let resizingDrawer = false;
@@ -966,12 +984,10 @@
           folderPanel.innerHTML = `
             <div class="ar-panel-head"><span>Controls</span><button class="ar-panel-close" data-action="close-panel">×</button></div>
             <details open><summary>View</summary><div class="ar-folder-body">
-              <button data-toggle="showLabelToggle">No</button>
               <button data-toggle="pdToggle">PD</button>
               <button data-toggle="idToggle">ID</button>
               <button data-toggle="topToggle">Top</button>
               <button data-toggle="socToggle">Soc</button>
-              <button data-toggle="customLabelToggle">Custom TeX labels</button>
               <button data-toggle="borderToggle">Borders</button>
             </div></details>
             <details open><summary>Quivers</summary><div class="ar-folder-body">
@@ -992,13 +1008,11 @@
             <details><summary>Classes</summary><div class="ar-folder-body">
               <button data-list="torsionPairToggle|torsionPairList|Torsion classes">Torsion classes</button>
               <button data-list="cotorsionPairToggle|cotorsionPairList|Cotorsion classes">Cotorsion classes</button>
-              <button data-action="clear-colors">Clear class coloring</button>
             </div></details>
             <details><summary>Tilting</summary><div class="ar-folder-body">
               <button data-list="tiltingToggle|tiltingList|Tilting modules">Tilting modules</button>
               <button data-list="supportTauToggle|supportTauList|Support τ-tilting modules">Support τ-tilting</button>
               <button data-list="almostSupportTauToggle|almostSupportTauList|Almost support τ-tilting modules">Almost support τ-tilting</button>
-              <button data-action="clear-colors">Clear tilting coloring</button>
             </div></details>
             <details><summary>Tools</summary><div class="ar-folder-body">
               <button data-action="fit">Fit graph</button>
@@ -1251,16 +1265,98 @@
           if (action === 'legend') alert(['Legend:', 'blue border = projective', 'red border = injective', 'purple border = projective-injective', 'gold edge = τ', 'pink edge = syzygy', 'green edge = cosyzygy', 'orange fill = torsion class', 'green fill = torsion-free class', 'gray fill = tilting L'].join('\n'));
         }
 
+        function translateTexToken(token) {
+          const greek = {
+            alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', varpi: 'ϖ', rho: 'ρ', varrho: 'ϱ', sigma: 'σ', varsigma: 'ς', tau: 'τ', upsilon: 'υ', phi: 'φ', varphi: 'ϕ', chi: 'χ', psi: 'ψ', omega: 'ω',
+            Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+            ell: 'ℓ', infty: '∞', emptyset: '∅', varnothing: '∅'
+          };
+          const bs = String.fromCharCode(92);
+          let text = String(token || '');
+          Object.keys(greek).sort((a, b) => b.length - a.length).forEach(name => {
+            text = text.split(bs + name).join(greek[name]);
+          });
+          return text.replace(/[{}]/g, '');
+        }
+
+        function texScript(text, mode) {
+          const sub = { '0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎','a':'ₐ','e':'ₑ','h':'ₕ','i':'ᵢ','j':'ⱼ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','o':'ₒ','p':'ₚ','r':'ᵣ','s':'ₛ','t':'ₜ','u':'ᵤ','v':'ᵥ','x':'ₓ' };
+          const sup = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ' };
+          const map = mode === 'sub' ? sub : sup;
+          return translateTexToken(text).split('').map(ch => map[ch] || ch).join('');
+        }
+
+        function stripTexCommandWithBraces(text, commandName) {
+          const prefix = String.fromCharCode(92) + commandName + '{';
+          let out = String(text || '');
+          let idx = out.indexOf(prefix);
+          while (idx !== -1) {
+            const start = idx + prefix.length;
+            const end = out.indexOf('}', start);
+            if (end === -1) break;
+            out = out.slice(0, idx) + out.slice(start, end) + out.slice(end + 1);
+            idx = out.indexOf(prefix, idx + 1);
+          }
+          return out;
+        }
+
+        function latexToCanvasLabel(tex) {
+          let out = String(tex == null ? '' : tex).trim();
+          out = out.replace(/^\$+|\$+$/g, '');
+          out = stripTexCommandWithBraces(out, 'text');
+          out = stripTexCommandWithBraces(out, 'mathrm');
+          out = stripTexCommandWithBraces(out, 'operatorname');
+          out = out.replace(/_\{([^}]*)\}/g, (_, body) => texScript(body, 'sub'));
+          out = out.replace(/\^\{([^}]*)\}/g, (_, body) => texScript(body, 'sup'));
+          out = out.replace(/_([A-Za-z0-9+\-=])/g, (_, body) => texScript(body, 'sub'));
+          out = out.replace(/\^([A-Za-z0-9+\-=])/g, (_, body) => texScript(body, 'sup'));
+          out = translateTexToken(out);
+          out = out.split(String.fromCharCode(92)).join('');
+          return out;
+        }
+
+        function nodeCircleLabel(id) {
+          const base = baseNodeStyles.get(id) || baseNodeStyles.get(Number(id));
+          if (nodeLabelMode === 'label') return String(id);
+          if (nodeLabelMode === 'custom') {
+            const custom = customTexLabels.get(id) || customTexLabels.get(Number(id));
+            return custom ? latexToCanvasLabel(custom) : (base ? base.label : String(id));
+          }
+          return base ? base.label : String(id);
+        }
+
+        function applyNodeLabelMode(mode) {
+          nodeLabelMode = mode;
+          const updates = network.body.data.nodes.get().map(n => {
+            const base = baseNodeStyles.get(n.id) || toBaseStyle(n);
+            if (!baseNodeStyles.has(n.id)) baseNodeStyles.set(n.id, base);
+            const label = nodeCircleLabel(n.id);
+            return { id: n.id, label: label, title: `Node ${n.id}<br>${label}` };
+          });
+          if (updates.length) network.body.data.nodes.update(updates);
+          nodeLabelButtons.forEach((button, key) => button.classList.toggle('ar-top-active', key === nodeLabelMode));
+          network.redraw();
+        }
+
         function createMenuBar() {
           addMenuStyles();
           createFolderPanel();
           menuBar = document.createElement('div');
           menuBar.id = 'arTopMenu';
-          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="fit">Fit</button><button data-action="clear-colors">Clear colors</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
+          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="fit">Fit</button><button data-action="clear-colors">Clear colors</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
           document.body.appendChild(menuBar);
+          menuBar.querySelectorAll('button[data-label-mode]').forEach(button => {
+            nodeLabelButtons.set(button.getAttribute('data-label-mode'), button);
+          });
+          applyNodeLabelMode(nodeLabelMode);
           menuBar.addEventListener('click', (event) => {
             const btn = event.target.closest('button');
             if (!btn) return;
+            const labelMode = btn.getAttribute('data-label-mode');
+            if (labelMode) {
+              applyNodeLabelMode(labelMode);
+              return;
+            }
             const action = btn.getAttribute('data-action');
             if (action === 'toggle-panel') {
               folderPanel.style.display = folderPanel.style.display === 'block' ? 'none' : 'block';
@@ -1704,14 +1800,18 @@
         return topSocMap && (topSocMap[id] || topSocMap[String(id)]);
       }
 
+      function formatHomologicalDimension(value) {
+        return Number(value) === -1 ? '∞' : String(value);
+      }
+
       function updatePdLabels() {
         updateScalarLabels(showPd, pdLabelLayer, pdLabelMap, id => {
-          const e = pdidEntry(id); return e ? `pd=${e.pd}` : null;
+          const e = pdidEntry(id); return e ? `pd=${formatHomologicalDimension(e.pd)}` : null;
         }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 42) : 46), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)');
       }
       function updateIdValueLabels() {
         updateScalarLabels(showId, idValueLabelLayer, idValueLabelMap, id => {
-          const e = pdidEntry(id); return e ? `id=${e.id}` : null;
+          const e = pdidEntry(id); return e ? `id=${formatHomologicalDimension(e.id)}` : null;
         }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 24) : 28), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)');
       }
       function updateTopLabels() {
@@ -1762,81 +1862,26 @@
 
       function ensureTopSocLabelLayer() {}
 
+      function toSuperscript(value) {
+        const map = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻' };
+        return String(value).split('').map(ch => map[ch] || ch).join('');
+      }
+
       function formatSimpleList(arr) {
         if (!arr || arr.length === 0) return '0';
-        return arr.map(x => `S${x}`).join(',');
+        const counts = new Map();
+        const order = [];
+        arr.forEach(x => {
+          const key = String(x);
+          if (!counts.has(key)) order.push(key);
+          counts.set(key, (counts.get(key) || 0) + 1);
+        });
+        return order.map(key => key + (counts.get(key) > 1 ? toSuperscript(counts.get(key)) : '')).join('');
       }
 
       function updateTopSocLabels() {}
       function showTopSocLabels() {}
       function hideTopSocLabels() {}
-
-      function ensureCustomLabelLayer() {
-        if (customLabelLayer) return;
-        customLabelLayer = document.createElement('div');
-        customLabelLayer.style.position = 'absolute';
-        customLabelLayer.style.left = '0';
-        customLabelLayer.style.top = '0';
-        customLabelLayer.style.width = '100%';
-        customLabelLayer.style.height = '100%';
-        customLabelLayer.style.pointerEvents = 'none';
-        customLabelLayer.style.zIndex = '997';
-        network.body.container.appendChild(customLabelLayer);
-      }
-
-      function updateCustomLabels() {
-        if (!customLabelsVisible || !customLabelLayer) return;
-        const positions = network.getPositions();
-        Object.keys(positions).forEach(idStr => {
-          const id = Number(idStr);
-          if (!Number.isFinite(id)) return;
-          const text = customTexLabels.get(id) || customTexLabels.get(String(id));
-          if (!text) return;
-          const node = network.body.nodes[id];
-          if (!node) return;
-          let el = customLabelMap.get(id);
-          if (!el) {
-            el = document.createElement('div');
-            el.style.position = 'absolute';
-            el.style.fontSize = '13px';
-            el.style.color = '#111827';
-            el.style.fontFamily = 'serif';
-            el.style.fontWeight = '600';
-            el.style.transform = 'translate(-50%, 0)';
-            el.style.background = 'rgba(255,255,255,0.96)';
-            el.style.border = '1px solid #94a3b8';
-            el.style.borderRadius = '4px';
-            el.style.padding = '1px 5px';
-            el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.12)';
-            customLabelLayer.appendChild(el);
-            customLabelMap.set(id, el);
-          }
-          renderInlineMath(el, text);
-          const dom = network.canvasToDOM(positions[id]);
-          const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 8) : 18;
-          el.style.left = `${dom.x}px`;
-          el.style.top = `${dom.y + offset}px`;
-        });
-      }
-
-      function showCustomLabelLayer() {
-        ensureCustomLabelLayer();
-        customLabelLayer.style.display = 'block';
-        updateCustomLabels();
-      }
-
-      function hideCustomLabels() {
-        if (customLabelLayer) customLabelLayer.style.display = 'none';
-      }
-
-      function toggleCustomLabels(visible) {
-        customLabelsVisible = visible;
-        if (customLabelsVisible) {
-          showCustomLabelLayer();
-        } else {
-          hideCustomLabels();
-        }
-      }
 
       function toggleNodeBorders(visible) {
         const nodes = network.body.data.nodes.get();
@@ -2318,7 +2363,6 @@
           if (showId) updateIdValueLabels();
           if (showTop) updateTopLabels();
           if (showSoc) updateSocLabels();
-          if (customLabelsVisible) updateCustomLabels();
         }
       });
 
@@ -2328,7 +2372,6 @@
         if (showId) updateIdValueLabels();
         if (showTop) updateTopLabels();
         if (showSoc) updateSocLabels();
-        if (customLabelsVisible) updateCustomLabels();
         if (hoverNodeId !== null) updateHoverTip();
       });
 
@@ -2355,21 +2398,44 @@
         if (p.nodes.length > 0) {
           const n_id = Number(p.nodes[0]);
           const current = customTexLabels.get(n_id) || '';
+          const wasShowingCustomLabel = nodeLabelMode === 'custom';
+          network.setOptions({ interaction: { dragNodes: false } });
+          network.unselectAll();
           const input = prompt('Custom TeX label for node ' + n_id, current);
-          if (input === null) return;
+          const releaseNodeAfterPrompt = () => {
+            network.unselectAll();
+            if (network.body && network.body.nodes && network.body.nodes[n_id]) {
+              network.body.nodes[n_id].selected = false;
+            }
+            network.setOptions({ interaction: { dragNodes: true } });
+            network.redraw();
+          };
+          if (input === null) {
+            releaseNodeAfterPrompt();
+            setTimeout(releaseNodeAfterPrompt, 0);
+            setTimeout(releaseNodeAfterPrompt, 80);
+            return;
+          }
           const value = input.trim();
           if (value) customTexLabels.set(n_id, value);
           else customTexLabels.delete(n_id);
-          customLabelMap.forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
-          customLabelMap.clear();
-          const toggle = document.getElementById('customLabelToggle');
-          if (toggle && !toggle.checked) {
-            toggle.checked = true;
-            dispatchChange(toggle);
-          } else {
-            customLabelsVisible = true;
-            showCustomLabelLayer();
+          const refreshByClickingLabelButtons = () => {
+            const labelButton = nodeLabelButtons.get('label');
+            const customButton = nodeLabelButtons.get('custom');
+            if (labelButton && customButton) {
+              labelButton.click();
+              setTimeout(() => customButton.click(), 0);
+            } else {
+              applyNodeLabelMode('label');
+              applyNodeLabelMode('custom');
+            }
+          };
+          if (wasShowingCustomLabel) {
+            refreshByClickingLabelButtons();
           }
+          releaseNodeAfterPrompt();
+          setTimeout(releaseNodeAfterPrompt, 0);
+          setTimeout(releaseNodeAfterPrompt, 80);
           return;
         }
         if (p.edges.length > 0) {
@@ -2393,12 +2459,11 @@
       });
 
       // defaults
-      toggleShowLabels(false);
+      applyNodeLabelMode('dimension');
       togglePdLabels(false);
       toggleIdValueLabels(false);
       toggleTopLabels(false);
       toggleSocLabels(false);
-      toggleCustomLabels(false);
       toggleNodeBorders(true);
     </script>
     </body>
