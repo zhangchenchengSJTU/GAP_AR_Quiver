@@ -157,8 +157,8 @@
       const goldenEdges = [[4, 3], [5, 4], [7, 6], [8, 7], [10, 9], [11, 10], [12, 11], [13, 14], [14, 15], [15, 13], [16, 17], [17, 19], [18, 16], [19, 21], [20, 18], [21, 20]];
       const torsionlessIds = [2, 14, 17, 19];
       const reflexiveIds = [2, 17];
-      const gorensteinProjectiveIds = [1, 3, 6, 9];
-      const gorensteinInjectiveIds = [1, 5, 8, 12];
+      const gorensteinProjectiveIds = [];
+      const gorensteinInjectiveIds = [];
       const zeroObjectIds = [2];
       const syzygyEdges = [[4, 9], [5, 3], [7, 3], [7, 9], [8, 9], [8, 14], [10, 9], [11, 3], [11, 9], [12, 14], [13, 9], [14, 9], [14, 17], [15, 14], [16, 3], [17, 9], [18, 9], [18, 14], [19, 17], [20, 9], [20, 17], [21, 19]];
       const cosyzygyEdges = [[1, 1], [3, 1], [4, 8], [5, 5], [6, 1], [6, 8], [7, 1], [7, 5], [7, 8], [8, 8], [9, 1], [10, 1], [10, 8], [11, 5], [11, 8], [12, 12], [13, 5], [13, 8], [14, 1], [15, 1], [15, 8], [16, 1], [16, 5], [16, 8], [17, 8], [18, 1], [18, 8], [19, 1], [20, 5], [21, 8]];
@@ -506,36 +506,58 @@
         let drawerBody = null;
         let uiVisible = true;
         let drawerVisibleBeforeHide = false;
-        function emphasizeNodeSet(ids, color) {
-          const idsArray = (ids || []).map(Number).filter(x => !Number.isNaN(x));
-          if (!idsArray.length) return false;
-          const allNodes = network.body.data.nodes.get();
-          const idSet = new Set(idsArray);
-          const updates = allNodes.map(n => {
-            const base = baseNodeStyles.get(n.id) || {};
-            if (idSet.has(Number(n.id))) {
-              return { id: n.id, color: { border: color, background: '#fff7cc', highlight: { border: color, background: '#ffe680' } }, borderWidth: 5 };
-            }
-            return { id: n.id, color: base.color || n.color, borderWidth: base.borderWidth || n.borderWidth || 1 };
+        const activeModuleClasses = new Map();
+
+        function activeModuleIds() {
+          const ids = new Set();
+          activeModuleClasses.forEach(entry => {
+            (entry.ids || []).forEach(id => ids.add(Number(id)));
           });
-          network.body.data.nodes.update(updates);
-          network.selectNodes(idsArray);
-          if (idsArray.length === 1) network.focus(idsArray[0], { scale: 1.2, animation: true });
-          else network.fit({ nodes: idsArray, animation: true });
+          return ids;
+        }
+
+        function redrawActiveModuleClasses() {
+          const allNodes = network.body.data.nodes.get();
+          allNodes.forEach(n => restoreNodeBase(n.id));
+          activeModuleClasses.forEach(entry => {
+            const idSet = new Set((entry.ids || []).map(Number));
+            const updates = network.body.data.nodes.get().filter(n => idSet.has(Number(n.id))).map(n => ({
+              id: n.id,
+              color: { border: entry.color, background: '#fff7cc', highlight: { border: entry.color, background: '#ffe680' } },
+              borderWidth: showBorders ? 5 : 0,
+              borderWidthSelected: showBorders ? 6 : 0
+            }));
+            if (updates.length) network.body.data.nodes.update(updates);
+          });
+          const ids = Array.from(activeModuleIds());
+          if (ids.length) network.selectNodes(ids);
+          else network.unselectAll();
+        }
+
+        function toggleModuleClass(btnId, ids, color) {
+          const btn = document.getElementById(btnId);
+          const idsArray = (ids || []).map(Number).filter(x => !Number.isNaN(x));
+          if (!idsArray.length) {
+            alert('不存在');
+            return false;
+          }
+          if (activeModuleClasses.has(btnId)) {
+            activeModuleClasses.delete(btnId);
+            if (btn) btn.classList.remove('ar-control-active');
+          } else {
+            activeModuleClasses.set(btnId, { ids: idsArray, color: color });
+            if (btn) btn.classList.add('ar-control-active');
+          }
+          redrawActiveModuleClasses();
+          const selected = Array.from(activeModuleIds());
+          if (selected.length === 1) network.focus(selected[0], { scale: 1.2, animation: true });
+          else if (selected.length > 1) network.fit({ nodes: selected, animation: true });
           return true;
         }
-        document.getElementById('torsBtn').addEventListener('click', () => {
-          if (!emphasizeNodeSet(torsionlessIds, '#0ea5e9')) alert('不存在');
-        });
-        document.getElementById('reflBtn').addEventListener('click', () => {
-          if (!emphasizeNodeSet(reflexiveIds, '#8b5cf6')) alert('不存在');
-        });
-        document.getElementById('gpBtn').addEventListener('click', () => {
-          if (!emphasizeNodeSet(gorensteinProjectiveIds, '#16a34a')) alert('不存在');
-        });
-        document.getElementById('giBtn').addEventListener('click', () => {
-          if (!emphasizeNodeSet(gorensteinInjectiveIds, '#dc2626')) alert('不存在');
-        });
+        document.getElementById('torsBtn').addEventListener('click', () => toggleModuleClass('torsBtn', torsionlessIds, '#0ea5e9'));
+        document.getElementById('reflBtn').addEventListener('click', () => toggleModuleClass('reflBtn', reflexiveIds, '#8b5cf6'));
+        document.getElementById('gpBtn').addEventListener('click', () => toggleModuleClass('gpBtn', gorensteinProjectiveIds, '#16a34a'));
+        document.getElementById('giBtn').addEventListener('click', () => toggleModuleClass('giBtn', gorensteinInjectiveIds, '#dc2626'));
         document.getElementById('syzToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
           const existing = network.body.data.edges.get({
@@ -772,6 +794,14 @@
           splitPairHighlights = new Map();
           pairHighlighted = new Set();
           tiltingHighlighted = new Set();
+          if (typeof activeModuleClasses !== 'undefined') activeModuleClasses.clear();
+          ['torsBtn','reflBtn','gpBtn','giBtn'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.classList.remove('ar-control-active');
+          });
+          if (folderPanel) {
+            folderPanel.querySelectorAll('button[data-click="torsBtn"],button[data-click="reflBtn"],button[data-click="gpBtn"],button[data-click="giBtn"]').forEach(btn => btn.classList.remove('ar-control-active'));
+          }
           network.body.data.nodes.getIds().forEach(id => restoreNodeBase(id));
           network.unselectAll();
           network.redraw();
@@ -1195,11 +1225,16 @@
             const toggleEl = document.getElementById(toggleId);
             btn.classList.toggle('ar-control-active', !!(toggleEl && toggleEl.checked));
           }
-          if (!toggleId && (clickId || listSpec || action)) {
+          if (!toggleId && !clickId && !listSpec && action) {
             btn.classList.add('ar-control-active');
             setTimeout(() => btn.classList.remove('ar-control-active'), 350);
           }
-          if (clickId) clickControl(clickId);
+          if (clickId) {
+            clickControl(clickId);
+            if (['torsBtn','reflBtn','gpBtn','giBtn'].includes(clickId) && typeof activeModuleClasses !== 'undefined') {
+              btn.classList.toggle('ar-control-active', activeModuleClasses.has(clickId));
+            }
+          }
           if (listSpec) {
             const parts = listSpec.split('|');
             showListInDrawer(parts[0], parts[1], parts[2]);

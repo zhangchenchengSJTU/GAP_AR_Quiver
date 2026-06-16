@@ -1111,6 +1111,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           splitPairHighlights = new Map();
           pairHighlighted = new Set();
           tiltingHighlighted = new Set();
+          if (typeof activeModuleClasses !== 'undefined') activeModuleClasses.clear();
+          ['torsBtn','reflBtn','gpBtn','giBtn'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.classList.remove('ar-control-active');
+          });
+          if (folderPanel) {
+            folderPanel.querySelectorAll('button[data-click="torsBtn"],button[data-click="reflBtn"],button[data-click="gpBtn"],button[data-click="giBtn"]').forEach(btn => btn.classList.remove('ar-control-active'));
+          }
           network.body.data.nodes.getIds().forEach(id => restoreNodeBase(id));
           network.unselectAll();
           network.redraw();
@@ -1534,11 +1542,16 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const toggleEl = document.getElementById(toggleId);
             btn.classList.toggle('ar-control-active', !!(toggleEl && toggleEl.checked));
           }
-          if (!toggleId && (clickId || listSpec || action)) {
+          if (!toggleId && !clickId && !listSpec && action) {
             btn.classList.add('ar-control-active');
             setTimeout(() => btn.classList.remove('ar-control-active'), 350);
           }
-          if (clickId) clickControl(clickId);
+          if (clickId) {
+            clickControl(clickId);
+            if (['torsBtn','reflBtn','gpBtn','giBtn'].includes(clickId) && typeof activeModuleClasses !== 'undefined') {
+              btn.classList.toggle('ar-control-active', activeModuleClasses.has(clickId));
+            }
+          }
           if (listSpec) {
             const parts = listSpec.split('|');
             showListInDrawer(parts[0], parts[1], parts[2]);
