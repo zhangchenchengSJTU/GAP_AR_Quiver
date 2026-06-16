@@ -1231,38 +1231,92 @@ end;
 # ===== Step2.ipynb cell 10 =====
 # 找 syzygy diagram
 
-WriteSyzygySummand := function(fname, verts, projective_node_ids)
-    local nonproj_node_ids, source_node_ids, target_node_ids, label_str, idx, Nidx, syzCall, M, dsCall;
-
-    nonproj_node_ids := Filtered([1..Length(verts)], k -> not (k in projective_node_ids));
-    source_node_ids := [1..Length(verts)];
-    target_node_ids := nonproj_node_ids;
-
-    AppendTo(fname,"\n\ndigraph SyzygySummand {\n");
-    for idx in Set(Concatenation(source_node_ids, target_node_ids)) do
-        label_str := String(DimensionVector(verts[idx]));
-        AppendTo(fname,"  ", String(idx), " [label=\"", label_str, "\"];\n");
+SummandNodeIds := function(verts, M)
+    local projCall, ids, pr, summand, pos;
+    ids := [];
+    if IsInt(M) and M = 0 then return ids; fi;
+    projCall := CALL_WITH_CATCH(DecomposeToProjections, [M]);
+    if projCall[1] <> true or not IsList(projCall[2]) then return ids; fi;
+    for pr in projCall[2] do
+        if not IsBound(pr) then continue; fi;
+        summand := Range(pr);
+        pos := PositionIsomorphic(verts, summand);
+        if pos <> fail then Add(ids, pos); fi;
     od;
+    return Set(ids);
+end;;
 
-    for Nidx in target_node_ids do
-        syzCall := CALL_WITH_CATCH(1stSyzygy, [verts[Nidx]]);
-        if syzCall[1] <> true then
-            continue;
-        fi;
-        if IsInt(syzCall[2]) and syzCall[2] = 0 then
-            continue;
-        fi;
-
-        for idx in source_node_ids do
-            M := verts[idx];
-            dsCall := CALL_WITH_CATCH(IsDirectSummand, [M, syzCall[2]]);
-            if dsCall[1] = true and dsCall[2] = true then
-                AppendTo(fname,"  ", String(idx), " -> ", String(Nidx), ";\n");
-            fi;
+WriteSyzygySummand := function(fname, verts, projective_node_ids)
+    local source_idx, target_idx, label_str, syzCall, ids;
+    AppendTo(fname,"\n\ndigraph SyzygySummand {\n");
+    for source_idx in [1..Length(verts)] do
+        label_str := String(DimensionVector(verts[source_idx]));
+        AppendTo(fname,"  ", String(source_idx), " [label=\"", label_str, "\"];\n");
+    od;
+    for source_idx in [1..Length(verts)] do
+        syzCall := CALL_WITH_CATCH(1stSyzygy, [verts[source_idx]]);
+        if syzCall[1] <> true then continue; fi;
+        ids := SummandNodeIds(verts, syzCall[2]);
+        for target_idx in ids do
+            AppendTo(fname,"  ", String(source_idx), " -> ", String(target_idx), ";\n");
         od;
     od;
-
     AppendTo(fname,"}\n");
+end;;
+
+WriteCosyzygySummand := function(fname, verts)
+    local source_idx, target_idx, label_str, injCall, envM, ids;
+    AppendTo(fname,"\n\ndigraph CosyzygySummand {\n");
+    for source_idx in [1..Length(verts)] do
+        label_str := String(DimensionVector(verts[source_idx]));
+        AppendTo(fname,"  ", String(source_idx), " [label=\"", label_str, "\"];\n");
+    od;
+    for source_idx in [1..Length(verts)] do
+        injCall := CALL_WITH_CATCH(InjectiveEnvelope, [verts[source_idx]]);
+        if injCall[1] <> true then continue; fi;
+        envM := Range(injCall[2]);
+        ids := SummandNodeIds(verts, envM);
+        for target_idx in ids do
+            AppendTo(fname,"  ", String(source_idx), " -> ", String(target_idx), ";\n");
+        od;
+    od;
+    AppendTo(fname,"}\n");
+end;;
+
+AddRepeated := function(list, value, times)
+    local k;
+    for k in [1..times] do Add(list, value); od;
+end;;
+
+ComputeTopSocData := function(A, verts)
+    local simples, rows, idx, M, topCall, socCall, topM, socM, topIds, socIds, sidx, homCall, mult;
+    simples := SimpleModules(A);
+    rows := [];
+    for idx in [1..Length(verts)] do
+        M := verts[idx]; topIds := []; socIds := [];
+        topCall := CALL_WITH_CATCH(TopOfModule, [M]);
+        if topCall[1] = true and not (IsInt(topCall[2]) and topCall[2] = 0) then
+            topM := topCall[2];
+            for sidx in [1..Length(simples)] do
+                homCall := CALL_WITH_CATCH(HomOverAlgebra, [topM, simples[sidx]]);
+                if homCall[1] = true then mult := HomObjectDimension(homCall[2]); AddRepeated(topIds, sidx, mult); fi;
+            od;
+        fi;
+        socCall := CALL_WITH_CATCH(SocleOfModule, [M]);
+        if socCall[1] = true and not (IsInt(socCall[2]) and socCall[2] = 0) then
+            socM := socCall[2];
+            for sidx in [1..Length(simples)] do
+                homCall := CALL_WITH_CATCH(HomOverAlgebra, [simples[sidx], socM]);
+                if homCall[1] = true then mult := HomObjectDimension(homCall[2]); AddRepeated(socIds, sidx, mult); fi;
+            od;
+        fi;
+        Add(rows, [idx, topIds, socIds]);
+    od;
+    return rows;
+end;;
+
+WriteTopSocData := function(fname, A, verts)
+    AppendTo(fname, "TopSoc := ", ComputeTopSocData(A, verts), ";\n");
 end;;
 
 # ===== Step2.ipynb cell 11 =====
@@ -2065,6 +2119,8 @@ GenerateQuiverData := function(A, N, arg)
 
     WriteQuiverAndRelations(res.fname, Q, rel);
     WriteSyzygySummand(res.fname, res.verts, res.projective_node_ids);
+    WriteCosyzygySummand(res.fname, res.verts);
+    WriteTopSocData(res.fname, A, res.verts);
     WriteTranslationQuiver(res.fname, res.verts, dim_vectors, tau_map);
 
     Progress("computing torsionless and reflexive modules");
