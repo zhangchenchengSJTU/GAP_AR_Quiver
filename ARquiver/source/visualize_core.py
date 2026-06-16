@@ -531,6 +531,36 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         document.head.appendChild(style);
       })();
 
+      (function ensureMathJax() {
+        if (window.MathJax || document.getElementById('mathjax-script')) return;
+        window.MathJax = { tex: { inlineMath: [['$', '$']] }, svg: { fontCache: 'global' } };
+        const script = document.createElement('script');
+        script.id = 'mathjax-script';
+        script.async = true;
+        script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+        document.head.appendChild(script);
+      })();
+
+      function typesetMath(element) {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          window.MathJax.typesetPromise(element ? [element] : undefined).catch(() => {});
+          return;
+        }
+        if (element) {
+          element.__mathjaxRetries = (element.__mathjaxRetries || 0) + 1;
+          if (element.__mathjaxRetries <= 20) {
+            setTimeout(() => typesetMath(element), 250);
+          }
+        }
+      }
+
+      function renderInlineMath(element, tex) {
+        if (!element) return;
+        element.textContent = '$' + tex + '$';
+        element.classList.add('ar-math-label');
+        typesetMath(element);
+      }
+
       function parseEdgeColor(choice) {
         const c = (choice || 'black').toLowerCase().replace(/\s+/g, '');
         if (c === 'gold' || c === 'g') {
@@ -598,27 +628,51 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         if (updates.length) netObj.body.data.edges.update(updates);
       }
 
+      function rememberEdgeCurve(edge) {
+        if (!edge || edge.id === undefined || edge.id === null) return;
+        if (edge.smooth && typeof edge.smooth === 'object') {
+          edgeCurveMemory.set(String(edge.id), { ...edge.smooth });
+        } else if (edge.smooth === false) {
+          edgeCurveMemory.set(String(edge.id), false);
+        }
+      }
+
+      function curveForEdgeId(id) {
+        const key = String(id);
+        return edgeCurveMemory.has(key) ? edgeCurveMemory.get(key) : false;
+      }
+
+      function rememberExistingEdgesByPrefix(prefix) {
+        network.body.data.edges.get({
+          filter: (edge) => edge.id && String(edge.id).startsWith(prefix)
+        }).forEach(rememberEdgeCurve);
+      }
+
       function addLabeledEdges(prefix, edges, color, width) {
         const toAdd = edges.map((e, i) => {
+          const id = `${prefix}_${i}`;
           const label = (e[2] || '').toString();
           return {
-            id: `${prefix}_${i}`,
+            id: id,
             from: e[0],
             to: e[1],
             label: label && label !== '0' ? label : undefined,
             color: color,
             width: width,
             arrows: 'to',
-            dashes: false
+            dashes: false,
+            smooth: curveForEdgeId(id)
           };
         });
         network.body.data.edges.add(toAdd);
       }
 
       function removeEdgesByPrefix(prefix) {
-        const existing = network.body.data.edges.get({
+        const existingEdges = network.body.data.edges.get({
           filter: (edge) => edge.id && String(edge.id).startsWith(prefix)
-        }).map(e => e.id);
+        });
+        existingEdges.forEach(rememberEdgeCurve);
+        const existing = existingEdges.map(e => e.id);
         if (existing.length) network.body.data.edges.remove(existing);
       }
 
@@ -628,14 +682,25 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       let miniContainer = null;
       let showLabels = false;
       let showBorders = true;
-      let showPdid = false;
-      let showTopSoc = false;
+      let showPd = false;
+      let showId = false;
+      let showTop = false;
+      let showSoc = false;
+      let customLabelsVisible = false;
       let idLabelLayer = null;
-      let pdidLabelLayer = null;
-      let topSocLabelLayer = null;
+      let pdLabelLayer = null;
+      let idValueLabelLayer = null;
+      let topLabelLayer = null;
+      let socLabelLayer = null;
+      let customLabelLayer = null;
       const idLabelMap = new Map();
-      const pdidLabelMap = new Map();
-      const topSocLabelMap = new Map();
+      const pdLabelMap = new Map();
+      const idValueLabelMap = new Map();
+      const topLabelMap = new Map();
+      const socLabelMap = new Map();
+      const customLabelMap = new Map();
+      const customTexLabels = new Map();
+      const edgeCurveMemory = new Map();
       let hoverTip = null;
       let hoverNodeId = null;
       const baseNodeStyles = new Map();
@@ -726,10 +791,19 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <input id="showLabelToggle" type="checkbox" /> Label
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
-              <input id="pdidToggle" type="checkbox" /> PDID
+              <input id="pdToggle" type="checkbox" /> PD
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
-              <input id="topSocToggle" type="checkbox" /> Top/Soc
+              <input id="idToggle" type="checkbox" /> ID
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="topToggle" type="checkbox" /> Top
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="socToggle" type="checkbox" /> Soc
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="customLabelToggle" type="checkbox" /> Label
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="borderToggle" type="checkbox" checked /> Border
@@ -742,46 +816,65 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           <div id="almostSupportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
         `;
         document.body.appendChild(container);
-        let controlPanelVisible = true;
-        document.addEventListener('keydown', (event) => {
-          const key = (event.key || '').toLowerCase();
-          if ((event.ctrlKey || event.metaKey) && key === 'l') {
-            event.preventDefault();
-            event.stopPropagation();
-            controlPanelVisible = !controlPanelVisible;
-            container.style.display = controlPanelVisible ? 'flex' : 'none';
-          }
-        }, true);
-        function emphasizeNodeSet(ids, color) {
-          const idsArray = (ids || []).map(Number).filter(x => !Number.isNaN(x));
-          if (!idsArray.length) return false;
-          const allNodes = network.body.data.nodes.get();
-          const idSet = new Set(idsArray);
-          const updates = allNodes.map(n => {
-            const base = baseNodeStyles.get(n.id) || {};
-            if (idSet.has(Number(n.id))) {
-              return { id: n.id, color: { border: color, background: '#fff7cc', highlight: { border: color, background: '#ffe680' } }, borderWidth: 5 };
-            }
-            return { id: n.id, color: base.color || n.color, borderWidth: base.borderWidth || n.borderWidth || 1 };
+        container.style.display = 'none';
+        let menuBar = null;
+        let drawer = null;
+        let drawerTitle = null;
+        let drawerBody = null;
+        let uiVisible = true;
+        let drawerVisibleBeforeHide = false;
+        const activeModuleClasses = new Map();
+
+        function activeModuleIds() {
+          const ids = new Set();
+          activeModuleClasses.forEach(entry => {
+            (entry.ids || []).forEach(id => ids.add(Number(id)));
           });
-          network.body.data.nodes.update(updates);
-          network.selectNodes(idsArray);
-          if (idsArray.length === 1) network.focus(idsArray[0], { scale: 1.2, animation: true });
-          else network.fit({ nodes: idsArray, animation: true });
+          return ids;
+        }
+
+        function redrawActiveModuleClasses() {
+          const allNodes = network.body.data.nodes.get();
+          allNodes.forEach(n => restoreNodeBase(n.id));
+          activeModuleClasses.forEach(entry => {
+            const idSet = new Set((entry.ids || []).map(Number));
+            const updates = network.body.data.nodes.get().filter(n => idSet.has(Number(n.id))).map(n => ({
+              id: n.id,
+              color: { border: entry.color, background: '#fff7cc', highlight: { border: entry.color, background: '#ffe680' } },
+              borderWidth: showBorders ? 5 : 0,
+              borderWidthSelected: showBorders ? 6 : 0
+            }));
+            if (updates.length) network.body.data.nodes.update(updates);
+          });
+          const ids = Array.from(activeModuleIds());
+          if (ids.length) network.selectNodes(ids);
+          else network.unselectAll();
+        }
+
+        function toggleModuleClass(btnId, ids, color) {
+          const btn = document.getElementById(btnId);
+          const idsArray = (ids || []).map(Number).filter(x => !Number.isNaN(x));
+          if (!idsArray.length) {
+            alert('不存在');
+            return false;
+          }
+          if (activeModuleClasses.has(btnId)) {
+            activeModuleClasses.delete(btnId);
+            if (btn) btn.classList.remove('ar-control-active');
+          } else {
+            activeModuleClasses.set(btnId, { ids: idsArray, color: color });
+            if (btn) btn.classList.add('ar-control-active');
+          }
+          redrawActiveModuleClasses();
+          const selected = Array.from(activeModuleIds());
+          if (selected.length === 1) network.focus(selected[0], { scale: 1.2, animation: true });
+          else if (selected.length > 1) network.fit({ nodes: selected, animation: true });
           return true;
         }
-        document.getElementById('torsBtn').addEventListener('click', () => {
-          if (!emphasizeNodeSet(torsionlessIds, '#0ea5e9')) alert('不存在');
-        });
-        document.getElementById('reflBtn').addEventListener('click', () => {
-          if (!emphasizeNodeSet(reflexiveIds, '#8b5cf6')) alert('不存在');
-        });
-        document.getElementById('gpBtn').addEventListener('click', () => {
-          if (!emphasizeNodeSet(gorensteinProjectiveIds, '#16a34a')) alert('不存在');
-        });
-        document.getElementById('giBtn').addEventListener('click', () => {
-          if (!emphasizeNodeSet(gorensteinInjectiveIds, '#dc2626')) alert('不存在');
-        });
+        document.getElementById('torsBtn').addEventListener('click', () => toggleModuleClass('torsBtn', torsionlessIds, '#0ea5e9'));
+        document.getElementById('reflBtn').addEventListener('click', () => toggleModuleClass('reflBtn', reflexiveIds, '#8b5cf6'));
+        document.getElementById('gpBtn').addEventListener('click', () => toggleModuleClass('gpBtn', gorensteinProjectiveIds, '#16a34a'));
+        document.getElementById('giBtn').addEventListener('click', () => toggleModuleClass('giBtn', gorensteinInjectiveIds, '#dc2626'));
         document.getElementById('syzToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
           const existing = network.body.data.edges.get({
@@ -795,10 +888,34 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               color: 'pink',
               width: 2,
               arrows: 'to',
-              dashes: false
+              dashes: false,
+              smooth: curveForEdgeId(`syz_${i}`)
             }));
             network.body.data.edges.add(toAdd);
           } else {
+            rememberExistingEdgesByPrefix('syz_');
+            if (existing.length) network.body.data.edges.remove(existing);
+          }
+        });
+        document.getElementById('cosyzToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          const existing = network.body.data.edges.get({
+            filter: (edge) => edge.id && String(edge.id).startsWith('cosyz_')
+          }).map(e => e.id);
+          if (checked) {
+            const toAdd = cosyzygyEdges.map((e, i) => ({
+              id: `cosyz_${i}`,
+              from: e[0],
+              to: e[1],
+              color: '#22c55e',
+              width: 2,
+              arrows: 'to',
+              dashes: false,
+              smooth: curveForEdgeId(`cosyz_${i}`)
+            }));
+            network.body.data.edges.add(toAdd);
+          } else {
+            rememberExistingEdgesByPrefix('cosyz_');
             if (existing.length) network.body.data.edges.remove(existing);
           }
         });
@@ -832,7 +949,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               color: 'gold',
               width: 3,
               arrows: 'to',
-              dashes: false
+              dashes: false,
+              smooth: curveForEdgeId(`tr_${i}`)
             }));
             network.body.data.edges.add(toAdd);
           } else {
@@ -848,7 +966,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               color: 'gold',
               width: 3,
               arrows: 'to',
-              dashes: false
+              dashes: false,
+              smooth: curveForEdgeId(`tr_${i}`)
            }));
            network.body.data.edges.add(toAdd);
         }
@@ -925,18 +1044,559 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           showLabels = e.target.checked;
           toggleShowLabels(showLabels);
         });
-        document.getElementById('pdidToggle').addEventListener('change', (e) => {
-          showPdid = e.target.checked;
-          togglePdidLabels(showPdid);
+        document.getElementById('pdToggle').addEventListener('change', (e) => {
+          togglePdLabels(e.target.checked);
         });
-        document.getElementById('topSocToggle').addEventListener('change', (e) => {
-          showTopSoc = e.target.checked;
-          toggleTopSocLabels(showTopSoc);
+        document.getElementById('idToggle').addEventListener('change', (e) => {
+          toggleIdValueLabels(e.target.checked);
+        });
+        document.getElementById('topToggle').addEventListener('change', (e) => {
+          toggleTopLabels(e.target.checked);
+        });
+        document.getElementById('socToggle').addEventListener('change', (e) => {
+          toggleSocLabels(e.target.checked);
+        });
+        document.getElementById('customLabelToggle').addEventListener('change', (e) => {
+          toggleCustomLabels(e.target.checked);
         });
         document.getElementById('borderToggle').addEventListener('change', (e) => {
           showBorders = e.target.checked;
           toggleNodeBorders(showBorders);
         });
+
+        function dispatchChange(el) {
+          if (!el) return;
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function toggleCheckbox(id) {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.checked = !el.checked;
+          dispatchChange(el);
+        }
+
+        function setCheckbox(id, checked) {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (el.checked !== checked) {
+            el.checked = checked;
+            dispatchChange(el);
+          } else if (checked) {
+            dispatchChange(el);
+          }
+        }
+
+        function clickControl(id) {
+          const el = document.getElementById(id);
+          if (el) el.click();
+        }
+
+        function showListInDrawer(toggleId, listId, title) {
+          ensureDrawer();
+          setCheckbox(toggleId, true);
+          const listEl = document.getElementById(listId);
+          if (!listEl) return;
+          while (drawerBody.firstChild) {
+            container.appendChild(drawerBody.firstChild);
+          }
+          drawerTitle.textContent = title;
+          drawerBody.appendChild(listEl);
+          listEl.style.display = 'block';
+          drawer.style.display = 'block';
+          typesetMath(drawerBody);
+        }
+
+        function clearAllNodeHighlights() {
+          splitPairHighlights = new Map();
+          pairHighlighted = new Set();
+          tiltingHighlighted = new Set();
+          network.body.data.nodes.getIds().forEach(id => restoreNodeBase(id));
+          network.unselectAll();
+          network.redraw();
+        }
+
+        function clearListColoring() {
+          clearAllNodeHighlights();
+          clearActiveTilting();
+        }
+
+        function addMenuStyles() {
+          const style = document.createElement('style');
+          style.textContent = `
+            #arTopMenu {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              height: 34px;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 0 10px;
+              background: rgba(15,23,42,0.94);
+              color: #f8fafc;
+              z-index: 20001;
+              font-family: system-ui,-apple-system,Segoe UI,sans-serif;
+              font-size: 13px;
+              box-shadow: 0 2px 10px rgba(15,23,42,0.25);
+            }
+            #arTopMenu button {
+              border: 0;
+              border-radius: 5px;
+              background: rgba(255,255,255,0.12);
+              color: #f8fafc;
+              padding: 5px 9px;
+              cursor: pointer;
+              font: inherit;
+            }
+            #arTopMenu button:hover { background: rgba(255,255,255,0.22); }
+            #arTopMenu .ar-title { font-weight: 650; margin-right: 8px; }
+            #arTopMenu .ar-spacer { flex: 1; }
+            #arFolderPanel {
+              position: fixed;
+              top: 42px;
+              left: 10px;
+              width: 310px;
+              max-height: calc(100vh - 54px);
+              overflow: auto;
+              background: rgba(255,255,255,0.97);
+              border: 1px solid #cbd5e1;
+              border-radius: 9px;
+              box-shadow: 0 12px 32px rgba(15,23,42,0.22);
+              z-index: 20000;
+              font-family: system-ui,-apple-system,Segoe UI,sans-serif;
+              font-size: 13px;
+              display: block;
+            }
+            #arFolderPanel .ar-panel-head {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 8px 10px;
+              border-bottom: 1px solid #e5e7eb;
+              background: #f8fafc;
+              border-radius: 9px 9px 0 0;
+              font-weight: 650;
+            }
+            #arFolderPanel .ar-panel-close { border: 0; background: transparent; font-size: 18px; cursor: pointer; }
+            #arFolderPanel details { border-bottom: 1px solid #eef2f7; }
+            #arFolderPanel summary {
+              cursor: pointer;
+              padding: 8px 10px;
+              font-weight: 600;
+              color: #0f172a;
+              user-select: none;
+            }
+            #arFolderPanel .ar-folder-body { padding: 4px 8px 9px 18px; display: grid; gap: 4px; }
+            #arFolderPanel button {
+              text-align: left;
+              border: 0;
+              background: transparent;
+              padding: 5px 7px;
+              border-radius: 5px;
+              cursor: pointer;
+              font: inherit;
+            }
+            #arFolderPanel button:hover { background: #eff6ff; }
+            #arFolderPanel button.ar-control-active { background:#dbeafe; color:#1d4ed8; font-weight:700; box-shadow: inset 3px 0 0 #2563eb; }
+            .ar-math-label { font-family: serif; }
+            #arListDrawer {
+              position: fixed;
+              top: 42px;
+              right: 10px;
+              width: 390px;
+              min-width: 260px;
+              max-width: 90vw;
+              max-height: calc(100vh - 54px);
+              overflow: auto;
+              background: rgba(255,255,255,0.97);
+              border: 1px solid #cbd5e1;
+              border-radius: 9px;
+              box-shadow: 0 12px 32px rgba(15,23,42,0.22);
+              z-index: 20000;
+              display: none;
+            }
+            #arListDrawer .ar-panel-head {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 8px 10px;
+              border-bottom: 1px solid #e5e7eb;
+              background: #f8fafc;
+              border-radius: 9px 9px 0 0;
+              font-weight: 650;
+              font-family: system-ui,-apple-system,Segoe UI,sans-serif;
+              font-size: 13px;
+            }
+            #arListDrawer .ar-panel-close { border: 0; background: transparent; font-size: 18px; cursor: pointer; }
+            #arListDrawerResizeHandle { position:absolute; left:0; top:0; bottom:0; width:7px; cursor:ew-resize; background:transparent; }
+            #arListDrawerResizeHandle:hover { background:rgba(37,99,235,0.18); }
+            #arListDrawerBody { padding: 8px; }
+            #tiltingList, #torsionPairList, #cotorsionPairList, #supportTauList, #almostSupportTauList { min-width: 240px; max-width: 100%; }
+            .ar-record-row { display:block; width:100%; text-align:left; margin:2px 0; padding:4px 6px; border:1px solid #dbeafe; border-radius:4px; background:#fff; font-family:monospace; font-size:11px; cursor:pointer; }
+            .ar-record-row:hover { background:#eff6ff; }
+          `;
+          document.head.appendChild(style);
+        }
+
+        function ensureDrawer() {
+          if (drawer) return;
+          drawer = document.createElement('div');
+          drawer.id = 'arListDrawer';
+          drawer.innerHTML = '<div id="arListDrawerResizeHandle"></div><div class="ar-panel-head"><strong id="arDrawerTitle"></strong><button id="arDrawerClose" class="ar-panel-close">×</button></div><div id="arListDrawerBody"></div>';
+          document.body.appendChild(drawer);
+          drawerTitle = drawer.querySelector('#arDrawerTitle');
+          drawerBody = drawer.querySelector('#arListDrawerBody');
+          drawer.querySelector('#arDrawerClose').addEventListener('click', () => {
+            drawer.style.display = 'none';
+          });
+          const resizeHandle = drawer.querySelector('#arListDrawerResizeHandle');
+          let resizingDrawer = false;
+          resizeHandle.addEventListener('mousedown', (event) => {
+            resizingDrawer = true;
+            event.preventDefault();
+            event.stopPropagation();
+          });
+          document.addEventListener('mousemove', (event) => {
+            if (!resizingDrawer) return;
+            const right = window.innerWidth - drawer.getBoundingClientRect().right;
+            const nextWidth = Math.max(260, Math.min(window.innerWidth * 0.9, window.innerWidth - event.clientX - right));
+            drawer.style.width = nextWidth + 'px';
+          });
+          document.addEventListener('mouseup', () => { resizingDrawer = false; });
+        }
+
+        let folderPanel = null;
+        function createFolderPanel() {
+          if (folderPanel) return;
+          folderPanel = document.createElement('div');
+          folderPanel.id = 'arFolderPanel';
+          folderPanel.innerHTML = `
+            <div class="ar-panel-head"><span>Controls</span><button class="ar-panel-close" data-action="close-panel">×</button></div>
+            <details open><summary>View</summary><div class="ar-folder-body">
+              <button data-toggle="showLabelToggle">No</button>
+              <button data-toggle="pdToggle">PD</button>
+              <button data-toggle="idToggle">ID</button>
+              <button data-toggle="topToggle">Top</button>
+              <button data-toggle="socToggle">Soc</button>
+              <button data-toggle="customLabelToggle">Custom TeX labels</button>
+              <button data-toggle="borderToggle">Borders</button>
+            </div></details>
+            <details open><summary>Quivers</summary><div class="ar-folder-body">
+              <button data-toggle="irrToggle">AR irreducible arrows</button>
+              <button data-toggle="trToggle">Translation quiver τ</button>
+              <button data-toggle="syzToggle">Syzygy quiver</button>
+              <button data-toggle="cosyzToggle">Cosyzygy quiver</button>
+              <button data-toggle="homToggle">Hom dimension quiver</button>
+              <button data-toggle="extToggle">Ext dimension quiver</button>
+              <button data-toggle="quiverToggle">Original quiver Q</button>
+            </div></details>
+            <details><summary>Modules</summary><div class="ar-folder-body">
+              <button data-click="torsBtn">Torsionless</button>
+              <button data-click="reflBtn">Reflexive</button>
+              <button data-click="gpBtn">Gorenstein projective</button>
+              <button data-click="giBtn">Gorenstein injective</button>
+            </div></details>
+            <details><summary>Classes</summary><div class="ar-folder-body">
+              <button data-list="torsionPairToggle|torsionPairList|Torsion classes">Torsion classes</button>
+              <button data-list="cotorsionPairToggle|cotorsionPairList|Cotorsion classes">Cotorsion classes</button>
+              <button data-action="clear-colors">Clear class coloring</button>
+            </div></details>
+            <details><summary>Tilting</summary><div class="ar-folder-body">
+              <button data-list="tiltingToggle|tiltingList|Tilting modules">Tilting modules</button>
+              <button data-list="supportTauToggle|supportTauList|Support τ-tilting modules">Support τ-tilting</button>
+              <button data-list="almostSupportTauToggle|almostSupportTauList|Almost support τ-tilting modules">Almost support τ-tilting</button>
+              <button data-action="clear-colors">Clear tilting coloring</button>
+            </div></details>
+            <details><summary>Tools</summary><div class="ar-folder-body">
+              <button data-action="fit">Fit graph</button>
+              <button data-action="undo">Undo Ctrl+Z</button>
+              <button data-action="redo">Redo Ctrl+Y</button>
+              <button data-action="delete-selected">Delete selected</button>
+              <button data-action="export-tex">Export AR quiver to TeX</button>
+              <button data-action="legend">Color legend</button>
+            </div></details>
+          `;
+          document.body.appendChild(folderPanel);
+          folderPanel.addEventListener('click', handleMenuAction);
+        }
+
+        function texBackslash() {
+          return String.fromCharCode(92);
+        }
+
+        function escapeTeXText(value) {
+          const slash = texBackslash();
+          const specials = '{}_$%&#' + slash;
+          const text = String(value == null ? '' : value);
+          let out = '';
+          for (let i = 0; i < text.length; i += 1) {
+            const ch = text.charAt(i);
+            if (specials.indexOf(ch) >= 0) out += slash + ch;
+            else if (ch === '^') out += slash + 'textasciicircum{}';
+            else if (ch === '~') out += slash + 'textasciitilde{}';
+            else out += ch;
+          }
+          return out;
+        }
+
+        function splitWords(row) {
+          return String(row).trim().split(' ').map(x => x.trim()).filter(x => x.length > 0);
+        }
+
+        function labelToSmallMatrix(label) {
+          const slash = texBackslash();
+          const raw = String(label == null ? '' : label).trim();
+          if (!raw) return '{}';
+          let rows = raw.split(String.fromCharCode(10)).map(r => r.trim()).filter(r => r.length > 0);
+          if (rows.length === 1 && rows[0].charAt(0) === '[' && rows[0].charAt(rows[0].length - 1) === ']') {
+            rows = [rows[0].substring(1, rows[0].length - 1).split(',').map(x => x.trim()).join(' ')];
+          }
+          const texRows = rows.map(row => {
+            let cells = splitWords(row);
+            if (cells.length === 0) cells = ['0'];
+            return cells.map(escapeTeXText).join(' & ');
+          });
+          return '{' + slash + 'begin{smallmatrix}' + texRows.join(' ' + slash + slash + ' ') + slash + 'end{smallmatrix}}';
+        }
+
+        function clusterCoordinate(values, gap) {
+          const sorted = values.slice().sort((a, b) => a - b);
+          const centers = [];
+          sorted.forEach(v => {
+            if (!centers.length || Math.abs(v - centers[centers.length - 1]) > gap) {
+              centers.push(v);
+            } else {
+              const last = centers.length - 1;
+              centers[last] = (centers[last] + v) / 2;
+            }
+          });
+          return centers;
+        }
+
+        function nearestIndex(values, value) {
+          let best = 0;
+          let bestDist = Infinity;
+          values.forEach((v, i) => {
+            const d = Math.abs(v - value);
+            if (d < bestDist) {
+              best = i;
+              bestDist = d;
+            }
+          });
+          return best;
+        }
+
+        function xyDirection(fromCell, toCell) {
+          const dr = toCell.row - fromCell.row;
+          const dc = toCell.col - fromCell.col;
+          if (dr === 0 && dc === 0) return '@(ul,ur)[]';
+          let dir = '';
+          if (dr > 0) dir += 'd'.repeat(dr);
+          if (dr < 0) dir += 'u'.repeat(-dr);
+          if (dc > 0) dir += 'r'.repeat(dc);
+          if (dc < 0) dir += 'l'.repeat(-dc);
+          return '[' + dir + ']';
+        }
+
+        function isVisibleEdgeForExport(edge) {
+          return !edge.hidden && (isBlackEdge(edge) || isTranslationEdge(edge) || String(edge.id || '').startsWith('tr_'));
+        }
+        function nodeExportLabel(id, fallbackLabel) {
+          const custom = customTexLabels.get(id) || customTexLabels.get(String(id));
+          if (custom) return '{' + custom + '}';
+          return labelToSmallMatrix(fallbackLabel);
+        }
+
+        function xyCurvePart(edge) {
+          if (!edge || !edge.smooth || typeof edge.smooth !== 'object' || !edge.smooth.enabled) return '';
+          const roundness = Number(edge.smooth.roundness || 0);
+          if (!Number.isFinite(roundness) || roundness <= 0.005) return '';
+          const amount = Math.max(0.25, Math.min(5, roundness * 3)).toFixed(2).replace(/\.00$/, '').replace(/0$/, '');
+          const type = edge.smooth.type || 'curvedCW';
+          return type === 'curvedCCW' ? '@/_' + amount + 'pc/' : '@/^' + amount + 'pc/';
+        }
+
+        function xyArrow(edge, dir) {
+          const slash = texBackslash();
+          if (dir.indexOf('@(') === 0) {
+            return (isTranslationEdge(edge) || String(edge.id || '').startsWith('tr_')) ? slash + 'ar@{-->}' + dir : slash + 'ar' + dir;
+          }
+          const curve = xyCurvePart(edge);
+          const dashed = (isTranslationEdge(edge) || String(edge.id || '').startsWith('tr_')) ? '@{-->}' : '';
+          return slash + 'ar' + curve + dashed + dir;
+        }
+
+
+        function exportCurrentARQuiverToXyMatrix() {
+          const slash = texBackslash();
+          const nodeIds = network.body.data.nodes.getIds().map(Number).filter(n => Number.isFinite(n));
+          const positions = network.getPositions(nodeIds);
+          const visibleNodeIds = nodeIds.filter(id => positions[id]);
+          if (!visibleNodeIds.length) {
+            alert('No nodes to export.');
+            return '';
+          }
+          const xs = clusterCoordinate(visibleNodeIds.map(id => positions[id].x), Math.max(40, gridSize * 0.55));
+          const ys = clusterCoordinate(visibleNodeIds.map(id => positions[id].y), Math.max(40, gridSize * 0.55));
+          const cellById = new Map();
+          const matrix = [];
+          ys.forEach(() => matrix.push(xs.map(() => '')));
+          visibleNodeIds.forEach(id => {
+            const node = network.body.data.nodes.get(id);
+            const row = nearestIndex(ys, positions[id].y);
+            const col = nearestIndex(xs, positions[id].x);
+            cellById.set(id, { row, col });
+            const label = nodeExportLabel(id, node && node.label ? node.label : id);
+            if (matrix[row][col]) matrix[row][col] += slash + '; ' + label;
+            else matrix[row][col] = label;
+          });
+          const arrowsBySource = new Map();
+          const edges = network.body.data.edges.get().filter(isVisibleEdgeForExport);
+          edges.forEach(edge => {
+            const from = Number(edge.from);
+            const to = Number(edge.to);
+            if (!cellById.has(from) || !cellById.has(to)) return;
+            const fromCell = cellById.get(from);
+            const toCell = cellById.get(to);
+            const dir = xyDirection(fromCell, toCell);
+            const arrow = xyArrow(edge, dir);
+            const key = fromCell.row + ',' + fromCell.col;
+            if (!arrowsBySource.has(key)) arrowsBySource.set(key, []);
+            arrowsBySource.get(key).push(arrow);
+          });
+          for (let r = 0; r < matrix.length; r += 1) {
+            for (let c = 0; c < matrix[r].length; c += 1) {
+              const key = r + ',' + c;
+              if (!matrix[r][c]) matrix[r][c] = '{}';
+              if (arrowsBySource.has(key)) matrix[r][c] += ' ' + arrowsBySource.get(key).join(' ');
+            }
+          }
+          const body = matrix.map(row => row.join(' & ')).join(' ' + slash + slash + String.fromCharCode(10));
+          return slash + '[' + String.fromCharCode(10) + slash + 'xymatrix{' + String.fromCharCode(10) + body + String.fromCharCode(10) + '}' + String.fromCharCode(10) + slash + ']';
+        }
+
+        function showTexExport(tex) {
+          let modal = document.getElementById('arTexExportModal');
+          if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'arTexExportModal';
+            modal.style.position = 'fixed';
+            modal.style.left = '50%';
+            modal.style.top = '50%';
+            modal.style.transform = 'translate(-50%, -50%)';
+            modal.style.width = '760px';
+            modal.style.maxWidth = '92vw';
+            modal.style.height = '520px';
+            modal.style.maxHeight = '86vh';
+            modal.style.background = 'white';
+            modal.style.border = '1px solid #94a3b8';
+            modal.style.borderRadius = '10px';
+            modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
+            modal.style.zIndex = '30000';
+            modal.style.display = 'none';
+            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Export AR quiver to TeX / xymatrix</strong><button id="arTexClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arTexOutput" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTexCopy">Copy</button><button id="arTexDownload">Download .tex</button></div>';
+            document.body.appendChild(modal);
+            modal.querySelector('#arTexClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelector('#arTexCopy').addEventListener('click', () => {
+              const ta = modal.querySelector('#arTexOutput');
+              ta.focus();
+              ta.select();
+              document.execCommand('copy');
+            });
+            modal.querySelector('#arTexDownload').addEventListener('click', () => {
+              const ta = modal.querySelector('#arTexOutput');
+              const blob = new Blob([ta.value], { type: 'text/x-tex;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'ar-quiver-xymatrix.tex';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            });
+          }
+          modal.querySelector('#arTexOutput').value = tex;
+          modal.style.display = 'block';
+        }
+
+        function handleMenuAction(event) {
+          const btn = event.target.closest('button');
+          if (!btn) return;
+          const toggleId = btn.getAttribute('data-toggle');
+          const clickId = btn.getAttribute('data-click');
+          const listSpec = btn.getAttribute('data-list');
+          const action = btn.getAttribute('data-action');
+          if (toggleId) {
+            toggleCheckbox(toggleId);
+            const toggleEl = document.getElementById(toggleId);
+            btn.classList.toggle('ar-control-active', !!(toggleEl && toggleEl.checked));
+          }
+          if (!toggleId && (clickId || listSpec || action)) {
+            btn.classList.add('ar-control-active');
+            setTimeout(() => btn.classList.remove('ar-control-active'), 350);
+          }
+          if (clickId) clickControl(clickId);
+          if (listSpec) {
+            const parts = listSpec.split('|');
+            showListInDrawer(parts[0], parts[1], parts[2]);
+            btn.classList.add('ar-control-active');
+          }
+          if (action === 'close-panel') folderPanel.style.display = 'none';
+          if (action === 'fit') network.fit({ animation: true });
+          if (action === 'toggle-ui') toggleMenuUi();
+          if (action === 'clear-colors') clearListColoring();
+          if (action === 'undo' && typeof undo === 'function') undo();
+          if (action === 'redo' && typeof redo === 'function') redo();
+          if (action === 'delete-selected') { snapshot(); network.deleteSelected(); }
+          if (action === 'export-tex') showTexExport(exportCurrentARQuiverToXyMatrix());
+          if (action === 'legend') alert(['Legend:', 'blue border = projective', 'red border = injective', 'purple border = projective-injective', 'gold edge = τ', 'pink edge = syzygy', 'green edge = cosyzygy', 'orange fill = torsion class', 'green fill = torsion-free class', 'gray fill = tilting L'].join('\\n'));
+        }
+
+        function createMenuBar() {
+          addMenuStyles();
+          createFolderPanel();
+          menuBar = document.createElement('div');
+          menuBar.id = 'arTopMenu';
+          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="fit">Fit</button><button data-action="clear-colors">Clear colors</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
+          document.body.appendChild(menuBar);
+          menuBar.addEventListener('click', (event) => {
+            const btn = event.target.closest('button');
+            if (!btn) return;
+            const action = btn.getAttribute('data-action');
+            if (action === 'toggle-panel') {
+              folderPanel.style.display = folderPanel.style.display === 'block' ? 'none' : 'block';
+            }
+            if (action === 'fit') network.fit({ animation: true });
+            if (action === 'clear-colors') clearListColoring();
+          });
+        }
+
+        function toggleMenuUi() {
+          uiVisible = !uiVisible;
+          if (!uiVisible) {
+            drawerVisibleBeforeHide = !!(drawer && drawer.style.display !== 'none');
+            if (menuBar) menuBar.style.display = 'none';
+            if (folderPanel) folderPanel.style.display = 'none';
+            if (drawer) drawer.style.display = 'none';
+            return;
+          }
+          if (menuBar) menuBar.style.display = 'flex';
+          if (folderPanel) folderPanel.style.display = 'block';
+          if (drawer && drawerVisibleBeforeHide) drawer.style.display = 'block';
+        }
+
+        createMenuBar();
+        document.addEventListener('keydown', (event) => {
+          const key = (event.key || '').toLowerCase();
+          if ((event.ctrlKey || event.metaKey) && key === 'l') {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleMenuUi();
+          }
+        }, true);
       })();
 
       let pairHighlighted = new Set();
@@ -1155,9 +1815,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         const items = rows.map((row, idx) => {
           const body = columns.map(col => `${col.label}=[${displayClassList(row.item[col.key] || [])}]`).join(' | ');
           const extra = formatExtra ? formatExtra(row.item) : '';
-          return `<button type="button" data-row="${idx}" style="display:block; width:100%; text-align:left; margin:2px 0; padding:4px 6px; border:1px solid #ddd; border-radius:4px; background:#fff; font-family:monospace; font-size:11px; cursor:pointer;">${idx + 1}. ${body}${extra}</button>`;
+          return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. ${body}${extra}</button>`;
         }).join('');
         el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
+        typesetMath(el);
         el.querySelectorAll('button[data-sort-key]').forEach(btn => btn.addEventListener('click', () => {
           const key = btn.getAttribute('data-sort-key');
           if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
@@ -1209,46 +1870,40 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function renderTiltingList() {
-        const listEl = document.getElementById('tiltingList');
-        listEl.innerHTML = '';
-        tiltingData.forEach((item, idx) => {
-          const btn = document.createElement('button');
-          btn.style.display = 'block';
-          btn.style.width = '100%';
-          btn.style.margin = '2px 0';
-          btn.textContent = `L${idx + 1}: [${(item.L || []).join(', ')}]`;
-          btn.addEventListener('click', () => {
-            resetPairStyles();
-            applyTiltingHighlight(item);
-            setActiveTilting(idx);
-          });
-          listEl.appendChild(btn);
+        renderButtonRecordList('tiltingList', tiltingData, 'Tilting modules', [
+          { key: 'L', label: 'L' },
+          { key: 'F', label: 'F' },
+          { key: 'T', label: 'T' }
+        ], (item) => {
+          resetPairStyles();
+          applyTiltingHighlight(item);
+          const idx = tiltingData.indexOf(item);
+          setActiveTilting(idx);
         });
       }
 
       function setActiveTilting(idx) {
         const listEl = document.getElementById('tiltingList');
-        const buttons = listEl.querySelectorAll('button');
-        buttons.forEach((b, i) => {
-          if (i === idx) {
-            b.classList.add('tilting-btn-active');
-          } else {
-            b.classList.remove('tilting-btn-active');
-          }
+        const buttons = listEl.querySelectorAll('button[data-row]');
+        buttons.forEach((b) => {
+          const row = Number(b.getAttribute('data-row'));
+          const state = listStates.get('tiltingList');
+          const originalIndex = state && state.rows[row] ? state.rows[row].originalIndex : row;
+          b.classList.toggle('tilting-btn-active', originalIndex === idx);
         });
       }
 
       function clearActiveTilting() {
         const listEl = document.getElementById('tiltingList');
-        const buttons = listEl.querySelectorAll('button');
+        const buttons = listEl.querySelectorAll('button[data-row]');
         buttons.forEach((b) => b.classList.remove('tilting-btn-active'));
       }
 
       function getActiveTiltingIndex() {
         const listEl = document.getElementById('tiltingList');
-        const buttons = listEl.querySelectorAll('button');
+        const buttons = listEl.querySelectorAll('button[data-row]');
         for (let i = 0; i < buttons.length; i++) {
-          if (buttons[i].classList.contains('tilting-btn-active')) return i;
+          if (buttons[i].classList.contains('tilting-btn-active')) return Number(buttons[i].getAttribute('data-row'));
         }
         return -1;
       }
@@ -1277,86 +1932,126 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         network.body.container.appendChild(idLabelLayer);
       }
 
-      function ensurePdidLabelLayer() {
-        if (pdidLabelLayer) return;
-        pdidLabelLayer = document.createElement('div');
-        pdidLabelLayer.style.position = 'absolute';
-        pdidLabelLayer.style.left = '0';
-        pdidLabelLayer.style.top = '0';
-        pdidLabelLayer.style.width = '100%';
-        pdidLabelLayer.style.height = '100%';
-        pdidLabelLayer.style.pointerEvents = 'none';
-        pdidLabelLayer.style.zIndex = '998';
-        network.body.container.appendChild(pdidLabelLayer);
+      function ensureFloatingLabelLayer(name, zIndex) {
+        const prop = name + 'Layer';
+        if (window[prop]) return window[prop];
+        const layer = document.createElement('div');
+        layer.style.position = 'absolute';
+        layer.style.left = '0';
+        layer.style.top = '0';
+        layer.style.width = '100%';
+        layer.style.height = '100%';
+        layer.style.pointerEvents = 'none';
+        layer.style.zIndex = String(zIndex);
+        network.body.container.appendChild(layer);
+        window[prop] = layer;
+        return layer;
       }
 
-      function updateIdLabels() {
-        if (!showLabels || !idLabelLayer) return;
+      function makeLabelElement(layer, color, border, background) {
+        const el = document.createElement('div');
+        el.style.position = 'absolute';
+        el.style.fontSize = '12px';
+        el.style.color = color;
+        el.style.fontFamily = 'monospace';
+        el.style.fontWeight = 'normal';
+        el.style.transform = 'translate(-50%, 0)';
+        el.style.background = background;
+        el.style.border = '1px solid ' + border;
+        el.style.borderRadius = '4px';
+        el.style.padding = '1px 4px';
+        el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+        el.style.whiteSpace = 'pre';
+        layer.appendChild(el);
+        return el;
+      }
+
+      function updateScalarLabels(visible, layer, labelMap, getText, yOffset, color, border, background) {
+        if (!visible || !layer) return;
         const positions = network.getPositions();
         Object.keys(positions).forEach(idStr => {
           const id = Number(idStr);
           if (!Number.isFinite(id)) return;
+          const text = getText(id);
+          if (text === null || text === undefined || text === '') return;
           const node = network.body.nodes[id];
           if (!node) return;
-          let el = idLabelMap.get(id);
+          let el = labelMap.get(id);
           if (!el) {
-            el = document.createElement('div');
-            el.style.position = 'absolute';
-            el.style.fontSize = '12px';
-            el.style.color = '#5b3a1e';
-            el.style.fontFamily = 'monospace';
-            el.style.fontWeight = 'normal';
-            el.style.transform = 'translate(-50%, 0)';
-            el.style.background = 'rgba(255,255,255,0.95)';
-            el.style.border = '1px solid #c8b08b';
-            el.style.borderRadius = '4px';
-            el.style.padding = '1px 4px';
-            el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-            el.textContent = String(id);
-            idLabelLayer.appendChild(el);
-            idLabelMap.set(id, el);
+            el = makeLabelElement(layer, color, border, background);
+            labelMap.set(id, el);
           }
+          el.textContent = text;
           const dom = network.canvasToDOM(positions[id]);
-          const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 8) : 18;
           el.style.left = `${dom.x}px`;
-          el.style.top = `${dom.y + offset}px`;
+          el.style.top = `${dom.y + yOffset(node)}px`;
         });
       }
 
-      function updatePdidLabels() {
-        if (!showPdid || !pdidLabelLayer) return;
-        const positions = network.getPositions();
-        Object.keys(positions).forEach(idStr => {
-          const id = Number(idStr);
-          if (!Number.isFinite(id)) return;
-          const entry = (pdidMap && (pdidMap[id] || pdidMap[String(id)]));
-          if (!entry) return;
-          const node = network.body.nodes[id];
-          if (!node) return;
-          let el = pdidLabelMap.get(id);
-          if (!el) {
-            el = document.createElement('div');
-            el.style.position = 'absolute';
-            el.style.fontSize = '12px';
-            el.style.color = '#1f4a7a';
-            el.style.fontFamily = 'monospace';
-            el.style.fontWeight = 'normal';
-            el.style.transform = 'translate(-50%, 0)';
-            el.style.background = 'rgba(255,255,255,0.95)';
-            el.style.border = '1px solid #9eb6d3';
-            el.style.borderRadius = '4px';
-            el.style.padding = '1px 4px';
-            el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-            el.style.whiteSpace = 'pre';
-            el.textContent = `pd = ${entry.pd}\nid = ${entry.id}`;
-            pdidLabelLayer.appendChild(el);
-            pdidLabelMap.set(id, el);
-          }
-          const dom = network.canvasToDOM(positions[id]);
-          const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 26) : 30;
-          el.style.left = `${dom.x}px`;
-          el.style.top = `${dom.y - offset}px`;
-        });
+      function ensurePdLabelLayer() {
+        pdLabelLayer = pdLabelLayer || ensureFloatingLabelLayer('pdLabel', 998);
+      }
+      function ensureIdValueLabelLayer() {
+        idValueLabelLayer = idValueLabelLayer || ensureFloatingLabelLayer('idValueLabel', 998);
+      }
+      function ensureTopLabelLayer() {
+        topLabelLayer = topLabelLayer || ensureFloatingLabelLayer('topLabel', 999);
+      }
+      function ensureSocLabelLayer() {
+        socLabelLayer = socLabelLayer || ensureFloatingLabelLayer('socLabel', 999);
+      }
+
+      function pdidEntry(id) {
+        return pdidMap && (pdidMap[id] || pdidMap[String(id)]);
+      }
+      function topSocEntry(id) {
+        return topSocMap && (topSocMap[id] || topSocMap[String(id)]);
+      }
+
+      function updatePdLabels() {
+        updateScalarLabels(showPd, pdLabelLayer, pdLabelMap, id => {
+          const e = pdidEntry(id); return e ? `pd=${e.pd}` : null;
+        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 42) : 46), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)');
+      }
+      function updateIdValueLabels() {
+        updateScalarLabels(showId, idValueLabelLayer, idValueLabelMap, id => {
+          const e = pdidEntry(id); return e ? `id=${e.id}` : null;
+        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 24) : 28), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)');
+      }
+      function updateTopLabels() {
+        updateScalarLabels(showTop, topLabelLayer, topLabelMap, id => {
+          const e = topSocEntry(id); return e ? `Top=${formatSimpleList(e.top)}` : null;
+        }, node => ((node.shape && node.shape.height) ? (node.shape.height / 2 + 28) : 34), '#14532d', '#86efac', 'rgba(240,253,244,0.96)');
+      }
+      function updateSocLabels() {
+        updateScalarLabels(showSoc, socLabelLayer, socLabelMap, id => {
+          const e = topSocEntry(id); return e ? `Soc=${formatSimpleList(e.soc)}` : null;
+        }, node => ((node.shape && node.shape.height) ? (node.shape.height / 2 + 46) : 52), '#14532d', '#86efac', 'rgba(240,253,244,0.96)');
+      }
+
+      function togglePdLabels(visible) {
+        showPd = visible;
+        ensurePdLabelLayer();
+        pdLabelLayer.style.display = visible ? 'block' : 'none';
+        updatePdLabels();
+      }
+      function toggleIdValueLabels(visible) {
+        showId = visible;
+        ensureIdValueLabelLayer();
+        idValueLabelLayer.style.display = visible ? 'block' : 'none';
+        updateIdValueLabels();
+      }
+      function toggleTopLabels(visible) {
+        showTop = visible;
+        ensureTopLabelLayer();
+        topLabelLayer.style.display = visible ? 'block' : 'none';
+        updateTopLabels();
+      }
+      function toggleSocLabels(visible) {
+        showSoc = visible;
+        ensureSocLabelLayer();
+        socLabelLayer.style.display = visible ? 'block' : 'none';
+        updateSocLabels();
       }
 
       function showIdLabels() {
@@ -1365,152 +2060,85 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         updateIdLabels();
       }
 
-      function showPdidLabels() {
-        ensurePdidLabelLayer();
-        pdidLabelLayer.style.display = 'block';
-        updatePdidLabels();
-      }
-
       function hideIdLabels() {
         if (idLabelLayer) idLabelLayer.style.display = 'none';
       }
 
-      function hidePdidLabels() {
-        if (pdidLabelLayer) pdidLabelLayer.style.display = 'none';
-      }
-      function ensureTopSocLabelLayer() {
-        if (topSocLabelLayer) return;
-        topSocLabelLayer = document.createElement('div');
-        topSocLabelLayer.style.position = 'absolute';
-        topSocLabelLayer.style.left = '0';
-        topSocLabelLayer.style.top = '0';
-        topSocLabelLayer.style.width = '100%';
-        topSocLabelLayer.style.height = '100%';
-        topSocLabelLayer.style.pointerEvents = 'none';
-        topSocLabelLayer.style.zIndex = '999';
-        network.body.container.appendChild(topSocLabelLayer);
-      }
+      function ensureTopSocLabelLayer() {}
 
       function formatSimpleList(arr) {
         if (!arr || arr.length === 0) return '0';
         return arr.map(x => `S${x}`).join(',');
       }
 
-      function updateTopSocLabels() {
-        if (!showTopSoc || !topSocLabelLayer) return;
+      function updateTopSocLabels() {}
+      function showTopSocLabels() {}
+      function hideTopSocLabels() {}
+
+      function ensureCustomLabelLayer() {
+        if (customLabelLayer) return;
+        customLabelLayer = document.createElement('div');
+        customLabelLayer.style.position = 'absolute';
+        customLabelLayer.style.left = '0';
+        customLabelLayer.style.top = '0';
+        customLabelLayer.style.width = '100%';
+        customLabelLayer.style.height = '100%';
+        customLabelLayer.style.pointerEvents = 'none';
+        customLabelLayer.style.zIndex = '997';
+        network.body.container.appendChild(customLabelLayer);
+      }
+
+      function updateCustomLabels() {
+        if (!customLabelsVisible || !customLabelLayer) return;
         const positions = network.getPositions();
         Object.keys(positions).forEach(idStr => {
           const id = Number(idStr);
           if (!Number.isFinite(id)) return;
-          const entry = (topSocMap && (topSocMap[id] || topSocMap[String(id)]));
-          if (!entry) return;
+          const text = customTexLabels.get(id) || customTexLabels.get(String(id));
+          if (!text) return;
           const node = network.body.nodes[id];
           if (!node) return;
-          let el = topSocLabelMap.get(id);
+          let el = customLabelMap.get(id);
           if (!el) {
             el = document.createElement('div');
             el.style.position = 'absolute';
-            el.style.fontSize = '12px';
-            el.style.color = '#14532d';
-            el.style.fontFamily = 'monospace';
-            el.style.fontWeight = 'normal';
+            el.style.fontSize = '13px';
+            el.style.color = '#111827';
+            el.style.fontFamily = 'serif';
+            el.style.fontWeight = '600';
             el.style.transform = 'translate(-50%, 0)';
-            el.style.background = 'rgba(240,253,244,0.96)';
-            el.style.border = '1px solid #86efac';
+            el.style.background = 'rgba(255,255,255,0.96)';
+            el.style.border = '1px solid #94a3b8';
             el.style.borderRadius = '4px';
-            el.style.padding = '1px 4px';
-            el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-            el.style.whiteSpace = 'pre';
-            topSocLabelLayer.appendChild(el);
-            topSocLabelMap.set(id, el);
+            el.style.padding = '1px 5px';
+            el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.12)';
+            customLabelLayer.appendChild(el);
+            customLabelMap.set(id, el);
           }
-          el.textContent = `Top=${formatSimpleList(entry.top)}\nSoc=${formatSimpleList(entry.soc)}`;
+          renderInlineMath(el, text);
           const dom = network.canvasToDOM(positions[id]);
-          const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 48) : 52;
+          const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 8) : 18;
           el.style.left = `${dom.x}px`;
           el.style.top = `${dom.y + offset}px`;
         });
       }
 
-      function showTopSocLabels() {
-        ensureTopSocLabelLayer();
-        topSocLabelLayer.style.display = 'block';
-        updateTopSocLabels();
+      function showCustomLabelLayer() {
+        ensureCustomLabelLayer();
+        customLabelLayer.style.display = 'block';
+        updateCustomLabels();
       }
 
-      function hideTopSocLabels() {
-        if (topSocLabelLayer) topSocLabelLayer.style.display = 'none';
+      function hideCustomLabels() {
+        if (customLabelLayer) customLabelLayer.style.display = 'none';
       }
 
-
-      function ensureHoverTip() {
-        if (hoverTip) return;
-        hoverTip = document.createElement('div');
-        hoverTip.style.position = 'absolute';
-        hoverTip.style.pointerEvents = 'none';
-        hoverTip.style.background = 'rgba(255,255,255,0.95)';
-        hoverTip.style.border = '1px solid #c8b08b';
-        hoverTip.style.borderRadius = '4px';
-        hoverTip.style.padding = '2px 6px';
-        hoverTip.style.fontSize = '12px';
-        hoverTip.style.fontFamily = 'monospace';
-        hoverTip.style.color = '#000';
-        hoverTip.style.zIndex = '996';
-        hoverTip.style.display = 'none';
-        network.body.container.appendChild(hoverTip);
-      }
-
-      function updateHoverTip() {
-        if (!hoverTip || hoverNodeId === null) return;
-        const pos = network.getPositions([hoverNodeId])[hoverNodeId];
-        const node = network.body.nodes[hoverNodeId];
-        if (!pos || !node) return;
-        const dom = network.canvasToDOM(pos);
-        const offset = (node.shape && node.shape.height) ? (node.shape.height / 2 + 18) : 28;
-        hoverTip.style.left = `${dom.x}px`;
-        hoverTip.style.top = `${dom.y - offset}px`;
-      }
-
-      function showHoverTip(id) {
-        const entry = (pdidMap && (pdidMap[id] || pdidMap[String(id)]));
-        if (!entry) return;
-        ensureHoverTip();
-        hoverNodeId = id;
-        hoverTip.textContent = `pd=${entry.pd === -1 ? '∞' : entry.pd}, id=${entry.id === -1 ? '∞' : entry.id}`;
-        hoverTip.style.display = 'block';
-        updateHoverTip();
-      }
-
-      function hideHoverTip() {
-        if (!hoverTip) return;
-        hoverNodeId = null;
-        hoverTip.style.display = 'none';
-      }
-
-      function toggleShowLabels(visible) {
-        showLabels = visible;
-        if (showLabels) {
-          showIdLabels();
+      function toggleCustomLabels(visible) {
+        customLabelsVisible = visible;
+        if (customLabelsVisible) {
+          showCustomLabelLayer();
         } else {
-          hideIdLabels();
-        }
-      }
-
-      function togglePdidLabels(visible) {
-        showPdid = visible;
-        if (showPdid) {
-          showPdidLabels();
-        } else {
-          hidePdidLabels();
-        }
-      }
-
-      function toggleTopSocLabels(visible) {
-        showTopSoc = visible;
-        if (showTopSoc) {
-          showTopSocLabels();
-        } else {
-          hideTopSocLabels();
+          hideCustomLabels();
         }
       }
 
@@ -1544,6 +2172,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         network.body.data.nodes.update({
           id: node.id,
           color: colorObj,
+          borderWidth: showBorders ? (base.borderWidth || 3) : 0,
+          borderWidthSelected: showBorders ? (base.borderWidthSelected || 5) : 0,
           shadow: { enabled: false }
         });
       }
@@ -1700,7 +2330,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           interaction: { dragNodes: true, zoomView: true, dragView: true },
           edges: { arrows: { to: true }, font: { align: 'horizontal' }, smooth: false }
         });
-        setTimeout(() => assignMultiEdgeCurves(miniQuiver), 50);
       }
 
       function makeDraggable(container, handle) {
@@ -1752,7 +2381,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             let next = Math.max(-1, Math.min(1, signed + delta));
             let nextType = next < 0 ? 'curvedCCW' : 'curvedCW';
             let nextRound = Math.abs(next);
-            netObj.body.data.edges.update({ id, smooth: { enabled: true, type: nextType, roundness: nextRound } });
+            const nextSmooth = { enabled: true, type: nextType, roundness: nextRound };
+            edgeCurveMemory.set(String(id), nextSmooth);
+            netObj.body.data.edges.update({ id, smooth: nextSmooth });
           });
         }
       }
@@ -1987,14 +2618,21 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         if (params.nodes.length > 0) {
           snapNode(params.nodes[0]);
           if (showLabels) updateIdLabels();
-          if (showPdid) updatePdidLabels();
+          if (showPd) updatePdLabels();
+          if (showId) updateIdValueLabels();
+          if (showTop) updateTopLabels();
+          if (showSoc) updateSocLabels();
+          if (customLabelsVisible) updateCustomLabels();
         }
       });
 
       network.on('afterDrawing', function() {
         if (showLabels) updateIdLabels();
-        if (showPdid) updatePdidLabels();
-        if (showTopSoc) updateTopSocLabels();
+        if (showPd) updatePdLabels();
+        if (showId) updateIdValueLabels();
+        if (showTop) updateTopLabels();
+        if (showSoc) updateSocLabels();
+        if (customLabelsVisible) updateCustomLabels();
         if (hoverNodeId !== null) updateHoverTip();
       });
 
@@ -2018,102 +2656,53 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       });
 
       network.on('doubleClick', function(p) {
-        if (editMode) {
-          if (p.nodes.length > 0) {
-            const n_id = p.nodes[0];
-            const node = network.body.data.nodes.get(n_id);
-            const newLabel = prompt('New node label', node.label);
-            if (newLabel !== null) {
-              const currentBorder = (node.color && node.color.border) ? node.color.border : 'gray';
-              const colorInput = (prompt('Border color (red/blue/purple/green/gray)', currentBorder) || currentBorder).toLowerCase();
-              const allowed = ['red','blue','purple','green','gray'];
-              const border = allowed.includes(colorInput) ? colorInput : currentBorder;
-              snapshot();
-              const newColor = { border: border, background: 'white', highlight: { border: border, background: '#D2E5FF' } };
-              network.body.data.nodes.update({
-                id: n_id,
-                label: newLabel,
-                title: `Node ${n_id}<br>${newLabel}`,
-                color: newColor,
-                borderWidth: showBorders ? 3 : 0,
-                borderWidthSelected: showBorders ? 5 : 0,
-                font: { color: 'black', face: 'monospace', size: 14, bold: true, vadjust: 0, align: 'center' }
-              });
-              const updated = network.body.data.nodes.get(n_id);
-              if (updated) {
-                baseNodeStyles.set(n_id, toBaseStyle({ ...updated, label: newLabel }));
-              }
-            }
-          } else if (p.edges.length > 0) {
-            const e_id = p.edges[0];
-            const edge = network.body.data.edges.get(e_id);
-            const newLabel = prompt('New edge label', edge.label || '');
-            if (newLabel !== null) {
-              snapshot();
-              network.body.data.edges.update({ id: e_id, label: newLabel });
-            }
+        if (p.nodes.length > 0) {
+          const n_id = Number(p.nodes[0]);
+          const current = customTexLabels.get(n_id) || '';
+          const input = prompt('Custom TeX label for node ' + n_id, current);
+          if (input === null) return;
+          const value = input.trim();
+          if (value) customTexLabels.set(n_id, value);
+          else customTexLabels.delete(n_id);
+          customLabelMap.forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
+          customLabelMap.clear();
+          const toggle = document.getElementById('customLabelToggle');
+          if (toggle && !toggle.checked) {
+            toggle.checked = true;
+            dispatchChange(toggle);
+          } else {
+            customLabelsVisible = true;
+            showCustomLabelLayer();
           }
           return;
         }
-        if (p.nodes.length > 0) {
-          snapshot();
-          const n_id = p.nodes[0];
-          const n_pos = network.getPositions([n_id])[n_id];
-          const o_node = network.body.data.nodes.get(n_id);
-          const new_id = 'copy_' + n_id + '_' + Date.now();
-          network.body.data.nodes.add({ id: new_id, label: o_node.label, shape: 'ellipse', color: o_node.color, font: {color: 'black', face: 'monospace', size: 14, bold: true, vadjust: 0, align: 'center'}, x: n_pos.x + 50, y: n_pos.y + 50, title: `Copy of ${o_node.id}`, borderWidth: showBorders ? 3 : 0, borderWidthSelected: showBorders ? 5 : 0});
-          network.getConnectedEdges(n_id).forEach(function(e_id) {
-            const edge = network.body.data.edges.get(e_id);
-            network.body.data.edges.add({
-              from: (edge.from === n_id) ? new_id : edge.from,
-              to: (edge.to === n_id) ? new_id : edge.to,
-              arrows: 'to',
-              color: edge.color || '#000000',
-              width: edge.width || 1
-            });
-          });
-        } else if (p.edges.length > 0) {
+        if (p.edges.length > 0) {
           const edge_id = p.edges[0];
           const edge = network.body.data.edges.get(edge_id);
           const blackColor = '#000000';
           const lightGray = '#cccccc';
           const goldColor = '#ffd700';
           const lightGold = '#ffe9a6';
-
           const currentColor = getEdgeColor(edge);
           const isGold = isGoldenEdge(edge) || currentColor === goldColor || currentColor === lightGold || currentColor === 'gold';
           let newColor = currentColor;
           if (isGold) {
-              if (currentColor === lightGold) {
-                  newColor = goldColor;
-              } else {
-                  newColor = lightGold;
-              }
+            newColor = (currentColor === lightGold) ? goldColor : lightGold;
           } else {
-              if (currentColor === lightGray) {
-                  newColor = blackColor;
-              } else {
-                  newColor = lightGray;
-              }
+            newColor = (currentColor === lightGray) ? blackColor : lightGray;
           }
           snapshot();
           network.body.data.edges.update({ id: edge_id, color: { color: newColor } });
         }
       });
 
-      // Auto-reassign multi-edge curves when any edge toggle changes
-      ['syzToggle','cosyzToggle','homToggle','extToggle','irrToggle','trToggle'].forEach(tid => {
-        const el = document.getElementById(tid);
-        if (el) el.addEventListener('change', () => {
-          setTimeout(() => assignMultiEdgeCurves(network), 50);
-        });
-      });
-      assignMultiEdgeCurves(network);
-
       // defaults
       toggleShowLabels(false);
-      togglePdidLabels(false);
-      toggleTopSocLabels(false);
+      togglePdLabels(false);
+      toggleIdValueLabels(false);
+      toggleTopLabels(false);
+      toggleSocLabels(false);
+      toggleCustomLabels(false);
       toggleNodeBorders(true);
     </script>
     """
@@ -2151,6 +2740,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 
 # ===== Step3.ipynb cell 6 =====
 def _inject_tilting_graph_js(html: str) -> str:
+
+    return html
 
     marker = "/* TILTING_GRAPH_INJECT */"
 
@@ -2504,7 +3095,7 @@ def create_and_save_quiver_html_with_tilting_graph(quiver_filepath, output_filen
 
             f.write(html)
 
-        print("✅ 已注入 tilting L 图形与 PDID 悬停禁用")
+        print("✅ 已使用统一列表式 tilting 布局")
 
     except Exception as e:
 

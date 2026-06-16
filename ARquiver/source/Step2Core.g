@@ -1721,7 +1721,7 @@ CollectGorensteinProjectiveInjective := function(verts, projective_node_ids, inj
                 fi;
             od;
             if ok then
-                Add(gp_ids, idx);
+                AddSet(gp_ids, idx);
             fi;
         fi;
 
@@ -1734,7 +1734,7 @@ CollectGorensteinProjectiveInjective := function(verts, projective_node_ids, inj
                 fi;
             od;
             if ok then
-                Add(gi_ids, idx);
+                AddSet(gi_ids, idx);
             fi;
         fi;
     od;

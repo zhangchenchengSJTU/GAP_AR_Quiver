@@ -437,8 +437,8 @@ digraph TranslationQuiver {
 
 Torsionless modules found (Node IDs): [ 2, 10, 11, 18, 24, 29 ]
 Reflexive modules found (Node IDs):  [ 2, 18, 24 ]
-Gorenstein projective modules found (Node IDs): [ 18 ]
-Gorenstein injective modules found (Node IDs):  [  ]
+Gorenstein projective modules found (Node IDs): [ 1, 7, 16, 18 ]
+Gorenstein injective modules found (Node IDs):  [ 6, 15, 16 ]
 
 
 digraph HomDim {
