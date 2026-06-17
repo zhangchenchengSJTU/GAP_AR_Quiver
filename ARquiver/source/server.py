@@ -18,6 +18,25 @@ from render_all import render_one  # noqa: E402
 from visualize_core import parse_dot_string, parse_dot_string_with_edge_labels, parse_quiver_data  # noqa: E402
 
 
+def normalize_path(raw_path):
+    path = urlparse(raw_path).path
+    marker = "/proxy/8000"
+    idx = path.find(marker)
+    if idx != -1:
+        path = path[idx + len(marker):] or "/"
+    view_marker = "/view/"
+    idx = path.find(view_marker)
+    if idx != -1:
+        path = "/" + path[idx + len(view_marker):].lstrip("/")
+    if path.startswith("/user/"):
+        parts = path.split("/", 3)
+        if len(parts) >= 4:
+            path = "/" + parts[3].lstrip("/")
+    if path.startswith("/ARquiver/"):
+        path = path[len("/ARquiver"):]
+    return path or "/"
+
+
 def parse_ids(value, all_ids):
     text = " ".join(map(str, value)) if isinstance(value, list) else str(value or "")
     text = text.strip()
@@ -174,11 +193,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
-            if self.path == "/api/gap/calc":
+            path = normalize_path(self.path)
+            if path == "/api/gap/calc":
                 payload = self.read_json()
                 self.send_json({"ok": True, "output": calculate(payload)})
                 return
-            if self.path == "/api/gap/recompute":
+            if path == "/api/gap/recompute":
                 payload = self.read_json()
                 stem = str(payload.get("source") or "untitled").replace(".txt", "")
                 log_path, html_path = ensure_computed_and_rendered(stem, force=True)
@@ -189,12 +209,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": False, "error": str(exc)}, 500)
 
     def do_GET(self):
-        parsed = urlparse(self.path)
-        if parsed.path == "/api/health":
+        path = normalize_path(self.path)
+        if path == "/api/health":
             self.send_json({"ok": True})
             return
-        rel = parsed.path.lstrip("/") or "untitled.html"
-        rel = rel.split("?", 1)[0]
+        rel = path.lstrip("/") or "untitled.html"
         target = (ROOT / rel).resolve()
         if not str(target).startswith(str(ROOT.resolve())) or not target.is_file():
             self.send_error(404)
