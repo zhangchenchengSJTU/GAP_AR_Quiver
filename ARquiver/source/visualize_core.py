@@ -2969,9 +2969,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               applyNodeLabelMode('custom');
             }
           };
-          if (wasShowingCustomLabel) {
-            refreshByClickingLabelButtons();
-          }
+          refreshByClickingLabelButtons();
           releaseNodeAfterPrompt();
           setTimeout(releaseNodeAfterPrompt, 0);
           setTimeout(releaseNodeAfterPrompt, 80);
