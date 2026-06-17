@@ -2956,6 +2956,68 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         }
       }
 
+      function ensureHoverTip() {
+        if (hoverTip) return hoverTip;
+        hoverTip = document.createElement('div');
+        hoverTip.id = 'arHoverTip';
+        hoverTip.style.position = 'absolute';
+        hoverTip.style.zIndex = '20003';
+        hoverTip.style.pointerEvents = 'none';
+        hoverTip.style.display = 'none';
+        hoverTip.style.maxWidth = '320px';
+        hoverTip.style.padding = '7px 9px';
+        hoverTip.style.border = '1px solid #94a3b8';
+        hoverTip.style.borderRadius = '7px';
+        hoverTip.style.background = 'rgba(255,255,255,0.96)';
+        hoverTip.style.boxShadow = '0 6px 18px rgba(15,23,42,0.18)';
+        hoverTip.style.fontFamily = 'system-ui,-apple-system,Segoe UI,sans-serif';
+        hoverTip.style.fontSize = '12px';
+        hoverTip.style.color = '#0f172a';
+        document.body.appendChild(hoverTip);
+        return hoverTip;
+      }
+
+      function hoverLine(label, value) {
+        if (value === null || value === undefined || value === '') return '';
+        return '<div><b>' + label + ':</b> ' + String(value) + '</div>';
+      }
+
+      function showHoverTip(nodeId) {
+        const node = network.body.data.nodes.get(nodeId);
+        if (!node) return;
+        hoverNodeId = nodeId;
+        const tip = ensureHoverTip();
+        const pdid = pdidEntry(nodeId);
+        const topSoc = topSocEntry(nodeId);
+        const label = node.label || nodeId;
+        tip.innerHTML = [
+          '<div style="font-weight:700;margin-bottom:3px;">Node ' + String(nodeId) + '</div>',
+          hoverLine('label', label),
+          pdid ? hoverLine('pd', formatHomologicalDimension(pdid.pd)) : '',
+          pdid ? hoverLine('id', formatHomologicalDimension(pdid.id)) : '',
+          topSoc ? hoverLine('Top', formatSimpleList(topSoc.top)) : '',
+          topSoc ? hoverLine('Soc', formatSimpleList(topSoc.soc)) : ''
+        ].join('');
+        tip.style.display = 'block';
+        updateHoverTip();
+      }
+
+      function updateHoverTip() {
+        if (hoverNodeId === null || !hoverTip) return;
+        const positions = network.getPositions([hoverNodeId]);
+        const pos = positions[hoverNodeId];
+        if (!pos) return;
+        const dom = network.canvasToDOM(pos);
+        const rect = network.body.container.getBoundingClientRect();
+        hoverTip.style.left = Math.round(rect.left + dom.x + 14) + 'px';
+        hoverTip.style.top = Math.round(rect.top + dom.y + 14) + 'px';
+      }
+
+      function hideHoverTip() {
+        hoverNodeId = null;
+        if (hoverTip) hoverTip.style.display = 'none';
+      }
+
       network.on("dragStart", function (params) {
         if (params.nodes.length > 0) {
           snapshot();
