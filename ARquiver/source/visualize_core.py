@@ -1428,34 +1428,23 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         }
         async function calcRunWithGap() {
           const out = document.getElementById('calcOutput');
-          const op = document.getElementById('calcOp').value;
-          const aRaw = document.getElementById('calcA').value;
-          const bRaw = document.getElementById('calcB').value;
-          const extI = Number(document.getElementById('calcI').value || '1');
-          const nl = String.fromCharCode(10);
           if (!(window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
-            out.textContent = 'Run with GAP requires opening this HTML through the backend server, not file://.';
+            out.textContent = 'Run with GAP needs the backend server so it can generate a .g file for this quiver.';
             return;
           }
-          out.textContent = 'Calling GAP backend... this may take a while.';
-          try {
-            const source = calcSourceStem();
-            const recomputeResult = await calcFetchJson('api/gap/recompute', { source: source });
-            const recomputeData = recomputeResult.data;
-            if (!recomputeData || !recomputeData.ok) {
-              out.textContent = 'GAP recompute failed at ' + recomputeResult.url + ': ' + (recomputeData && recomputeData.error ? recomputeData.error : recomputeResult.response.statusText);
-              return;
-            }
-            const calcResult = await calcFetchJson('api/gap/calc', { source: source, operation: op, A: aRaw, B: bRaw, i: extI });
-            const data = calcResult.data;
-            if (data && data.ok) {
-              out.textContent = 'GAP recomputed via ' + recomputeResult.url + ': ' + recomputeData.log + nl + nl + data.output;
-            } else {
-              out.textContent = 'GAP calc failed at ' + calcResult.url + ': ' + (data && data.error ? data.error : calcResult.response.statusText);
-            }
-          } catch (err) {
-            out.textContent = 'GAP backend unavailable: ' + err;
-          }
+          const source = calcSourceStem();
+          const scriptUrl = calcBuildUrl('api/gap/script?source=' + encodeURIComponent(source));
+          out.innerHTML = '';
+          const link = document.createElement('a');
+          link.href = scriptUrl;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = 'Open ' + source + '_run_with_gap.g';
+          out.appendChild(document.createTextNode('Generated a GAP .g text file containing Q, kQ, A, M[i], P[i], I[i], and S[i].'));
+          out.appendChild(document.createElement('br'));
+          out.appendChild(document.createTextNode('Open it, then copy the contents directly into GAP: '));
+          out.appendChild(link);
+          window.open(scriptUrl, '_blank', 'noopener');
         }
         function showCalculator() {
           if (!calculatorPanel) {
@@ -1485,7 +1474,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                   <button id="calcRun" style="flex:1; padding:6px 10px; border:1px solid #2563eb; background:#dbeafe; color:#1d4ed8; border-radius:6px; cursor:pointer; font-weight:650;">Run</button>
                   <button id="calcRunGap" style="flex:1; padding:6px 10px; border:1px solid #16a34a; background:#dcfce7; color:#166534; border-radius:6px; cursor:pointer; font-weight:650;">Run with GAP</button>
                 </div>
-                <div style="color:#475569; font-size:12px;">Run uses current backend/log data with local fallback. Run with GAP calls the backend to recompute via GAP first. Inputs/outputs use node label numbers.</div>
+                <div style="color:#475569; font-size:12px;">Run uses current backend/log data with local fallback. Run with GAP opens a generated .g text file that users can copy into GAP. Inputs/outputs use node label numbers.</div>
                 <pre id="calcOutput" style="min-height:48px; max-height:180px; overflow:auto; white-space:pre-wrap; margin:0; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px;"></pre>
               </div>`;
             document.body.appendChild(calculatorPanel);
