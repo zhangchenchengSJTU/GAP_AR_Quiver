@@ -1353,22 +1353,30 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         }
         function calcApiCandidates(endpoint) {
           const cleanEndpoint = String(endpoint || '').replace(/^\/+/, '');
+          const apiEndpoint = cleanEndpoint.replace(/^api\//, 'api/');
           const candidates = [];
           const add = (url) => { if (url && !candidates.includes(url)) candidates.push(url); };
-          add(cleanEndpoint);
+          const origin = window.location.origin || '';
           const path = window.location.pathname || '';
+          add(cleanEndpoint);
           const viewIndex = path.indexOf('/view/');
           if (viewIndex !== -1) {
-            add(path.slice(0, viewIndex) + '/proxy/8000/' + cleanEndpoint);
+            const binderBase = path.slice(0, viewIndex);
+            add(binderBase + '/proxy/8000/' + apiEndpoint);
+            add(origin + binderBase + '/proxy/8000/' + apiEndpoint);
           }
-          const proxyIndex = path.indexOf('/proxy/');
-          if (proxyIndex !== -1) {
-            const rest = path.slice(proxyIndex + '/proxy/'.length);
-            const firstSlash = rest.indexOf('/');
-            const prefix = firstSlash === -1 ? path : path.slice(0, proxyIndex + '/proxy/'.length + firstSlash + 1);
-            add(prefix + cleanEndpoint);
+          const userMatch = path.match(/^(\/user\/[^/]+)/);
+          if (userMatch) {
+            add(userMatch[1] + '/proxy/8000/' + apiEndpoint);
+            add(origin + userMatch[1] + '/proxy/8000/' + apiEndpoint);
           }
-          add('/api/' + cleanEndpoint.replace(/^api\//, ''));
+          const proxyMatch = path.match(/^(.*\/proxy\/\d+\/)/);
+          if (proxyMatch) {
+            add(proxyMatch[1] + apiEndpoint);
+            add(origin + proxyMatch[1] + apiEndpoint);
+          }
+          add('/' + apiEndpoint);
+          add(origin + '/' + apiEndpoint);
           return candidates;
         }
 
