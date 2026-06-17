@@ -17,33 +17,9 @@ end;;
 
 AssertFiniteRepresentationTypeOrAbort := function(A)
     local finiteCall, bongartzCall, bound;
-    Progress("checking finite representation type");
-    if IsBoundGlobal("IsFiniteTypeAlgebra") then
-        finiteCall := CALL_WITH_CATCH(IsFiniteTypeAlgebra, [A]);
-        if finiteCall[1] = true then
-            if finiteCall[2] = true then
-                Progress("finite representation type confirmed by IsFiniteTypeAlgebra");
-                return;
-            fi;
-            if finiteCall[2] = false then
-                Error("Algebra failed finite representation type test: IsFiniteTypeAlgebra returned false");
-            fi;
-            Progress("IsFiniteTypeAlgebra was inconclusive; trying Bongartz guard");
-        fi;
-    fi;
-
-    if IsBoundGlobal("BongartzTest") then
-        bound := 32;
-        bongartzCall := CALL_WITH_CATCH(BongartzTest, [A, bound]);
-        if bongartzCall[1] = true then
-            if bongartzCall[2] = false then
-                Error("Algebra failed Bongartz finite-representation guard: infinite representation type detected");
-            fi;
-            Progress("Bongartz guard was inconclusive; continuing with 100-module size guard");
-            return;
-        fi;
-    fi;
-    Progress("No usable finite-representation test succeeded; continuing with 100-module size guard");
+    # Finite-type tests are intentionally skipped here.  The computation is
+    # protected by MAX_AR_MODULES through CheckModuleCountGuard when new
+    # indecomposable vertices are discovered.
 end;;
 
 CheckModuleCountGuard := function(count)
@@ -639,6 +615,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
         if posM = fail then
             Add(verts, M);
             posM := Length(verts);
+            CheckModuleCountGuard(posM);
         fi;
         return posM;
     end;
@@ -874,19 +851,8 @@ DrawIrreducibleDiagram := function(A, N, arg)
     out := OutputTextFile(fname, false);
     PrintTo(out, "digraph Quiver {\n");
 
-    # Compute pd/id for node labels
-    pdid_map := [];
-    for e in ComputeProjInjDims(verts, 6) do
-        if IsList(e) and Length(e) >= 3 then
-            pdid_map[e[1]] := e;
-        fi;
-    od;
-
     for i in [1..Length(verts)] do
         label_str := String(DimensionVector(verts[i]));
-        if IsBound(pdid_map[i]) and IsList(pdid_map[i]) and Length(pdid_map[i]) >= 3 then
-            label_str := Concatenation("pd=", PdidValueString(pdid_map[i][2]), ", id=", PdidValueString(pdid_map[i][3]));
-        fi;
         PrintTo(out, "  ", String(i), " [label=\"", label_str, "\"];");
         PrintTo(out, "\n");
     od;
@@ -931,7 +897,7 @@ end;
 
 DrawIrreducibleDiagramHybrid := function(A, N, arg)
     local fname, outDir, P, I, SI, queue, verts, edges, depthLeft, depthRight, outAdj,
-        expandedLeft, expandedRight, pendingMeshEdges, meshSeen, irr_from_count, irr_to_count, mesh_added_count,
+        expandedLeft, expandedRight, pendingMeshEdges, meshSeen, tauFinished, irr_from_count, irr_to_count, mesh_added_count,
         X0, Y, f, current, uX, uY, depth, side, irrCall, out, e, u, v, i,
         label_str, projective_node_ids, injective_node_ids, p_mod, i_mod, pos,
         pdid_map, AddVertexRaw, AddVertex, CloseTauOrbit, AddEdge, EnqueueLeft, EnqueueRight, EdgeKey, AddMeshFromEdge,
@@ -961,6 +927,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     expandedRight := [];
     pendingMeshEdges := [];
     meshSeen := [];
+    tauFinished := [];
     irr_from_count := 0;
     irr_to_count := 0;
     mesh_added_count := 0;
@@ -973,6 +940,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
             Add(depthLeft, fail);
             Add(depthRight, fail);
             Add(outAdj, []);
+            Add(tauFinished, false);
             posM := Length(verts);
             CheckModuleCountGuard(posM);
         fi;
@@ -985,6 +953,10 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         while Length(q) > 0 do
             curIdx := q[1];
             Remove(q, 1);
+            if IsBound(tauFinished[curIdx]) and tauFinished[curIdx] = true then
+                continue;
+            fi;
+            tauFinished[curIdx] := true;
             for dirName in ["DTr", "TrD"] do
                 if dirName = "DTr" then
                     tauCall := CALL_WITH_CATCH(DTr, [verts[curIdx]]);
@@ -1090,7 +1062,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         local M, irrCallLocal, irrLocal, fLocal, YLocal, uYLocal;
         if IsBound(expandedLeft[uV]) and expandedLeft[uV] = true then return; fi;
         M := verts[uV];
-        if d >= N then expandedLeft[uV] := true; return; fi;
+        if d >= N then return; fi;
         if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
             irrCallLocal := CALL_WITH_CATCH(IrrFromGuess, [M]);
         else
@@ -1154,6 +1126,10 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     uX := 1;
     while uX <= Length(verts) do
         CloseTauOrbit(uX);
+        if IsBound(expandedLeft[uX]) and expandedLeft[uX] = true then
+            uX := uX + 1;
+            continue;
+        fi;
         if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
             irrCall := CALL_WITH_CATCH(IrrFromGuess, [verts[uX]]);
         else
@@ -1175,16 +1151,8 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     out := OutputTextFile(fname, false);
     PrintTo(out, "digraph Quiver {\n");
 
-    pdid_map := [];
-    for e in ComputeProjInjDims(verts, 6) do
-        if IsList(e) and Length(e) >= 3 then pdid_map[e[1]] := e; fi;
-    od;
-
     for i in [1..Length(verts)] do
         label_str := String(DimensionVector(verts[i]));
-        if IsBound(pdid_map[i]) and IsList(pdid_map[i]) and Length(pdid_map[i]) >= 3 then
-            label_str := Concatenation("pd=", PdidValueString(pdid_map[i][2]), ", id=", PdidValueString(pdid_map[i][3]));
-        fi;
         PrintTo(out, "  ", String(i), " [label=\"", label_str, "\"];\n");
     od;
 
@@ -1264,21 +1232,49 @@ WriteSyzygySummand := function(fname, verts, projective_node_ids)
     AppendTo(fname,"}\n");
 end;;
 
+WriteSummandQuiverFromEdges := function(fname, graph_name, verts, edges)
+    local source_idx, label_str, edge;
+    AppendTo(fname, "\n\ndigraph ", graph_name, " {\n");
+    for source_idx in [1..Length(verts)] do
+        label_str := String(DimensionVector(verts[source_idx]));
+        AppendTo(fname, "  ", String(source_idx), " [label=\"", label_str, "\"];\n");
+    od;
+    for edge in edges do
+        if IsList(edge) and Length(edge) >= 2 then
+            AppendTo(fname, "  ", String(edge[1]), " -> ", String(edge[2]), ";\n");
+        fi;
+    od;
+    AppendTo(fname, "}\n");
+end;;
+
+ComputeCosyzygyEdges := function(verts)
+    local edges, source_idx, target_idx, injCall, cokerCall, ids;
+    edges := [];
+    for source_idx in [1..Length(verts)] do
+        injCall := CALL_WITH_CATCH(InjectiveEnvelope, [verts[source_idx]]);
+        if injCall[1] <> true then continue; fi;
+        cokerCall := CALL_WITH_CATCH(CoKernelProjection, [injCall[2]]);
+        if cokerCall[1] <> true then continue; fi;
+        ids := SummandNodeIds(verts, Range(cokerCall[2]));
+        for target_idx in ids do
+            Add(edges, [source_idx, target_idx]);
+        od;
+    od;
+    return edges;
+end;;
+
 WriteCosyzygySummand := function(fname, verts)
-    local source_idx, target_idx, label_str, injCall, envM, ids;
+    local source_idx, target_idx, label_str, edges, edge;
     AppendTo(fname,"\n\ndigraph CosyzygySummand {\n");
     for source_idx in [1..Length(verts)] do
         label_str := String(DimensionVector(verts[source_idx]));
         AppendTo(fname,"  ", String(source_idx), " [label=\"", label_str, "\"];\n");
     od;
-    for source_idx in [1..Length(verts)] do
-        injCall := CALL_WITH_CATCH(InjectiveEnvelope, [verts[source_idx]]);
-        if injCall[1] <> true then continue; fi;
-        envM := Range(injCall[2]);
-        ids := SummandNodeIds(verts, envM);
-        for target_idx in ids do
-            AppendTo(fname,"  ", String(source_idx), " -> ", String(target_idx), ";\n");
-        od;
+    edges := ComputeCosyzygyEdges(verts);
+    for edge in edges do
+        source_idx := edge[1];
+        target_idx := edge[2];
+        AppendTo(fname,"  ", String(source_idx), " -> ", String(target_idx), ";\n");
     od;
     AppendTo(fname,"}\n");
 end;;
@@ -1299,7 +1295,7 @@ ComputeTopSocData := function(A, verts)
             topM := topCall[2];
             for sidx in [1..Length(simples)] do
                 homCall := CALL_WITH_CATCH(HomOverAlgebra, [topM, simples[sidx]]);
-                if homCall[1] = true then mult := HomObjectDimension(homCall[2]); AddRepeated(topIds, sidx, mult); fi;
+                if homCall[1] = true then mult := Length(homCall[2]); AddRepeated(topIds, sidx, mult); fi;
             od;
         fi;
         socCall := CALL_WITH_CATCH(SocleOfModule, [M]);
@@ -1307,7 +1303,7 @@ ComputeTopSocData := function(A, verts)
             socM := socCall[2];
             for sidx in [1..Length(simples)] do
                 homCall := CALL_WITH_CATCH(HomOverAlgebra, [simples[sidx], socM]);
-                if homCall[1] = true then mult := HomObjectDimension(homCall[2]); AddRepeated(socIds, sidx, mult); fi;
+                if homCall[1] = true then mult := Length(homCall[2]); AddRepeated(socIds, sidx, mult); fi;
             od;
         fi;
         Add(rows, [idx, topIds, socIds]);
@@ -1511,6 +1507,60 @@ ComputeSyzygyEdges := function(verts, projective_node_ids)
         od;
     od;
     return edges;
+end;;
+
+ResolveDimensionFromEdges := function(idx, base_ids, edges, memo, visiting)
+    local succ, edge, child, values, val;
+    if IsBound(memo[idx]) and memo[idx] <> fail then
+        return memo[idx];
+    fi;
+    if idx in base_ids then
+        memo[idx] := 0;
+        return 0;
+    fi;
+    if IsBound(visiting[idx]) and visiting[idx] = true then
+        memo[idx] := -1;
+        return -1;
+    fi;
+    succ := [];
+    for edge in edges do
+        if IsList(edge) and Length(edge) >= 2 and edge[1] = idx then
+            AddSet(succ, edge[2]);
+        fi;
+    od;
+    if Length(succ) = 0 then
+        memo[idx] := -1;
+        return -1;
+    fi;
+    visiting[idx] := true;
+    values := [];
+    for child in succ do
+        val := ResolveDimensionFromEdges(child, base_ids, edges, memo, visiting);
+        if val = -1 then
+            visiting[idx] := false;
+            memo[idx] := -1;
+            return -1;
+        fi;
+        Add(values, val);
+    od;
+    visiting[idx] := false;
+    memo[idx] := 1 + Maximum(values);
+    return memo[idx];
+end;;
+
+DeriveProjInjDimsFromSyzygies := function(verts, projective_node_ids, injective_node_ids, syz_edges, cosyz_edges)
+    local pdMemo, idMemo, pdVisiting, idVisiting, result, idx, pd, idim;
+    pdMemo := [];
+    idMemo := [];
+    pdVisiting := [];
+    idVisiting := [];
+    result := [];
+    for idx in [1..Length(verts)] do
+        pd := ResolveDimensionFromEdges(idx, projective_node_ids, syz_edges, pdMemo, pdVisiting);
+        idim := ResolveDimensionFromEdges(idx, injective_node_ids, cosyz_edges, idMemo, idVisiting);
+        Add(result, [idx, pd, idim]);
+    od;
+    return result;
 end;;
 
 
@@ -2092,10 +2142,9 @@ end;;
 
 GenerateQuiverData := function(A, N, arg)
     local res, tr_list, torsionless_node_ids, reflexive_node_ids,
-        dim_vectors, hom_dim, ext_dim, tau_map, pdid, syz_edges, gi_gp;
+        dim_vectors, hom_dim, ext_dim, tau_map, pdid, syz_edges, cosyz_edges, gi_gp;
 
     Progress("starting computation");
-    AssertFiniteRepresentationTypeOrAbort(A);
 
     Progress("constructing AR quiver");
     if IsBoundGlobal("ar_strategy") and ar_strategy = "direct" then
@@ -2114,12 +2163,15 @@ GenerateQuiverData := function(A, N, arg)
     ext_dim := ComputeExtDimMatrix(res.verts);
     Progress("computing syzygy edges");
     syz_edges := ComputeSyzygyEdges(res.verts, res.projective_node_ids);
-    Progress("computing projective/injective dimensions");
-    pdid := ComputeProjInjDims(res.verts, 6);
+    Progress("computing cosyzygy edges");
+    cosyz_edges := ComputeCosyzygyEdges(res.verts);
+    Progress("deriving projective/injective dimensions");
+    pdid := DeriveProjInjDimsFromSyzygies(res.verts, res.projective_node_ids, res.injective_node_ids, syz_edges, cosyz_edges);
 
     WriteQuiverAndRelations(res.fname, Q, rel);
-    WriteSyzygySummand(res.fname, res.verts, res.projective_node_ids);
-    WriteCosyzygySummand(res.fname, res.verts);
+    WriteSummandQuiverFromEdges(res.fname, "SyzygySummand", res.verts, syz_edges);
+    WriteSummandQuiverFromEdges(res.fname, "CosyzygySummand", res.verts, cosyz_edges);
+    Progress("computing top/soc data");
     WriteTopSocData(res.fname, A, res.verts);
     WriteTranslationQuiver(res.fname, res.verts, dim_vectors, tau_map);
 

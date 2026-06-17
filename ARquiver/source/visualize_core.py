@@ -1352,7 +1352,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           document.getElementById('calcOutput').textContent = output;
         }
         function gapQuote(value) {
-          return String(value == null ? '' : value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+          return String(value == null ? '' : value).split(String.fromCharCode(92)).join(String.fromCharCode(92) + String.fromCharCode(92)).split('"').join(String.fromCharCode(92) + '"');
         }
         function gapArrowName(value, index) {
           const raw = String(value == null || value === '' ? 'a' + index : value).trim();
