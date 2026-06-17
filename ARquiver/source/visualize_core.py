@@ -1383,6 +1383,45 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           }
           out.textContent = calcRunLocal(op, A, B, extI);
         }
+        async function calcRunWithGap() {
+          const out = document.getElementById('calcOutput');
+          const op = document.getElementById('calcOp').value;
+          const aRaw = document.getElementById('calcA').value;
+          const bRaw = document.getElementById('calcB').value;
+          const extI = Number(document.getElementById('calcI').value || '1');
+          const nl = String.fromCharCode(10);
+          if (!(window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+            out.textContent = 'Run with GAP requires opening this HTML through the backend server, not file://.';
+            return;
+          }
+          out.textContent = 'Calling GAP backend... this may take a while.';
+          try {
+            const source = calcSourceStem();
+            const recompute = await fetch('/api/gap/recompute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ source: source })
+            });
+            const recomputeData = await recompute.json();
+            if (!recomputeData || !recomputeData.ok) {
+              out.textContent = 'GAP recompute failed: ' + (recomputeData && recomputeData.error ? recomputeData.error : recompute.statusText);
+              return;
+            }
+            const res = await fetch('/api/gap/calc', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ source: source, operation: op, A: aRaw, B: bRaw, i: extI })
+            });
+            const data = await res.json();
+            if (data && data.ok) {
+              out.textContent = 'GAP recomputed: ' + recomputeData.log + nl + nl + data.output;
+            } else {
+              out.textContent = 'GAP calc failed: ' + (data && data.error ? data.error : res.statusText);
+            }
+          } catch (err) {
+            out.textContent = 'GAP backend unavailable: ' + err;
+          }
+        }
         function showCalculator() {
           if (!calculatorPanel) {
             calculatorPanel = document.createElement('div');
@@ -1407,13 +1446,17 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                 <label>A labels <input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
                 <label>B labels <input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="for Hom/Ext/Extension" /></label>
                 <label>i for Ext^i <input id="calcI" style="width:100%; box-sizing:border-box;" value="1" /></label>
-                <button id="calcRun" style="padding:6px 10px; border:1px solid #2563eb; background:#dbeafe; color:#1d4ed8; border-radius:6px; cursor:pointer; font-weight:650;">Run</button>
-                <div style="color:#475569; font-size:12px;">Inputs/outputs use node label numbers. Hom/Ext output shows nonzero pairs a→b:dim. Ext data currently means Ext^1.</div>
+                <div style="display:flex; gap:8px;">
+                  <button id="calcRun" style="flex:1; padding:6px 10px; border:1px solid #2563eb; background:#dbeafe; color:#1d4ed8; border-radius:6px; cursor:pointer; font-weight:650;">Run</button>
+                  <button id="calcRunGap" style="flex:1; padding:6px 10px; border:1px solid #16a34a; background:#dcfce7; color:#166534; border-radius:6px; cursor:pointer; font-weight:650;">Run with GAP</button>
+                </div>
+                <div style="color:#475569; font-size:12px;">Run uses current backend/log data with local fallback. Run with GAP calls the backend to recompute via GAP first. Inputs/outputs use node label numbers.</div>
                 <pre id="calcOutput" style="min-height:48px; max-height:180px; overflow:auto; white-space:pre-wrap; margin:0; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px;"></pre>
               </div>`;
             document.body.appendChild(calculatorPanel);
             calculatorPanel.querySelector('#calcClose').addEventListener('click', () => { calculatorPanel.style.display = 'none'; });
             calculatorPanel.querySelector('#calcRun').addEventListener('click', calcRunOperation);
+            calculatorPanel.querySelector('#calcRunGap').addEventListener('click', calcRunWithGap);
           }
           calculatorPanel.style.display = 'block';
         }
