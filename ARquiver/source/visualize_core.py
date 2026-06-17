@@ -1332,11 +1332,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const all = calcAllIds();
           return all.filter(x => input.every(a => !calcNonzero(edges, x, a)));
         }
-        function calcRunOperation() {
-          const op = document.getElementById('calcOp').value;
-          const A = calcParseSet(document.getElementById('calcA').value);
-          const B = calcParseSet(document.getElementById('calcB').value);
-          const extI = Number(document.getElementById('calcI').value || '1');
+        function calcSourceStem() {
+          const name = (window.location.pathname.split('/').pop() || 'untitled.html').replace(/\.(html|log|txt)$/i, '');
+          return name || 'untitled';
+        }
+        function calcRunLocal(op, A, B, extI) {
           let output = '';
           if (op === 'Hom') output = calcPairs(homEdges, A, B).join(', ') || '0';
           else if (op === 'Ext') output = extI === 1 ? (calcPairs(extEdges, A, B).join(', ') || '0') : 'Only Ext^1 data is available in this HTML.';
@@ -1349,7 +1349,39 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           else if (op === 'Gen') output = calcFormatSet(calcRightPerp(homEdges, []).filter(x => A.some(a => calcNonzero(homEdges, a, x))));
           else if (op === 'Cog') output = calcFormatSet(calcRightPerp(homEdges, []).filter(x => A.some(a => calcNonzero(homEdges, x, a))));
           else if (op === 'Extension') output = (calcPairs(extEdges, A, B).join(', ') || 'No nonzero Ext^1 pairs in current data.');
-          document.getElementById('calcOutput').textContent = output;
+          return output;
+        }
+        async function calcRunOperation() {
+          const op = document.getElementById('calcOp').value;
+          const aRaw = document.getElementById('calcA').value;
+          const bRaw = document.getElementById('calcB').value;
+          const A = calcParseSet(aRaw);
+          const B = calcParseSet(bRaw);
+          const extI = Number(document.getElementById('calcI').value || '1');
+          const out = document.getElementById('calcOutput');
+          out.textContent = 'Running...';
+          if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+            try {
+              const res = await fetch('/api/gap/calc', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: calcSourceStem(), operation: op, A: aRaw, B: bRaw, i: extI })
+              });
+              const data = await res.json();
+              if (data && data.ok) {
+                out.textContent = data.output;
+                return;
+              }
+              const nl = String.fromCharCode(10);
+              out.textContent = 'Backend error: ' + (data && data.error ? data.error : res.statusText) + nl + nl + 'Local fallback:' + nl + calcRunLocal(op, A, B, extI);
+              return;
+            } catch (err) {
+              const nl = String.fromCharCode(10);
+              out.textContent = 'Backend unavailable; using local HTML data.' + nl + nl + calcRunLocal(op, A, B, extI);
+              return;
+            }
+          }
+          out.textContent = calcRunLocal(op, A, B, extI);
         }
         function showCalculator() {
           if (!calculatorPanel) {
