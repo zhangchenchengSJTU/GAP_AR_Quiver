@@ -1351,6 +1351,45 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           else if (op === 'Extension') output = (calcPairs(extEdges, A, B).join(', ') || 'No nonzero Ext^1 pairs in current data.');
           return output;
         }
+        function calcApiCandidates(endpoint) {
+          const cleanEndpoint = String(endpoint || '').replace(/^\/+/, '');
+          const candidates = [];
+          const add = (url) => { if (url && !candidates.includes(url)) candidates.push(url); };
+          add(cleanEndpoint);
+          const path = window.location.pathname || '';
+          const viewIndex = path.indexOf('/view/');
+          if (viewIndex !== -1) {
+            add(path.slice(0, viewIndex) + '/proxy/8000/' + cleanEndpoint);
+          }
+          const proxyIndex = path.indexOf('/proxy/');
+          if (proxyIndex !== -1) {
+            const rest = path.slice(proxyIndex + '/proxy/'.length);
+            const firstSlash = rest.indexOf('/');
+            const prefix = firstSlash === -1 ? path : path.slice(0, proxyIndex + '/proxy/'.length + firstSlash + 1);
+            add(prefix + cleanEndpoint);
+          }
+          add('/api/' + cleanEndpoint.replace(/^api\//, ''));
+          return candidates;
+        }
+
+        async function calcFetchJson(endpoint, payload) {
+          const errors = [];
+          for (const url of calcApiCandidates(endpoint)) {
+            try {
+              const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              const data = await res.json();
+              return { url: url, response: res, data: data };
+            } catch (err) {
+              errors.push(url + ' -> ' + err);
+            }
+          }
+          throw new Error(errors.join('; '));
+        }
+
         async function calcRunOperation() {
           const op = document.getElementById('calcOp').value;
           const aRaw = document.getElementById('calcA').value;
@@ -1362,18 +1401,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           out.textContent = 'Running...';
           if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
             try {
-              const res = await fetch('api/gap/calc', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source: calcSourceStem(), operation: op, A: aRaw, B: bRaw, i: extI })
-              });
-              const data = await res.json();
+              const result = await calcFetchJson('api/gap/calc', { source: calcSourceStem(), operation: op, A: aRaw, B: bRaw, i: extI });
+              const data = result.data;
               if (data && data.ok) {
                 out.textContent = data.output;
                 return;
               }
               const nl = String.fromCharCode(10);
-              out.textContent = 'Backend error: ' + (data && data.error ? data.error : res.statusText) + nl + nl + 'Local fallback:' + nl + calcRunLocal(op, A, B, extI);
+              out.textContent = 'Backend error at ' + result.url + ': ' + (data && data.error ? data.error : result.response.statusText) + nl + nl + 'Local fallback:' + nl + calcRunLocal(op, A, B, extI);
               return;
             } catch (err) {
               const nl = String.fromCharCode(10);
@@ -1397,26 +1432,18 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           out.textContent = 'Calling GAP backend... this may take a while.';
           try {
             const source = calcSourceStem();
-            const recompute = await fetch('api/gap/recompute', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ source: source })
-            });
-            const recomputeData = await recompute.json();
+            const recomputeResult = await calcFetchJson('api/gap/recompute', { source: source });
+            const recomputeData = recomputeResult.data;
             if (!recomputeData || !recomputeData.ok) {
-              out.textContent = 'GAP recompute failed: ' + (recomputeData && recomputeData.error ? recomputeData.error : recompute.statusText);
+              out.textContent = 'GAP recompute failed at ' + recomputeResult.url + ': ' + (recomputeData && recomputeData.error ? recomputeData.error : recomputeResult.response.statusText);
               return;
             }
-            const res = await fetch('api/gap/calc', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ source: source, operation: op, A: aRaw, B: bRaw, i: extI })
-            });
-            const data = await res.json();
+            const calcResult = await calcFetchJson('api/gap/calc', { source: source, operation: op, A: aRaw, B: bRaw, i: extI });
+            const data = calcResult.data;
             if (data && data.ok) {
-              out.textContent = 'GAP recomputed: ' + recomputeData.log + nl + nl + data.output;
+              out.textContent = 'GAP recomputed via ' + recomputeResult.url + ': ' + recomputeData.log + nl + nl + data.output;
             } else {
-              out.textContent = 'GAP calc failed: ' + (data && data.error ? data.error : res.statusText);
+              out.textContent = 'GAP calc failed at ' + calcResult.url + ': ' + (data && data.error ? data.error : calcResult.response.statusText);
             }
           } catch (err) {
             out.textContent = 'GAP backend unavailable: ' + err;
