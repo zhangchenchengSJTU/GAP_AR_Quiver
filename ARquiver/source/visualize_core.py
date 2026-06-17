@@ -1362,7 +1362,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           out.textContent = 'Running...';
           if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
             try {
-              const res = await fetch('/api/gap/calc', {
+              const res = await fetch('api/gap/calc', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ source: calcSourceStem(), operation: op, A: aRaw, B: bRaw, i: extI })
@@ -1397,7 +1397,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           out.textContent = 'Calling GAP backend... this may take a while.';
           try {
             const source = calcSourceStem();
-            const recompute = await fetch('/api/gap/recompute', {
+            const recompute = await fetch('api/gap/recompute', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ source: source })
@@ -1407,7 +1407,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               out.textContent = 'GAP recompute failed: ' + (recomputeData && recomputeData.error ? recomputeData.error : recompute.statusText);
               return;
             }
-            const res = await fetch('/api/gap/calc', {
+            const res = await fetch('api/gap/calc', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ source: source, operation: op, A: aRaw, B: bRaw, i: extI })
