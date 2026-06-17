@@ -888,6 +888,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
     V := verts;;
     return rec(
         fname := fname,
+        edges := edges,
         verts := verts,
         projective_node_ids := projective_node_ids,
         injective_node_ids := injective_node_ids,
@@ -897,11 +898,16 @@ end;
 
 DrawIrreducibleDiagramHybrid := function(A, N, arg)
     local fname, outDir, P, I, SI, queue, verts, edges, depthLeft, depthRight, outAdj,
-        expandedLeft, expandedRight, pendingMeshEdges, meshSeen, tauFinished, irr_from_count, irr_to_count, mesh_added_count,
+        expandedLeft, expandedRight, pendingMeshEdges, meshSeen, tauFinished, pendingReflectEdges, reflectSeen,
+        leftIrrFinished, rightIrrFinished, specialApplied,
+        irr_from_count, irr_to_count, mesh_added_count, reflected_edge_count, special_edge_count,
         X0, Y, f, current, uX, uY, depth, side, irrCall, out, e, u, v, i,
         label_str, projective_node_ids, injective_node_ids, p_mod, i_mod, pos,
-        pdid_map, AddVertexRaw, AddVertex, CloseTauOrbit, AddEdge, EnqueueLeft, EnqueueRight, EdgeKey, AddMeshFromEdge,
-        CloseMesh, ExpandForwardByIrr, ExpandBackwardByIrr, srcM, uSrc, orbitQueue, orbitCurrent, orbitCall, orbitM, orbitPos;
+        pdid_map, AddVertexRaw, AddVertex, CloseTauOrbit, EdgeMultiplicity, AddEdge, AddEdgeIfMissing,
+        EnsureEdgeMultiplicity, AddEdgeWithReflection,
+        EnqueueLeft, EnqueueRight, EdgeKey, AddMeshFromEdge,
+        CloseMesh, ApplySpecialRulesAtVertex, ExpandForwardByIrr, ExpandBackwardByIrr,
+        srcM, uSrc, orbitQueue, orbitCurrent, orbitCall, orbitM, orbitPos;
 
     outDir := Directory(".");
     if IsBoundGlobal("output_log_path") and output_log_path <> fail then
@@ -928,9 +934,16 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     pendingMeshEdges := [];
     meshSeen := [];
     tauFinished := [];
+    leftIrrFinished := [];
+    rightIrrFinished := [];
+    specialApplied := [];
+    pendingReflectEdges := [];
+    reflectSeen := [];
     irr_from_count := 0;
     irr_to_count := 0;
     mesh_added_count := 0;
+    reflected_edge_count := 0;
+    special_edge_count := 0;
 
     AddVertexRaw := function(M)
         local posM;
@@ -941,6 +954,9 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
             Add(depthRight, fail);
             Add(outAdj, []);
             Add(tauFinished, false);
+            Add(leftIrrFinished, false);
+            Add(rightIrrFinished, false);
+            Add(specialApplied, false);
             posM := Length(verts);
             CheckModuleCountGuard(posM);
         fi;
@@ -989,15 +1005,52 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         return Concatenation(String(uS), "->", String(uT));
     end;
 
+    EdgeMultiplicity := function(uS, uT)
+        if not IsBound(outAdj[uS]) then return 0; fi;
+        return Number(outAdj[uS], x -> x = uT);
+    end;
+
     AddEdge := function(uS, uT)
-        if IsBound(outAdj[uS]) and uT in outAdj[uS] then
-            return false;
-        fi;
         Add(edges, [uS, uT]);
         if not IsBound(outAdj[uS]) then outAdj[uS] := []; fi;
         Add(outAdj[uS], uT);
         Add(pendingMeshEdges, [uS, uT]);
+        Add(pendingReflectEdges, [uS, uT]);
         return true;
+    end;
+
+    AddEdgeIfMissing := function(uS, uT)
+        if EdgeMultiplicity(uS, uT) > 0 then return false; fi;
+        return AddEdge(uS, uT);
+    end;
+
+    EnsureEdgeMultiplicity := function(uS, uT, desired)
+        local added;
+        added := 0;
+        while EdgeMultiplicity(uS, uT) < desired do
+            AddEdge(uS, uT);
+            added := added + 1;
+        od;
+        return added;
+    end;
+
+    AddEdgeWithReflection := function(uS, uT)
+        local added, edge, dtrCall, dtrM, uDtr, key;
+        added := AddEdgeIfMissing(uS, uT);
+        while Length(pendingReflectEdges) > 0 do
+            edge := pendingReflectEdges[1];
+            Remove(pendingReflectEdges, 1);
+            key := EdgeKey(edge[1], edge[2]);
+            if key in reflectSeen then continue; fi;
+            Add(reflectSeen, key);
+            dtrCall := CALL_WITH_CATCH(DTr, [verts[edge[2]]]);
+            if dtrCall[1] <> true then continue; fi;
+            dtrM := dtrCall[2];
+            if IsInt(dtrM) or dtrM = 0 then continue; fi;
+            uDtr := AddVertex(dtrM);
+            reflected_edge_count := reflected_edge_count + EnsureEdgeMultiplicity(uDtr, edge[1], EdgeMultiplicity(edge[1], edge[2]));
+        od;
+        return added;
     end;
 
     EnqueueLeft := function(uV, d)
@@ -1043,7 +1096,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
             newDepth := N + 1;
         fi;
         if newDepth > N then return false; fi;
-        AddEdge(uT, uTrd);
+        AddEdgeWithReflection(uT, uTrd);
         EnqueueLeft(uTrd, newDepth);
         mesh_added_count := mesh_added_count + 1;
         return true;
@@ -1058,9 +1111,84 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         od;
     end;
 
+    ApplySpecialRulesAtVertex := function(uV)
+        local M, pidx, iidx, isProj, isInj, topCall, socCall, radCall, cosocCall,
+              Qidx, Iidx, radQ, cosocJ, projCall, pr, summand, targetIdx,
+              injCall, Jidx, sourceIdx, middle, sourceM, targetM, uSource, uTarget,
+              added;
+        if IsBound(specialApplied[uV]) and specialApplied[uV] = true then return; fi;
+        specialApplied[uV] := true;
+        M := verts[uV];
+        isProj := PositionIsomorphic(P, M) <> fail;
+        isInj := PositionIsomorphic(I, M) <> fail;
+
+        if isProj and Dimension(M) = 1 then
+            for Qidx in [1..Length(P)] do
+                radCall := CALL_WITH_CATCH(RadicalOfModule, [P[Qidx]]);
+                if radCall[1] <> true then continue; fi;
+                projCall := CALL_WITH_CATCH(DecomposeToProjections, [radCall[2]]);
+                if projCall[1] <> true or not IsList(projCall[2]) then continue; fi;
+                for pr in projCall[2] do
+                    summand := Range(pr);
+                    if IsomorphicModules(M, summand) then
+                        targetIdx := AddVertex(P[Qidx]);
+                        added := AddEdgeWithReflection(uV, targetIdx);
+                        EnqueueLeft(targetIdx, 1);
+                        if added then special_edge_count := special_edge_count + 1; fi;
+                    fi;
+                od;
+            od;
+            leftIrrFinished[uV] := true;
+        fi;
+
+        if isInj and Dimension(M) = 1 then
+            for Jidx in [1..Length(I)] do
+                socCall := CALL_WITH_CATCH(SocleOfModuleInclusion, [I[Jidx]]);
+                if socCall[1] <> true then continue; fi;
+                cosocJ := CALL_WITH_CATCH(CoKernelProjection, [socCall[2]]);
+                if cosocJ[1] <> true then continue; fi;
+                projCall := CALL_WITH_CATCH(DecomposeToProjections, [Range(cosocJ[2])]);
+                if projCall[1] <> true or not IsList(projCall[2]) then continue; fi;
+                for pr in projCall[2] do
+                    summand := Range(pr);
+                    if IsomorphicModules(M, summand) then
+                        sourceIdx := AddVertex(I[Jidx]);
+                        added := AddEdgeWithReflection(sourceIdx, uV);
+                        EnqueueRight(sourceIdx, 1);
+                        if added then special_edge_count := special_edge_count + 1; fi;
+                    fi;
+                od;
+            od;
+            rightIrrFinished[uV] := true;
+        fi;
+
+        if isProj and isInj and Dimension(M) > 1 then
+            radCall := CALL_WITH_CATCH(RadicalOfModule, [M]);
+            socCall := CALL_WITH_CATCH(SocleOfModuleInclusion, [M]);
+            if radCall[1] = true and socCall[1] = true then
+                cosocCall := CALL_WITH_CATCH(CoKernelProjection, [socCall[2]]);
+                if cosocCall[1] = true then
+                    sourceM := radCall[2];
+                    targetM := Range(cosocCall[2]);
+                    uSource := AddVertex(sourceM);
+                    uTarget := AddVertex(targetM);
+                    if AddEdgeWithReflection(uSource, uV) then special_edge_count := special_edge_count + 1; fi;
+                    if AddEdgeWithReflection(uV, uTarget) then special_edge_count := special_edge_count + 1; fi;
+                    EnqueueLeft(uV, 1);
+                    EnqueueLeft(uTarget, 2);
+                    EnqueueRight(uV, 1);
+                    EnqueueRight(uSource, 2);
+                    leftIrrFinished[uSource] := true;
+                    rightIrrFinished[uTarget] := true;
+                fi;
+            fi;
+        fi;
+    end;
+
     ExpandForwardByIrr := function(uV, d)
         local M, irrCallLocal, irrLocal, fLocal, YLocal, uYLocal;
         if IsBound(expandedLeft[uV]) and expandedLeft[uV] = true then return; fi;
+        if IsBound(leftIrrFinished[uV]) and leftIrrFinished[uV] = true then expandedLeft[uV] := true; return; fi;
         M := verts[uV];
         if d >= N then return; fi;
         if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
@@ -1074,7 +1202,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
             if not IsBound(fLocal) then continue; fi;
             YLocal := Range(fLocal);
             uYLocal := AddVertex(YLocal);
-            AddEdge(uV, uYLocal);
+            AddEdgeWithReflection(uV, uYLocal);
             EnqueueLeft(uYLocal, d + 1);
         od;
         expandedLeft[uV] := true;
@@ -1096,10 +1224,12 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     for X0 in P do
         uX := AddVertex(X0);
         EnqueueLeft(uX, 0);
+        ApplySpecialRulesAtVertex(uX);
     od;
     for X0 in I do
         uX := AddVertex(X0);
         EnqueueRight(uX, 0);
+        ApplySpecialRulesAtVertex(uX);
     od;
 
     while Length(queue) > 0 do
@@ -1126,7 +1256,13 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     uX := 1;
     while uX <= Length(verts) do
         CloseTauOrbit(uX);
+        ApplySpecialRulesAtVertex(uX);
         if IsBound(expandedLeft[uX]) and expandedLeft[uX] = true then
+            uX := uX + 1;
+            continue;
+        fi;
+        if IsBound(leftIrrFinished[uX]) and leftIrrFinished[uX] = true then
+            expandedLeft[uX] := true;
             uX := uX + 1;
             continue;
         fi;
@@ -1141,7 +1277,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
                 if not IsBound(f) then continue; fi;
                 Y := Range(f);
                 uY := AddVertex(Y);
-                AddEdge(uX, uY);
+                AddEdgeWithReflection(uX, uY);
             od;
             CloseMesh();
         fi;
@@ -1184,6 +1320,8 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     PrintTo(out, "IrrFrom calls: ", irr_from_count, "\n");
     PrintTo(out, "IrrTo calls: ", irr_to_count, "\n");
     PrintTo(out, "Mesh edges added: ", mesh_added_count, "\n");
+    PrintTo(out, "Reflected edges added: ", reflected_edge_count, "\n");
+    PrintTo(out, "Special-rule edges added: ", special_edge_count, "\n");
     CloseStream(out);;
 
     V := verts;;
