@@ -47,7 +47,7 @@ parse_dot_string_with_edge_labels = parse_dot_string
 
 # ===== Step3.ipynb cell 2 =====
 def parse_quiver_data(quiver_file):
-    # 读取文件内容
+    # Read file content
     try:
         with open(quiver_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -56,14 +56,14 @@ def parse_quiver_data(quiver_file):
         return None, None, None, None, None, None, None, None, None, None, None, None, None, None
     # Keep a global reference for translation-quiver extraction
     globals()["input_file"] = quiver_file
-    # 使用正则表达式提取投射/内射模
+    # Extract projective/injective modules using regex
     proj_match = re.search(r"Projective modules found \(Node IDs\): \[(.*?)\]", content)
     inj_match = re.search(r"Injective modules found \(Node IDs\):  \[(.*?)\]", content)
     tors_match = re.search(r"Torsionless modules found \(Node IDs\): \[(.*?)\]", content)
     refl_match = re.search(r"Reflexive modules found \(Node IDs\):  \[(.*?)\]", content)
     gp_match = re.search(r"Gorenstein projective modules found \(Node IDs\): \[(.*?)\]", content)
     gi_match = re.search(r"Gorenstein injective modules found \(Node IDs\):  \[(.*?)\]", content)
-    # 提取投射模/内射模 ID.
+    # Extract projective/injective module IDs.
     def parse_id_set(match):
         if not match or not match.group(1):
             return set()
@@ -110,6 +110,11 @@ def parse_quiver_data(quiver_file):
         ext_content = "digraph ExtDim {" + ext_match.group(1) + "}"
     rel_match = re.search(r"rel := ([^;\n]+);", content)
     rel_content = rel_match.group(1).strip() if rel_match else None
+    module_data_gap = ""
+    module_data_match = re.search(r"IndecomposableModuleData\s*:=\s*(\[[\s\S]*?\]);;", content)
+    if module_data_match:
+        module_data_gap = "IndecomposableModuleData := " + module_data_match.group(1).strip() + ";;"
+    globals()["module_data_gap"] = module_data_gap
     # QuiverStructure (optional)
     structure_matches = re.findall(r"QuiverStructure\s*:=\s*\"(.*?)\"", content)
     quiver_structure = structure_matches[-1] if structure_matches else None
@@ -241,7 +246,7 @@ def calculate_initial_layout(golden_edges, x_spacing=250, y_spacing=150):
 def create_and_save_quiver_html(quiver_filepath, output_filename):
     proj_ids, inj_ids, tors_ids, refl_ids, dot_content, syz_content, trans_content, q_dot_content, rel_content, hom_content, ext_content, tilting_data, quiver_structure, pdid_map = parse_quiver_data(quiver_filepath)
     if dot_content is None:
-        print(f"❌ 未找到 quiver 文件或其中不含 dot 图：{quiver_filepath}")
+        print(f"Error: quiver file not found or contains no DOT graph: {quiver_filepath}")
         return
 
     nodes_data, edges_data = parse_dot_string(dot_content)
@@ -300,7 +305,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 def create_and_save_quiver_html(quiver_filepath, output_filename):
     proj_ids, inj_ids, tors_ids, refl_ids, dot_content, syz_content, trans_content, q_dot_content, rel_content, hom_content, ext_content, tilting_data, quiver_structure, pdid_map = parse_quiver_data(quiver_filepath)
     if dot_content is None:
-        print(f"❌ 未找到 quiver 文件或其中不含 dot 图：{quiver_filepath}")
+        print(f"Error: quiver file not found or contains no DOT graph: {quiver_filepath}")
         return
 
     nodes_data, edges_data = parse_dot_string(dot_content)
@@ -368,10 +373,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             if m:
                 nodes_data[node_id]['dim'] = {'pd': m.group(1), 'id': m.group(2)}
             else:
-                print(f"❌ 节点 {node_id} 的 label 不是合法 JSON：{attrs.get('label')}\n原因：{e}")
+                print(f"Invalid JSON label for node {node_id}: {attrs.get('label')}\nReason: {e}")
                 return
             
-    # 使用默认引擎绘制 + 增加格点吸附/直线边(通过 JS 设置)
+    # Draw with the default engine, then add grid snapping and straight-edge behavior through JS.
     net = Network(height='750px', width='100%', directed=True, notebook=False)
     # Note: find_golden_edges removed in favor of trans_content parsing above
     # golden_edges is already set
@@ -456,6 +461,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     q_nodes_js = json.dumps(q_nodes)
     q_edges_js = json.dumps(q_edges)
     q_rel_js = json.dumps(rel_content or "")
+    module_data_gap_js = json.dumps(globals().get("module_data_gap", ""))
     hom_edges_js = json.dumps(hom_edges)
     ext_edges_js = json.dumps(ext_edges)
     tilting_js = json.dumps(tilting_data or [])
@@ -482,6 +488,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const quiverNodes = {{Q_NODES}};
       const quiverEdges = {{Q_EDGES}};
       const quiverRel = {{Q_REL}};
+      const indecomposableModuleDataGap = {{MODULE_DATA_GAP}};
       const homEdges = {{HOM_EDGES}};
       const extEdges = {{EXT_EDGES}};
       const tiltingData = {{TILTING_DATA}};
@@ -495,10 +502,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const goldenEdgeSet = new Set(goldenEdges.map(e => `${e[0]}->${e[1]}`));
       var options = {
         "edges": {
-          // (1) 选中只加粗，不改变颜色；改为绿色细边框高亮
+          // Selection only thickens the edge and uses green highlighting.
           "selectionWidth": 2,
           "color": { "color": "#000000", "highlight": "#00aa00", "hover": "#00aa00", "inherit": true },
-          // (2) 所有边为直线（可被键盘调弧度）
+          // Keep all edges straight; keyboard controls can adjust curvature.
           "smooth": { "enabled": false }
         },
         "interaction": { "multiselect": true },
@@ -696,12 +703,17 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const idValueLabelMap = new Map();
       const topLabelMap = new Map();
       const socLabelMap = new Map();
+      const floatingLabelOffsets = {
+        pd: { x: 0, y: 0 },
+        id: { x: 0, y: 0 },
+        top: { x: 0, y: 0 },
+        soc: { x: 0, y: 0 }
+      };
+      let floatingLabelDrag = null;
       const customTexLabels = new Map();
       let nodeLabelMode = 'dimension';
       const nodeLabelButtons = new Map();
       const edgeCurveMemory = new Map();
-      let hoverTip = null;
-      let hoverNodeId = null;
       const baseNodeStyles = new Map();
       let tiltingHighlighted = new Set();
       function toBaseStyle(n) {
@@ -850,7 +862,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const btn = document.getElementById(btnId);
           const idsArray = (ids || []).map(Number).filter(x => !Number.isNaN(x));
           if (!idsArray.length) {
-            alert('不存在');
+            alert('Not found');
             return false;
           }
           if (activeModuleClasses.has(btnId)) {
@@ -1324,6 +1336,45 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const S = new Set(input.map(Number));
           return (edges || []).filter(e => S.has(Number(e[0]))).map(e => Number(e[1]));
         }
+        function calcImageWithMultiplicity(edges, input) {
+          const out = [];
+          (input || []).forEach(x => {
+            (edges || []).forEach(e => {
+              if (Number(e[0]) === Number(x)) out.push(Number(e[1]));
+            });
+          });
+          return out;
+        }
+        function calcIteratedSyzygy(input, steps) {
+          let cur = (input || []).map(Number).filter(Number.isFinite);
+          for (let i = 0; i < steps; i += 1) {
+            cur = calcImageWithMultiplicity(syzygyEdges, cur);
+          }
+          return cur;
+        }
+        function calcExtKDimValue(k, a, b) {
+          if (k === 0) return calcDimValue(homEdges, a, b);
+          if (k === 1) return calcDimValue(extEdges, a, b);
+          return calcIteratedSyzygy([a], k - 1).reduce((sum, s) => sum + calcDimValue(extEdges, s, b), 0);
+        }
+        function calcExtKDimSum(k, left, right) {
+          let total = 0;
+          left.forEach(a => right.forEach(b => { total += calcExtKDimValue(k, a, b); }));
+          return String(total);
+        }
+        function calcParseK() {
+          const value = Number(document.getElementById('calcK').value || '0');
+          if (!Number.isInteger(value) || value < 0) throw new Error('k must be a nonnegative integer.');
+          return value;
+        }
+        function calcRightExtKPerp(k, input) {
+          const all = calcAllIds();
+          return all.filter(x => input.every(a => calcExtKDimValue(k, a, x) === 0));
+        }
+        function calcLeftExtKPerp(k, input) {
+          const all = calcAllIds();
+          return all.filter(x => input.every(b => calcExtKDimValue(k, x, b) === 0));
+        }
         function calcRightPerp(edges, input) {
           const all = calcAllIds();
           return all.filter(x => input.every(a => !calcNonzero(edges, a, x)));
@@ -1332,23 +1383,51 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const all = calcAllIds();
           return all.filter(x => input.every(a => !calcNonzero(edges, x, a)));
         }
+        function calcDimValue(edges, a, b) {
+          const e = (edges || []).find(e => Number(e[0]) === Number(a) && Number(e[1]) === Number(b));
+          const raw = e ? String(e[2] == null ? '1' : e[2]) : '0';
+          const n = Number(raw);
+          return Number.isFinite(n) ? n : 0;
+        }
+        function calcDimSum(edges, left, right) {
+          let total = 0;
+          left.forEach(a => right.forEach(b => { total += calcDimValue(edges, a, b); }));
+          return String(total);
+        }
+        function calcSingleIndecomposable(text, fieldName) {
+          const values = calcParseSet(text);
+          if (values.length !== 1) {
+            throw new Error(fieldName + ' must contain exactly one indecomposable module label.');
+          }
+          return values[0];
+        }
         function calcRunOperation() {
           const op = document.getElementById('calcOp').value;
-          const A = calcParseSet(document.getElementById('calcA').value);
-          const B = calcParseSet(document.getElementById('calcB').value);
-          const extI = Number(document.getElementById('calcI').value || '1');
           let output = '';
-          if (op === 'Hom') output = calcPairs(homEdges, A, B).join(', ') || '0';
-          else if (op === 'Ext') output = extI === 1 ? (calcPairs(extEdges, A, B).join(', ') || '0') : 'Only Ext^1 data is available in this HTML.';
-          else if (op === 'Syzygy') output = calcFormatSet(calcImage(syzygyEdges, A));
-          else if (op === 'Cosyzygy') output = calcFormatSet(calcImage(cosyzygyEdges, A));
-          else if (op === 'Homperp') output = calcFormatSet(calcRightPerp(homEdges, A));
-          else if (op === 'perpHom') output = calcFormatSet(calcLeftPerp(homEdges, A));
-          else if (op === 'Extperp') output = calcFormatSet(calcRightPerp(extEdges, A));
-          else if (op === 'perpExt') output = calcFormatSet(calcLeftPerp(extEdges, A));
-          else if (op === 'Gen') output = calcFormatSet(calcRightPerp(homEdges, []).filter(x => A.some(a => calcNonzero(homEdges, a, x))));
-          else if (op === 'Cog') output = calcFormatSet(calcRightPerp(homEdges, []).filter(x => A.some(a => calcNonzero(homEdges, x, a))));
-          else if (op === 'Extension') output = (calcPairs(extEdges, A, B).join(', ') || 'No nonzero Ext^1 pairs in current data.');
+          try {
+            if (op === 'ExtK') {
+              const k = calcParseK();
+              const A = calcParseSet(document.getElementById('calcA').value);
+              const B = calcParseSet(document.getElementById('calcB').value);
+              output = calcExtKDimSum(k, A, B);
+            } else if (op === 'Syzygy') {
+              const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
+              output = calcFormatSet(calcImage(syzygyEdges, [a]));
+            } else if (op === 'Cosyzygy') {
+              const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
+              output = calcFormatSet(calcImage(cosyzygyEdges, [a]));
+            } else if (op === 'ExtKperp') {
+              const k = calcParseK();
+              const A = calcParseSet(document.getElementById('calcA').value);
+              output = calcFormatSet(calcRightExtKPerp(k, A));
+            } else if (op === 'perpExtK') {
+              const k = calcParseK();
+              const B = calcParseSet(document.getElementById('calcB').value);
+              output = calcFormatSet(calcLeftExtKPerp(k, B));
+            }
+          } catch (err) {
+            output = err && err.message ? err.message : String(err);
+          }
           document.getElementById('calcOutput').textContent = output;
         }
         function gapQuote(value) {
@@ -1375,6 +1454,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             return '[' + Number(e[0]) + ', ' + Number(e[1]) + ', "' + gapQuote(name) + '"]';
           });
           const relText = quiverRel && String(quiverRel).trim() ? String(quiverRel).trim() : '[]';
+          const moduleDataText = indecomposableModuleDataGap && String(indecomposableModuleDataGap).trim() ? String(indecomposableModuleDataGap).trim() : '';
+          const hasModuleData = moduleDataText.length > 0;
           const nl = String.fromCharCode(10);
           return [
             '# GAP/QPA script generated by AR Quiver',
@@ -1404,15 +1485,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             'I := IndecInjectiveModules(A);;',
             'S := SimpleModules(A);;',
             '',
-            'TryAllIndecomposableModules := function(A)',
-            '  if IsBoundGlobal("IndecModules") then return IndecModules(A); fi;',
-            '  if IsBoundGlobal("IndecomposableModules") then return IndecomposableModules(A); fi;',
-            '  if IsBoundGlobal("IndecModulesOfAlgebra") then return IndecModulesOfAlgebra(A); fi;',
-            '  if IsBoundGlobal("IndecomposableModulesOfAlgebra") then return IndecomposableModulesOfAlgebra(A); fi;',
-            '  return fail;',
-            'end;;',
-            '',
-            'M := TryAllIndecomposableModules(A);;',
+            hasModuleData ? '# Indecomposable modules reconstructed from AR-quiver log data.' : '# No serialized module data found in this log.',
+            hasModuleData ? moduleDataText : 'IndecomposableModuleData := [];;',
+            hasModuleData ? 'M := List(IndecomposableModuleData, r -> RightModuleOverPathAlgebra(A, r.dim, r.maps));;' : 'M := fail;;',
             '',
             'Print("\\nGenerated objects ready.\\n");',
             'Print("Q: original quiver\\n");',
@@ -1499,10 +1574,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                 <span>Calculator</span><button id="calcClose" style="border:0; background:transparent; font-size:18px; cursor:pointer;">×</button>
               </div>
               <div style="padding:10px; display:grid; gap:8px;">
-                <label>Function <select id="calcOp" style="width:100%;"><option>Hom</option><option>Ext</option><option>Syzygy</option><option>Cosyzygy</option><option>Homperp</option><option>perpHom</option><option value="Extperp">Extperp / Extprep</option><option value="perpExt">perpExt / prepExt</option><option>Gen</option><option>Cog</option><option>Extension</option></select></label>
-                <label>A labels <input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
-                <label>B labels <input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="for Hom/Ext/Extension" /></label>
-                <label>i for Ext^i <input id="calcI" style="width:100%; box-sizing:border-box;" value="1" /></label>
+                <label>Function <select id="calcOp" style="width:100%;"><option value="ExtK">dim Ext^k(A,B)</option><option value="ExtKperp">ker Ext^k(A,-)</option><option value="perpExtK">ker Ext^k(-,B)</option><option value="Syzygy">Syzygy(A)</option><option value="Cosyzygy">Cosyzygy(A)</option></select></label>
+                <label id="calcKLabel">k <input id="calcK" style="width:100%; box-sizing:border-box;" value="0" /></label>
+                <label id="calcALabel">A labels <input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
+                <label id="calcBLabel">B labels <input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
+                <div id="calcHint" style="color:#475569; font-size:12px;"></div>
                 <div style="display:flex; gap:8px;">
                   <button id="calcRun" style="flex:1; padding:6px 10px; border:1px solid #2563eb; background:#dbeafe; color:#1d4ed8; border-radius:6px; cursor:pointer; font-weight:650;">Run</button>
                   <button id="calcRunGap" style="flex:1; padding:6px 10px; border:1px solid #16a34a; background:#dcfce7; color:#166534; border-radius:6px; cursor:pointer; font-weight:650;">Run with GAP</button>
@@ -1511,6 +1587,26 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                 <pre id="calcOutput" style="min-height:48px; max-height:180px; overflow:auto; white-space:pre-wrap; margin:0; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px;"></pre>
               </div>`;
             document.body.appendChild(calculatorPanel);
+            const updateCalculatorFields = () => {
+              const op = calculatorPanel.querySelector('#calcOp').value;
+              const aLabel = calculatorPanel.querySelector('#calcALabel');
+              const bLabel = calculatorPanel.querySelector('#calcBLabel');
+              const kLabel = calculatorPanel.querySelector('#calcKLabel');
+              const hint = calculatorPanel.querySelector('#calcHint');
+              const usesA = ['ExtK','ExtKperp','Syzygy','Cosyzygy'].includes(op);
+              const usesB = ['ExtK','perpExtK'].includes(op);
+              const usesK = ['ExtK','ExtKperp','perpExtK'].includes(op);
+              aLabel.style.display = usesA ? 'block' : 'none';
+              bLabel.style.display = usesB ? 'block' : 'none';
+              kLabel.style.display = usesK ? 'block' : 'none';
+              if (op === 'ExtK') hint.textContent = 'Computes Sum dim Ext^k(A_i, B_j); k=0 is Hom, k=1 is Ext^1, k>=2 uses syzygy and Ext^1 data.';
+              else if (op === 'ExtKperp') hint.textContent = 'Input A only; returns modules X with Ext^k(A_i, X)=0 for all A_i.';
+              else if (op === 'perpExtK') hint.textContent = 'Input B only; returns modules X with Ext^k(X, B_j)=0 for all B_j.';
+              else if (op === 'Syzygy' || op === 'Cosyzygy') hint.textContent = 'Input exactly one indecomposable module label in A.';
+              else hint.textContent = 'Inputs/outputs use node label numbers.';
+            };
+            calculatorPanel.querySelector('#calcOp').addEventListener('change', updateCalculatorFields);
+            updateCalculatorFields();
             calculatorPanel.querySelector('#calcClose').addEventListener('click', () => { calculatorPanel.style.display = 'none'; });
             calculatorPanel.querySelector('#calcRun').addEventListener('click', calcRunOperation);
             calculatorPanel.querySelector('#calcRunGap').addEventListener('click', calcRunWithGap);
@@ -2141,7 +2237,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         state.rows = rows;
         if (state.selectedIndex >= rows.length) state.selectedIndex = rows.length - 1;
 
-        const modeText = state.sortMode === 'lex' ? '字典序' : '数量+字典序';
+        const modeText = state.sortMode === 'lex' ? 'lex' : 'length+lex';
         const headerButtons = columns.map(col => {
           const active = state.sortKey === col.key;
           return `<button type="button" data-sort-key="${col.key}" style="font-size:11px; margin-right:4px; padding:2px 6px; border:1px solid ${active ? '#0f766e' : '#ccc'}; border-radius:4px; background:${active ? '#ccfbf1' : '#fff'}; cursor:pointer;">${col.label}${active ? ` (${modeText})` : ''}</button>`;
@@ -2282,8 +2378,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         return layer;
       }
 
-      function makeLabelElement(layer, color, border, background) {
+      function makeLabelElement(layer, color, border, background, kind) {
         const el = document.createElement('div');
+        el.dataset.labelKind = kind || '';
         el.style.position = 'absolute';
         el.style.fontSize = '12px';
         el.style.color = color;
@@ -2296,11 +2393,53 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         el.style.padding = '1px 4px';
         el.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
         el.style.whiteSpace = 'pre';
+        el.style.cursor = 'move';
+        el.style.userSelect = 'none';
+        el.style.pointerEvents = 'auto';
+        el.addEventListener('mousedown', startFloatingLabelDrag);
         layer.appendChild(el);
         return el;
       }
 
-      function updateScalarLabels(visible, layer, labelMap, getText, yOffset, color, border, background) {
+      function startFloatingLabelDrag(event) {
+        const kind = event.currentTarget && event.currentTarget.dataset ? event.currentTarget.dataset.labelKind : '';
+        if (!kind || !floatingLabelOffsets[kind]) return;
+        event.preventDefault();
+        event.stopPropagation();
+        floatingLabelDrag = {
+          kind,
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          startOffsetX: floatingLabelOffsets[kind].x,
+          startOffsetY: floatingLabelOffsets[kind].y
+        };
+        document.body.style.cursor = 'move';
+        window.addEventListener('mousemove', moveFloatingLabelDrag);
+        window.addEventListener('mouseup', stopFloatingLabelDrag, { once: true });
+      }
+
+      function moveFloatingLabelDrag(event) {
+        if (!floatingLabelDrag) return;
+        const kind = floatingLabelDrag.kind;
+        floatingLabelOffsets[kind].x = floatingLabelDrag.startOffsetX + event.clientX - floatingLabelDrag.startClientX;
+        floatingLabelOffsets[kind].y = floatingLabelDrag.startOffsetY + event.clientY - floatingLabelDrag.startClientY;
+        refreshFloatingLabelsByKind(kind);
+      }
+
+      function stopFloatingLabelDrag() {
+        floatingLabelDrag = null;
+        document.body.style.cursor = '';
+        window.removeEventListener('mousemove', moveFloatingLabelDrag);
+      }
+
+      function refreshFloatingLabelsByKind(kind) {
+        if (kind === 'pd' && showPd) updatePdLabels();
+        if (kind === 'id' && showId) updateIdValueLabels();
+        if (kind === 'top' && showTop) updateTopLabels();
+        if (kind === 'soc' && showSoc) updateSocLabels();
+      }
+
+      function updateScalarLabels(visible, layer, labelMap, getText, yOffset, color, border, background, kind) {
         if (!visible || !layer) return;
         const positions = network.getPositions();
         Object.keys(positions).forEach(idStr => {
@@ -2312,13 +2451,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (!node) return;
           let el = labelMap.get(id);
           if (!el) {
-            el = makeLabelElement(layer, color, border, background);
+            el = makeLabelElement(layer, color, border, background, kind);
             labelMap.set(id, el);
           }
           el.textContent = text;
           const dom = network.canvasToDOM(positions[id]);
-          el.style.left = `${dom.x}px`;
-          el.style.top = `${dom.y + yOffset(node)}px`;
+          const offset = floatingLabelOffsets[kind] || { x: 0, y: 0 };
+          el.style.left = `${dom.x + offset.x}px`;
+          el.style.top = `${dom.y + yOffset(node) + offset.y}px`;
         });
       }
 
@@ -2349,22 +2489,22 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       function updatePdLabels() {
         updateScalarLabels(showPd, pdLabelLayer, pdLabelMap, id => {
           const e = pdidEntry(id); return e ? `pd=${formatHomologicalDimension(e.pd)}` : null;
-        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 42) : 46), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)');
+        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 42) : 46), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)', 'pd');
       }
       function updateIdValueLabels() {
         updateScalarLabels(showId, idValueLabelLayer, idValueLabelMap, id => {
           const e = pdidEntry(id); return e ? `id=${formatHomologicalDimension(e.id)}` : null;
-        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 24) : 28), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)');
+        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 24) : 28), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)', 'id');
       }
       function updateTopLabels() {
         updateScalarLabels(showTop, topLabelLayer, topLabelMap, id => {
           const e = topSocEntry(id); return e ? `Top=${formatSimpleList(e.top)}` : null;
-        }, node => ((node.shape && node.shape.height) ? (node.shape.height / 2 + 28) : 34), '#14532d', '#86efac', 'rgba(240,253,244,0.96)');
+        }, node => ((node.shape && node.shape.height) ? (node.shape.height / 2 + 28) : 34), '#14532d', '#86efac', 'rgba(240,253,244,0.96)', 'top');
       }
       function updateSocLabels() {
         updateScalarLabels(showSoc, socLabelLayer, socLabelMap, id => {
           const e = topSocEntry(id); return e ? `Soc=${formatSimpleList(e.soc)}` : null;
-        }, node => ((node.shape && node.shape.height) ? (node.shape.height / 2 + 46) : 52), '#14532d', '#86efac', 'rgba(240,253,244,0.96)');
+        }, node => ((node.shape && node.shape.height) ? (node.shape.height / 2 + 46) : 52), '#14532d', '#86efac', 'rgba(240,253,244,0.96)', 'soc');
       }
 
       function togglePdLabels(visible) {
@@ -2911,14 +3051,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         if (showId) updateIdValueLabels();
         if (showTop) updateTopLabels();
         if (showSoc) updateSocLabels();
-        if (hoverNodeId !== null) updateHoverTip();
-      });
-
-      network.on('hoverNode', function(p) {
-        showHoverTip(p.node);
-      });
-      network.on('blurNode', function() {
-        hideHoverTip();
       });
 
       network.on('hold', function(p) {
@@ -3015,6 +3147,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     js_injection = js_injection.replace("{{Q_NODES}}", q_nodes_js)
     js_injection = js_injection.replace("{{Q_EDGES}}", q_edges_js)
     js_injection = js_injection.replace("{{Q_REL}}", q_rel_js)
+    js_injection = js_injection.replace("{{MODULE_DATA_GAP}}", module_data_gap_js)
     js_injection = js_injection.replace("{{HOM_EDGES}}", hom_edges_js)
     js_injection = js_injection.replace("{{EXT_EDGES}}", ext_edges_js)
     js_injection = js_injection.replace("{{TILTING_DATA}}", tilting_js)
@@ -3032,9 +3165,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     try:
         with open(output_filename, 'w', encoding='utf-8') as f:
             f.write(final_html)
-        print(f"✅ 操作成功！已将交互式图形保存到文件: '{output_filename}'")
+        print(f"Success: interactive graph saved to: '{output_filename}'")
     except Exception as e:
-        print(f"❌ 写入文件时出错: {e}")
+        print(f"Error writing file: {e}")
 
 # ===== Step3.ipynb cell 6 =====
 def _inject_tilting_graph_js(html: str) -> str:
@@ -3361,11 +3494,7 @@ def _inject_tilting_graph_js(html: str) -> str:
 
 
 
-      // Disable hover pd/id tooltip
-
-      window.showHoverTip = function() {};
-
-      window.hideHoverTip = function() {};
+      // Hover tooltips are disabled.
 
     })();
 
@@ -3393,11 +3522,11 @@ def create_and_save_quiver_html_with_tilting_graph(quiver_filepath, output_filen
 
             f.write(html)
 
-        print("✅ 已使用统一列表式 tilting 布局")
+        print("Success: unified list-style tilting layout enabled")
 
     except Exception as e:
 
-        print(f"❌ 注入 tilting L 图形失败: {e}")
+        print(f"Error injecting tilting L graph: {e}")
 
 
 # ===== Step3.ipynb cell 7 =====

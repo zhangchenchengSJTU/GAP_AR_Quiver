@@ -1610,6 +1610,31 @@ WriteTopSocData := function(fname, A, verts)
     AppendTo(fname, "TopSoc := ", ComputeTopSocData(A, verts), ";\n");
 end;;
 
+WriteIndecomposableModuleData := function(fname, A, verts)
+    local Qlocal, arrows, idx, mats, mapEntries, i, label;
+    Qlocal := QuiverOfPathRing(A);
+    arrows := ArrowsOfQuiver(Qlocal);
+    AppendTo(fname, "IndecomposableModuleData := [\n");
+    for idx in [1..Length(verts)] do
+        mats := MatricesOfPathAlgebraModule(verts[idx]);
+        mapEntries := [];
+        if IsList(mats) then
+            for i in [1..Length(arrows)] do
+                if IsBound(mats[i]) and IsMatrix(mats[i]) and mats[i] <> Zero(mats[i]) then
+                    label := arrows[i]!.String;
+                    Add(mapEntries, [label, mats[i]]);
+                fi;
+            od;
+        fi;
+        AppendTo(fname, "  rec(id := ", idx, ", dim := ", DimensionVector(verts[idx]), ", maps := ", mapEntries, ")");
+        if idx < Length(verts) then
+            AppendTo(fname, ",");
+        fi;
+        AppendTo(fname, "\n");
+    od;
+    AppendTo(fname, "];;\n");
+end;;
+
 # ===== Step2.ipynb cell 11 =====
 # 找 torsionless/reflexive 对象
 
@@ -2464,6 +2489,7 @@ GenerateQuiverData := function(A, N, arg)
     pdid := DeriveProjInjDimsFromSyzygies(res.verts, res.projective_node_ids, res.injective_node_ids, syz_edges, cosyz_edges);
 
     WriteQuiverAndRelations(res.fname, Q, rel);
+    WriteIndecomposableModuleData(res.fname, A, res.verts);
     WriteSummandQuiverFromEdges(res.fname, "SyzygySummand", res.verts, syz_edges);
     WriteSummandQuiverFromEdges(res.fname, "CosyzygySummand", res.verts, cosyz_edges);
     Progress("computing top/soc data");
