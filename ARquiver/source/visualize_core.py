@@ -1332,11 +1332,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const all = calcAllIds();
           return all.filter(x => input.every(a => !calcNonzero(edges, x, a)));
         }
-        function calcSourceStem() {
-          const name = (window.location.pathname.split('/').pop() || 'untitled.html').replace(/\.(html|log|txt)$/i, '');
-          return name || 'untitled';
-        }
-        function calcRunLocal(op, A, B, extI) {
+        function calcRunOperation() {
+          const op = document.getElementById('calcOp').value;
+          const A = calcParseSet(document.getElementById('calcA').value);
+          const B = calcParseSet(document.getElementById('calcB').value);
+          const extI = Number(document.getElementById('calcI').value || '1');
           let output = '';
           if (op === 'Hom') output = calcPairs(homEdges, A, B).join(', ') || '0';
           else if (op === 'Ext') output = extI === 1 ? (calcPairs(extEdges, A, B).join(', ') || '0') : 'Only Ext^1 data is available in this HTML.';
@@ -1349,82 +1349,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           else if (op === 'Gen') output = calcFormatSet(calcRightPerp(homEdges, []).filter(x => A.some(a => calcNonzero(homEdges, a, x))));
           else if (op === 'Cog') output = calcFormatSet(calcRightPerp(homEdges, []).filter(x => A.some(a => calcNonzero(homEdges, x, a))));
           else if (op === 'Extension') output = (calcPairs(extEdges, A, B).join(', ') || 'No nonzero Ext^1 pairs in current data.');
-          return output;
-        }
-        function calcApiCandidates(endpoint) {
-          const cleanEndpoint = String(endpoint || '').replace(/^\/+/, '');
-          const apiEndpoint = cleanEndpoint.replace(/^api\//, 'api/');
-          const candidates = [];
-          const add = (url) => { if (url && !candidates.includes(url)) candidates.push(url); };
-          const origin = window.location.origin || '';
-          const path = window.location.pathname || '';
-          add(cleanEndpoint);
-          const viewIndex = path.indexOf('/view/');
-          if (viewIndex !== -1) {
-            const binderBase = path.slice(0, viewIndex);
-            add(binderBase + '/proxy/8000/' + apiEndpoint);
-            add(origin + binderBase + '/proxy/8000/' + apiEndpoint);
-          }
-          const userMatch = path.match(/^(\/user\/[^/]+)/);
-          if (userMatch) {
-            add(userMatch[1] + '/proxy/8000/' + apiEndpoint);
-            add(origin + userMatch[1] + '/proxy/8000/' + apiEndpoint);
-          }
-          const proxyMatch = path.match(/^(.*\/proxy\/\d+\/)/);
-          if (proxyMatch) {
-            add(proxyMatch[1] + apiEndpoint);
-            add(origin + proxyMatch[1] + apiEndpoint);
-          }
-          add('/' + apiEndpoint);
-          add(origin + '/' + apiEndpoint);
-          return candidates;
-        }
-
-        async function calcFetchJson(endpoint, payload) {
-          const errors = [];
-          for (const url of calcApiCandidates(endpoint)) {
-            try {
-              const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              });
-              const data = await res.json();
-              return { url: url, response: res, data: data };
-            } catch (err) {
-              errors.push(url + ' -> ' + err);
-            }
-          }
-          throw new Error(errors.join('; '));
-        }
-
-        async function calcRunOperation() {
-          const op = document.getElementById('calcOp').value;
-          const aRaw = document.getElementById('calcA').value;
-          const bRaw = document.getElementById('calcB').value;
-          const A = calcParseSet(aRaw);
-          const B = calcParseSet(bRaw);
-          const extI = Number(document.getElementById('calcI').value || '1');
-          const out = document.getElementById('calcOutput');
-          out.textContent = 'Running...';
-          if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-            try {
-              const result = await calcFetchJson('api/gap/calc', { source: calcSourceStem(), operation: op, A: aRaw, B: bRaw, i: extI });
-              const data = result.data;
-              if (data && data.ok) {
-                out.textContent = data.output;
-                return;
-              }
-              const nl = String.fromCharCode(10);
-              out.textContent = 'Backend error at ' + result.url + ': ' + (data && data.error ? data.error : result.response.statusText) + nl + nl + 'Local fallback:' + nl + calcRunLocal(op, A, B, extI);
-              return;
-            } catch (err) {
-              const nl = String.fromCharCode(10);
-              out.textContent = 'Backend unavailable; using local HTML data.' + nl + nl + calcRunLocal(op, A, B, extI);
-              return;
-            }
-          }
-          out.textContent = calcRunLocal(op, A, B, extI);
+          document.getElementById('calcOutput').textContent = output;
         }
         function gapQuote(value) {
           return String(value == null ? '' : value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -1435,10 +1360,15 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(clean)) return clean;
           return 'a' + index;
         }
+        function calcSourceStem() {
+          const name = (window.location.pathname.split('/').pop() || 'untitled.html').replace(/\.(html|log|txt)$/i, '');
+          return name || 'untitled';
+        }
         function calcGapScript() {
           const source = calcSourceStem();
           const nodes = (quiverNodes || []).map(n => Number(n.id)).filter(Number.isFinite);
-          const maxNode = nodes.length ? Math.max.apply(null, nodes) : Math.max.apply(null, (quiverEdges || []).flatMap(e => [Number(e[0]), Number(e[1])]).filter(Number.isFinite));
+          const edgeNodes = (quiverEdges || []).flatMap(e => [Number(e[0]), Number(e[1])]).filter(Number.isFinite);
+          const maxNode = nodes.length ? Math.max.apply(null, nodes) : (edgeNodes.length ? Math.max.apply(null, edgeNodes) : calcAllIds().length);
           const nVerts = Number.isFinite(maxNode) && maxNode > 0 ? maxNode : calcAllIds().length;
           const arrows = (quiverEdges || []).map((e, i) => {
             const name = gapArrowName(e[2], i + 1);
@@ -1451,22 +1381,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             '# Source: ' + source,
             '#',
             '# Usage:',
-            '#   1. Copy this file into a GAP session, or save it as ' + source + '_run_with_gap.g and run:',
-            '#        gap -q ' + source + '_run_with_gap.g',
-            '#   2. After it runs, the following variables are available:',
-            '#        Q       original quiver',
-            '#        kQ      path algebra over Rationals',
-            '#        rel     relations',
-            '#        A       bound quiver algebra kQ / rel',
-            '#        M[i]    indecomposable modules, if QPA can enumerate them',
-            '#        P[i]    indecomposable projective modules',
-            '#        I[i]    indecomposable injective modules',
-            '#        S[i]    simple modules',
+            '#   Copy this file into GAP, or save it as ' + source + '_run_with_gap.g and run:',
+            '#     gap -q ' + source + '_run_with_gap.g',
             '#',
-            '# Examples:',
-            '#   DimensionVector(M[1]);',
-            '#   HomOverAlgebra(M[1], M[2]);',
-            '#   ExtOverAlgebra(M[1], M[2]);',
+            '# Available objects after running:',
+            '#   Q, kQ, rel, A, M, P, I, S',
             '',
             'LoadPackage("QPA");;',
             '',
@@ -1486,23 +1405,13 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             'S := SimpleModules(A);;',
             '',
             'TryAllIndecomposableModules := function(A)',
-            '  if IsBoundGlobal("IndecModules") then',
-            '    return IndecModules(A);',
-            '  fi;',
-            '  if IsBoundGlobal("IndecomposableModules") then',
-            '    return IndecomposableModules(A);',
-            '  fi;',
-            '  if IsBoundGlobal("IndecModulesOfAlgebra") then',
-            '    return IndecModulesOfAlgebra(A);',
-            '  fi;',
-            '  if IsBoundGlobal("IndecomposableModulesOfAlgebra") then',
-            '    return IndecomposableModulesOfAlgebra(A);',
-            '  fi;',
+            '  if IsBoundGlobal("IndecModules") then return IndecModules(A); fi;',
+            '  if IsBoundGlobal("IndecomposableModules") then return IndecomposableModules(A); fi;',
+            '  if IsBoundGlobal("IndecModulesOfAlgebra") then return IndecModulesOfAlgebra(A); fi;',
+            '  if IsBoundGlobal("IndecomposableModulesOfAlgebra") then return IndecomposableModulesOfAlgebra(A); fi;',
             '  return fail;',
             'end;;',
             '',
-            '# M is intended to contain all indecomposable A-modules when QPA can enumerate them.',
-            '# If M = fail, use the projective/injective/simple lists above or QPA commands available in your installation.',
             'M := TryAllIndecomposableModules(A);;',
             '',
             'Print("\\nGenerated objects ready.\\n");',
@@ -1513,7 +1422,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             'Print("Injectives I[1]..I[", Length(I), "]\\n");',
             'Print("Simples S[1]..S[", Length(S), "]\\n");',
             'if M = fail then',
-            '  Print("M: QPA did not expose a compatible all-indecomposables command in this session.\\n");',
+            '  Print("M: all indecomposable modules could not be enumerated by the available QPA commands.\\n");',
             'else',
             '  Print("Indecomposables M[1]..M[", Length(M), "]\\n");',
             'fi;',
@@ -1524,27 +1433,51 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const out = document.getElementById('calcOutput');
           const source = calcSourceStem();
           const script = calcGapScript();
-          const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
           const filename = source + '_run_with_gap.g';
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          link.target = '_blank';
-          link.rel = 'noopener';
-          link.textContent = filename;
-          const downloadLink = link.cloneNode(true);
-          downloadLink.style.display = 'none';
-          document.body.appendChild(downloadLink);
-          downloadLink.click();
-          setTimeout(() => {
-            document.body.removeChild(downloadLink);
-          }, 0);
           out.innerHTML = '';
-          out.appendChild(document.createTextNode('Generated a GAP .g text file containing Q, kQ, A, M[i], P[i], I[i], and S[i].'));
+          const textarea = document.createElement('textarea');
+          textarea.value = script;
+          textarea.style.width = '100%';
+          textarea.style.height = '180px';
+          textarea.style.boxSizing = 'border-box';
+          textarea.style.fontFamily = 'monospace';
+          textarea.style.fontSize = '12px';
+          const buttons = document.createElement('div');
+          buttons.style.display = 'flex';
+          buttons.style.gap = '8px';
+          buttons.style.marginBottom = '6px';
+          const copyBtn = document.createElement('button');
+          copyBtn.textContent = 'Copy GAP code';
+          copyBtn.addEventListener('click', async () => {
+            textarea.focus();
+            textarea.select();
+            try {
+              await navigator.clipboard.writeText(script);
+              copyBtn.textContent = 'Copied';
+            } catch (e) {
+              document.execCommand('copy');
+              copyBtn.textContent = 'Copied';
+            }
+          });
+          const downloadBtn = document.createElement('button');
+          downloadBtn.textContent = 'Download .g';
+          downloadBtn.addEventListener('click', () => {
+            const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          });
+          buttons.appendChild(copyBtn);
+          buttons.appendChild(downloadBtn);
+          out.appendChild(document.createTextNode('Generated GAP/QPA code for Q, kQ, A, M[i], P[i], I[i], S[i].'));
           out.appendChild(document.createElement('br'));
-          out.appendChild(document.createTextNode('Download/open it, then copy the contents directly into GAP: '));
-          out.appendChild(link);
+          out.appendChild(buttons);
+          out.appendChild(textarea);
         }
         function showCalculator() {
           if (!calculatorPanel) {
@@ -1574,7 +1507,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                   <button id="calcRun" style="flex:1; padding:6px 10px; border:1px solid #2563eb; background:#dbeafe; color:#1d4ed8; border-radius:6px; cursor:pointer; font-weight:650;">Run</button>
                   <button id="calcRunGap" style="flex:1; padding:6px 10px; border:1px solid #16a34a; background:#dcfce7; color:#166534; border-radius:6px; cursor:pointer; font-weight:650;">Run with GAP</button>
                 </div>
-                <div style="color:#475569; font-size:12px;">Run uses current HTML data. Run with GAP downloads a generated .g text file that users can copy into GAP. Inputs/outputs use node label numbers.</div>
+                <div style="color:#475569; font-size:12px;">Inputs/outputs use node label numbers. Run with GAP shows copyable GAP/QPA code and can download a .g file.</div>
                 <pre id="calcOutput" style="min-height:48px; max-height:180px; overflow:auto; white-space:pre-wrap; margin:0; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px;"></pre>
               </div>`;
             document.body.appendChild(calculatorPanel);
@@ -2954,68 +2887,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           a = step.a;
           b = step.b;
         }
-      }
-
-      function ensureHoverTip() {
-        if (hoverTip) return hoverTip;
-        hoverTip = document.createElement('div');
-        hoverTip.id = 'arHoverTip';
-        hoverTip.style.position = 'absolute';
-        hoverTip.style.zIndex = '20003';
-        hoverTip.style.pointerEvents = 'none';
-        hoverTip.style.display = 'none';
-        hoverTip.style.maxWidth = '320px';
-        hoverTip.style.padding = '7px 9px';
-        hoverTip.style.border = '1px solid #94a3b8';
-        hoverTip.style.borderRadius = '7px';
-        hoverTip.style.background = 'rgba(255,255,255,0.96)';
-        hoverTip.style.boxShadow = '0 6px 18px rgba(15,23,42,0.18)';
-        hoverTip.style.fontFamily = 'system-ui,-apple-system,Segoe UI,sans-serif';
-        hoverTip.style.fontSize = '12px';
-        hoverTip.style.color = '#0f172a';
-        document.body.appendChild(hoverTip);
-        return hoverTip;
-      }
-
-      function hoverLine(label, value) {
-        if (value === null || value === undefined || value === '') return '';
-        return '<div><b>' + label + ':</b> ' + String(value) + '</div>';
-      }
-
-      function showHoverTip(nodeId) {
-        const node = network.body.data.nodes.get(nodeId);
-        if (!node) return;
-        hoverNodeId = nodeId;
-        const tip = ensureHoverTip();
-        const pdid = pdidEntry(nodeId);
-        const topSoc = topSocEntry(nodeId);
-        const label = node.label || nodeId;
-        tip.innerHTML = [
-          '<div style="font-weight:700;margin-bottom:3px;">Node ' + String(nodeId) + '</div>',
-          hoverLine('label', label),
-          pdid ? hoverLine('pd', formatHomologicalDimension(pdid.pd)) : '',
-          pdid ? hoverLine('id', formatHomologicalDimension(pdid.id)) : '',
-          topSoc ? hoverLine('Top', formatSimpleList(topSoc.top)) : '',
-          topSoc ? hoverLine('Soc', formatSimpleList(topSoc.soc)) : ''
-        ].join('');
-        tip.style.display = 'block';
-        updateHoverTip();
-      }
-
-      function updateHoverTip() {
-        if (hoverNodeId === null || !hoverTip) return;
-        const positions = network.getPositions([hoverNodeId]);
-        const pos = positions[hoverNodeId];
-        if (!pos) return;
-        const dom = network.canvasToDOM(pos);
-        const rect = network.body.container.getBoundingClientRect();
-        hoverTip.style.left = Math.round(rect.left + dom.x + 14) + 'px';
-        hoverTip.style.top = Math.round(rect.top + dom.y + 14) + 'px';
-      }
-
-      function hideHoverTip() {
-        hoverNodeId = null;
-        if (hoverTip) hoverTip.style.display = 'none';
       }
 
       network.on("dragStart", function (params) {
