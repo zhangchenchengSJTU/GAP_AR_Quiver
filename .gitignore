@@ -1,4 +1,9 @@
 ARquiver/.venv/
 ARquiver/.venv-binder/
 ARquiver/.venv-binder36/
+ARquiver/.benchmark_runs/
 ARquiver/source/__pycache__/
+ARquiver/yourfile.log
+ARquiver/untitled.log
+ARquiver/yourfile.html
+ARquiver/untitled.html
