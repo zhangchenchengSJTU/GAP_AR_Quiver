@@ -226,6 +226,27 @@ def parse_quiver_data(quiver_file):
                 "F": list(item.get("F", [])),
             })
 
+    def normalized_class_key(values):
+        return tuple(sorted(int(v) for v in (values or []) if isinstance(v, int) or str(v).lstrip('-').isdigit()))
+
+    tilting_pair_keys = {
+        (normalized_class_key(item.get("T", [])), normalized_class_key(item.get("F", [])))
+        for item in tilting_data
+    }
+    torsion_module_ids = set(int(k) for k in pdid_map.keys())
+    for item in tilting_data:
+        torsion_module_ids.update(normalized_class_key(item.get("L", [])))
+        torsion_module_ids.update(normalized_class_key(item.get("F", [])))
+        torsion_module_ids.update(normalized_class_key(item.get("T", [])))
+    for item in torsion_pair_data:
+        torsion_module_ids.update(normalized_class_key(item.get("T", [])))
+        torsion_module_ids.update(normalized_class_key(item.get("F", [])))
+    for item in torsion_pair_data:
+        t_key = normalized_class_key(item.get("T", []))
+        f_key = normalized_class_key(item.get("F", []))
+        item["tilting"] = (t_key, f_key) in tilting_pair_keys
+        item["split"] = set(t_key).union(f_key) == torsion_module_ids
+
     cotorsion_pair_data = []
     cotorsion_section = ""
     cotorsion_match = re.search(r"# --- CotorsionPairTable --- #[\s\S]*?(?=PDID :=|$)", content)
@@ -2864,8 +2885,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         let rows = data || [];
         if (kind === 'torsion') {
           rows = rows.filter(item => {
-            const hasTilting = !!findTiltingForTorsionPair(item);
-            const split = isSplitPair(item);
+            const hasTilting = Object.prototype.hasOwnProperty.call(item, 'tilting') ? !!item.tilting : !!findTiltingForTorsionPair(item);
+            const split = Object.prototype.hasOwnProperty.call(item, 'split') ? !!item.split : isSplitPair(item);
             const tiltingOk = pairListFilters.torsionTilting === 'all' || (pairListFilters.torsionTilting === 'tilting' ? hasTilting : !hasTilting);
             const splitOk = pairListFilters.torsionSplit === 'all' || (pairListFilters.torsionSplit === 'split' ? split : !split);
             return tiltingOk && splitOk;
@@ -2923,44 +2944,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         return a.originalIndex - b.originalIndex;
       }
 
-      const DEFAULT_LIST_PAGE_SIZE = 200;
-
       function ensureListState(containerId, defaultKey) {
         if (!listStates.has(containerId)) {
-          listStates.set(containerId, { sortKey: defaultKey, sortMode: 'lex', selectedIndex: 0, page: 0, pageSize: DEFAULT_LIST_PAGE_SIZE, rows: [] });
+          listStates.set(containerId, { sortKey: defaultKey, sortMode: 'lex', selectedIndex: 0, rows: [] });
         }
-        const state = listStates.get(containerId);
-        if (!state.pageSize) state.pageSize = DEFAULT_LIST_PAGE_SIZE;
-        if (!Number.isFinite(state.page)) state.page = 0;
-        return state;
-      }
-
-      function listPagerHtml(state, totalRows) {
-        const pageSize = state.pageSize || DEFAULT_LIST_PAGE_SIZE;
-        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-        state.page = Math.max(0, Math.min(state.page || 0, totalPages - 1));
-        const start = totalRows ? state.page * pageSize + 1 : 0;
-        const end = Math.min(totalRows, (state.page + 1) * pageSize);
-        const disabledPrev = state.page <= 0 ? 'disabled' : '';
-        const disabledNext = state.page >= totalPages - 1 ? 'disabled' : '';
-        return `<div class="ar-list-pager" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:4px 0;color:#475569;font-size:11px;">
-          <span>${start}-${end} / ${totalRows}</span>
-          <button type="button" data-page-action="first" ${disabledPrev} style="font-size:11px;padding:1px 6px;">«</button>
-          <button type="button" data-page-action="prev" ${disabledPrev} style="font-size:11px;padding:1px 6px;">‹</button>
-          <span>page ${state.page + 1}/${totalPages}</span>
-          <button type="button" data-page-action="next" ${disabledNext} style="font-size:11px;padding:1px 6px;">›</button>
-          <button type="button" data-page-action="last" ${disabledNext} style="font-size:11px;padding:1px 6px;">»</button>
-        </div>`;
-      }
-
-      function updatePagerState(state, action, totalRows) {
-        const totalPages = Math.max(1, Math.ceil(totalRows / (state.pageSize || DEFAULT_LIST_PAGE_SIZE)));
-        if (action === 'first') state.page = 0;
-        if (action === 'prev') state.page = Math.max(0, state.page - 1);
-        if (action === 'next') state.page = Math.min(totalPages - 1, state.page + 1);
-        if (action === 'last') state.page = totalPages - 1;
-        const pageStart = state.page * (state.pageSize || DEFAULT_LIST_PAGE_SIZE);
-        state.selectedIndex = Math.max(pageStart, Math.min(state.selectedIndex || 0, Math.min(totalRows - 1, pageStart)));
+        return listStates.get(containerId);
       }
 
       function activateButtonListRow(containerId, displayIndex) {
@@ -2997,32 +2985,19 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const active = state.sortKey === col.key;
           return `<button type="button" data-sort-key="${col.key}" style="font-size:11px; margin-right:4px; padding:2px 6px; border:1px solid ${active ? '#0f766e' : '#ccc'}; border-radius:4px; background:${active ? '#ccfbf1' : '#fff'}; cursor:pointer;">${col.label}${active ? ` (${modeText})` : ''}</button>`;
         }).join('');
-        const pageSize = state.pageSize || DEFAULT_LIST_PAGE_SIZE;
-        const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-        state.page = Math.max(0, Math.min(state.page || 0, totalPages - 1));
-        const pageStart = state.page * pageSize;
-        const pageRows = rows.slice(pageStart, pageStart + pageSize);
-        const items = pageRows.map((row, offset) => {
-          const idx = pageStart + offset;
+        const items = rows.map((row, idx) => {
           const body = columns.map(col => `${col.label}=[${displayClassList(row.item[col.key] || [])}]`).join(' | ');
           const extra = formatExtra ? formatExtra(row.item) : '';
           return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. ${body}${extra}</button>`;
         }).join('');
-        el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div>${listPagerHtml(state, rows.length)}<div role="listbox">${items}</div>`;
+        el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
         el.onclick = (event) => {
-          const pageBtn = event.target.closest('button[data-page-action]');
-          if (pageBtn && el.contains(pageBtn)) {
-            updatePagerState(state, pageBtn.getAttribute('data-page-action'), rows.length);
-            renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
-            return;
-          }
           const sortBtn = event.target.closest('button[data-sort-key]');
           if (sortBtn && el.contains(sortBtn)) {
             const key = sortBtn.getAttribute('data-sort-key');
             if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
             else { state.sortKey = key; state.sortMode = 'lex'; }
             state.selectedIndex = 0;
-            state.page = 0;
             renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
             return;
           }
@@ -3030,19 +3005,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (rowBtn && el.contains(rowBtn)) activateButtonListRow(containerId, Number(rowBtn.getAttribute('data-row')));
         };
         el.onkeydown = (event) => {
-          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-          event.preventDefault();
-          const nextIndex = event.key === 'ArrowDown' ? state.selectedIndex + 1 : state.selectedIndex - 1;
-          const bounded = Math.max(0, Math.min(nextIndex, state.rows.length - 1));
-          const nextPage = Math.floor(bounded / (state.pageSize || DEFAULT_LIST_PAGE_SIZE));
-          if (nextPage !== state.page) {
-            state.selectedIndex = bounded;
-            state.page = nextPage;
-            renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
-            activateButtonListRow(containerId, bounded);
-          } else {
-            activateButtonListRow(containerId, bounded);
-          }
+          if (event.key === 'ArrowDown') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex + 1); }
+          if (event.key === 'ArrowUp') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex - 1); }
         };
       }
 
@@ -3062,9 +3026,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         try {
           const safeList = (arr) => (!arr || arr.length === 0) ? '0' : arr.join(',');
           const safeHasTilting = (item) => {
+            if (item && Object.prototype.hasOwnProperty.call(item, 'tilting')) return !!item.tilting;
             try { return !!findTiltingForTorsionPair(item); } catch (err) { return false; }
           };
           const safeIsSplit = (item) => {
+            if (item && Object.prototype.hasOwnProperty.call(item, 'split')) return !!item.split;
             try { return isSplitPair(item); } catch (err) { return false; }
           };
           let rows = (torsionPairData || []).map(item => ({
@@ -3103,8 +3069,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               btn.style.background = pairListFilters[group.key] === val ? '#ccfbf1' : '#fff';
               btn.addEventListener('click', () => {
                 pairListFilters[group.key] = val;
-                const state = listStates.get(containerId + ':torsion');
-                if (state) { state.page = 0; state.selectedIndex = 0; }
                 renderTorsionClassListLikeCotorsion(containerId);
               });
               filterRow.appendChild(btn);
@@ -3128,26 +3092,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             return safeList(a.item.T).localeCompare(safeList(b.item.T), undefined, { numeric: true });
           });
 
-          const state = ensureListState(containerId + ':torsion', 'T');
-          const pageSize = state.pageSize || DEFAULT_LIST_PAGE_SIZE;
-          const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-          state.page = Math.max(0, Math.min(state.page || 0, totalPages - 1));
-          const pageStart = state.page * pageSize;
-          const pageRows = rows.slice(pageStart, pageStart + pageSize);
-          const pagerWrap = document.createElement('div');
-          pagerWrap.innerHTML = listPagerHtml(state, rows.length);
-          pagerWrap.addEventListener('click', (event) => {
-            const btn = event.target.closest('button[data-page-action]');
-            if (!btn) return;
-            updatePagerState(state, btn.getAttribute('data-page-action'), rows.length);
-            renderTorsionClassListLikeCotorsion(containerId);
-          });
-          el.appendChild(pagerWrap);
-
           const listBox = document.createElement('div');
           listBox.setAttribute('role', 'listbox');
-          pageRows.forEach((row, offset) => {
-            const idx = pageStart + offset;
+          rows.forEach((row, idx) => {
             const item = row.item;
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -3187,8 +3134,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         const formatExtra = (item) => {
           if (isTorsion) {
             const tags = [];
-            tags.push(findTiltingForTorsionPair(item) ? 'tilting' : 'non-tilting');
-            tags.push(isSplitTorsionPair(item) ? 'split' : 'non-split');
+            tags.push(Object.prototype.hasOwnProperty.call(item, 'tilting') ? (item.tilting ? 'tilting' : 'non-tilting') : (findTiltingForTorsionPair(item) ? 'tilting' : 'non-tilting'));
+            tags.push(Object.prototype.hasOwnProperty.call(item, 'split') ? (item.split ? 'split' : 'non-split') : (isSplitTorsionPair(item) ? 'split' : 'non-split'));
             return ' | ' + tags.join(' | ');
           }
           if (extraRenderer) return ` | ${item.hereditary ? 'hereditary' : 'non-hereditary'}`;
