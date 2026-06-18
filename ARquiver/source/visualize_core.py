@@ -2421,8 +2421,15 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           return 'ARQ2.' + nodePart + '.' + curvePart;
         }
 
-        function applyDisplayCodeText(text) {
+        function normalizeDisplayCodeInput(text) {
           const raw = String(text || '').trim();
+          const direct = raw.match(/ARQ2\\.[0-9A-Za-z\\-_]*\\.[0-9A-Za-z\\-_]*/);
+          if (direct) return direct[0];
+          return raw.replace(/[`\\s]/g, '');
+        }
+
+        function applyDisplayCodeText(text) {
+          const raw = normalizeDisplayCodeInput(text);
           try {
             if (!raw.startsWith('ARQ2.')) throw new Error('Display code must start with ARQ2.');
             const parts = raw.slice(5).split('.');
@@ -2430,13 +2437,13 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const nodePart = parts[0];
             const curvePart = parts[1];
             const ids = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
-            const expectedNodeLength = Math.max(0, ids.length - 1) * 2;
-            if (nodePart.length !== expectedNodeLength) throw new Error('Node section length mismatch.');
+            if (nodePart.length % 2 !== 0) throw new Error('Node section length mismatch.');
             if (curvePart.length % 3 !== 0) throw new Error('Curve section length mismatch.');
             const positions = network.getPositions(ids);
             const anchor = ids.length ? positions[ids[0]] : null;
             if (anchor) {
-              for (let i = 1; i < ids.length; i += 1) {
+              const nodePairs = Math.min(ids.length - 1, nodePart.length / 2);
+              for (let i = 1; i <= nodePairs; i += 1) {
                 const off = (i - 1) * 2;
                 const dx = decodeDisplaySigned(nodePart.charAt(off));
                 const dy = decodeDisplaySigned(nodePart.charAt(off + 1));
