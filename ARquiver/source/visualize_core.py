@@ -2060,32 +2060,51 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const pos = network.getPositions([id])[id];
           const node = network.body.nodes[id];
           if (!pos || !node) return;
-          const dataNode = network.body.data.nodes.get(id) || {};
-          const fontFace = dataNode.font && dataNode.font.face ? dataNode.font.face : 'arial';
-          const fontSize = dataNode.font && dataNode.font.size ? Number(dataNode.font.size) : 14;
-          ctx.font = `${fontSize}px ${fontFace}`;
-          const labelLines = String(dataNode.label == null ? id : dataNode.label).split(String.fromCharCode(10));
-          const measuredLabelWidth = Math.max.apply(null, labelLines.map(line => ctx.measureText(line).width).concat([0])) + 36;
-          const nodeWidth = Number(node.width || 0);
-          const shapeWidth = Number(node.shape && node.shape.width ? node.shape.width : 0);
-          const w = Math.max(42, measuredLabelWidth, nodeWidth, shapeWidth, 46);
-          const h = Math.max(30, Number(node.height || 0), (node.shape && node.shape.height) ? node.shape.height : 32);
+          const box = (node.shape && node.shape.boundingBox) || node.boundingBox || null;
+          let left, right, top, bottom, cx, cy, w, h;
+          if (box && Number.isFinite(box.left) && Number.isFinite(box.right) && Number.isFinite(box.top) && Number.isFinite(box.bottom)) {
+            left = box.left;
+            right = box.right;
+            top = box.top;
+            bottom = box.bottom;
+            cx = (left + right) / 2;
+            cy = (top + bottom) / 2;
+            w = Math.max(1, right - left);
+            h = Math.max(1, bottom - top);
+          } else {
+            const dataNode = network.body.data.nodes.get(id) || {};
+            const fontFace = dataNode.font && dataNode.font.face ? dataNode.font.face : 'arial';
+            const fontSize = dataNode.font && dataNode.font.size ? Number(dataNode.font.size) : 14;
+            ctx.font = `${fontSize}px ${fontFace}`;
+            const labelLines = String(dataNode.label == null ? id : dataNode.label).split(String.fromCharCode(10));
+            const measuredLabelWidth = Math.max.apply(null, labelLines.map(line => ctx.measureText(line).width).concat([0])) + 36;
+            const nodeWidth = Number(node.width || 0);
+            const shapeWidth = Number(node.shape && node.shape.width ? node.shape.width : 0);
+            w = Math.max(42, measuredLabelWidth, nodeWidth, shapeWidth, 46);
+            h = Math.max(30, Number(node.height || 0), (node.shape && node.shape.height) ? node.shape.height : 32);
+            cx = pos.x;
+            cy = pos.y;
+            left = cx - w / 2;
+            right = cx + w / 2;
+            top = cy - h / 2;
+            bottom = cy + h / 2;
+          }
           parts.forEach(part => {
             ctx.save();
             ctx.globalAlpha = 0.55;
             ctx.beginPath();
             if (part.part === 'left') {
-              ctx.rect(pos.x - w / 2, pos.y - h / 2, w / 2, h);
+              ctx.rect(left, top, w / 2, h);
             } else if (part.part === 'right') {
-              ctx.rect(pos.x, pos.y - h / 2, w / 2, h);
+              ctx.rect((left + right) / 2, top, w / 2, h);
             } else if (part.part === 'top') {
-              ctx.rect(pos.x - w / 2, pos.y - h / 2, w, h / 2);
+              ctx.rect(left, top, w, h / 2);
             } else if (part.part === 'bottom') {
-              ctx.rect(pos.x - w / 2, pos.y, w, h / 2);
+              ctx.rect(left, (top + bottom) / 2, w, h / 2);
             }
             ctx.clip();
             ctx.beginPath();
-            ctx.ellipse(pos.x, pos.y, w / 2, h / 2, 0, 0, 2 * Math.PI);
+            ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, 2 * Math.PI);
             ctx.fillStyle = part.color;
             ctx.fill();
             ctx.restore();
