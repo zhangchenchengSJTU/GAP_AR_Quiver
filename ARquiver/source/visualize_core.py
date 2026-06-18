@@ -92,6 +92,16 @@ def parse_quiver_data(quiver_file):
     if cosyz_match:
         cosyz_content = "digraph CosyzygySummand {" + cosyz_match.group(1) + "}"
     globals()["cosyzygy_content"] = cosyz_content
+    rad_match = re.search(r"digraph RadicalSummand {([\s\S]*?)}", content)
+    rad_content = None
+    if rad_match:
+        rad_content = "digraph RadicalSummand {" + rad_match.group(1) + "}"
+    globals()["radical_content"] = rad_content
+    corad_match = re.search(r"digraph CoradicalSummand {([\s\S]*?)}", content)
+    corad_content = None
+    if corad_match:
+        corad_content = "digraph CoradicalSummand {" + corad_match.group(1) + "}"
+    globals()["coradical_content"] = corad_content
     trans_match = re.search(r"digraph\s+TranslationQuiver\s*\{([\s\S]*?)\}", content)
     translation_content = None
     if trans_match:
@@ -271,6 +281,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     cosyz_content = globals().get("cosyzygy_content")
     if cosyz_content:
         _, cosyz_edges = parse_dot_string(cosyz_content)
+    radical_edges = []
+    radical_content = globals().get("radical_content")
+    if radical_content:
+        _, radical_edges = parse_dot_string(radical_content)
+    coradical_edges = []
+    coradical_content = globals().get("coradical_content")
+    if coradical_content:
+        _, coradical_edges = parse_dot_string(coradical_content)
 
     golden_edges = []
     if trans_content:
@@ -330,6 +348,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     cosyz_content = globals().get("cosyzygy_content")
     if cosyz_content:
         _, cosyz_edges = parse_dot_string(cosyz_content)
+    radical_edges = []
+    radical_content = globals().get("radical_content")
+    if radical_content:
+        _, radical_edges = parse_dot_string(radical_content)
+    coradical_edges = []
+    coradical_content = globals().get("coradical_content")
+    if coradical_content:
+        _, coradical_edges = parse_dot_string(coradical_content)
 
     golden_edges = []
     if trans_content:
@@ -423,7 +449,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         label_display = format_dim_vector(nodes_data[node_id]['dim'], quiver_structure)
         net.add_node(node_id, label=label_display, shape='ellipse',
                      color={'border': border_color, 'background': 'white', 'highlight': {'border': border_color, 'background': '#D2E5FF'}},
-                     font={'color': 'black', 'face': 'monospace', 'size': 14, 'bold': True, 'vadjust': 0, 'align': 'center'}, title=f"Node {node_id}<br>{label_display}",
+                     font={'color': 'black', 'face': 'monospace', 'size': 14, 'bold': True, 'vadjust': 0, 'align': 'center'}, title=str(node_id),
                      borderWidth=3, borderWidthSelected=5,
                      **pos_args)
 
@@ -471,6 +497,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     zero_ids_js = json.dumps(sorted(list(zero_node_ids)))
     syz_edges_js = json.dumps(syz_edges)
     cosyz_edges_js = json.dumps(cosyz_edges)
+    radical_edges_js = json.dumps(radical_edges)
+    coradical_edges_js = json.dumps(coradical_edges)
     q_nodes_js = json.dumps(q_nodes)
     q_edges_js = json.dumps(q_edges)
     q_rel_js = json.dumps(rel_content or "")
@@ -504,6 +532,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const zeroObjectIds = {{ZERO_OBJECT_IDS}};
       const syzygyEdges = {{SYZ_EDGES}};
       const cosyzygyEdges = {{COSYZ_EDGES}};
+      const radicalEdges = {{RAD_EDGES}};
+      const coradicalEdges = {{CORAD_EDGES}};
       const quiverNodes = {{Q_NODES}};
       const quiverEdges = {{Q_EDGES}};
       const quiverRel = {{Q_REL}};
@@ -695,6 +725,23 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         network.body.data.edges.add(toAdd);
       }
 
+      function addPlainEdges(prefix, edges, color, width) {
+        const toAdd = edges.map((e, i) => {
+          const id = `${prefix}_${i}`;
+          return {
+            id: id,
+            from: e[0],
+            to: e[1],
+            color: color,
+            width: width,
+            arrows: 'to',
+            dashes: false,
+            smooth: curveForEdgeId(id)
+          };
+        });
+        network.body.data.edges.add(toAdd);
+      }
+
       function removeEdgesByPrefix(prefix) {
         const existingEdges = network.body.data.edges.get({
           filter: (edge) => edge.id && String(edge.id).startsWith(prefix)
@@ -789,6 +836,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="cosyzToggle" type="checkbox" /> Cosyzygy
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="radToggle" type="checkbox" /> Radical
+            </label>
+            <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
+              <input id="coradToggle" type="checkbox" /> Coradical
             </label>
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
               <input id="homToggle" type="checkbox" /> HomDim
@@ -944,6 +997,16 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             rememberExistingEdgesByPrefix('cosyz_');
             if (existing.length) network.body.data.edges.remove(existing);
           }
+        });
+        document.getElementById('radToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          if (checked) addPlainEdges('rad', radicalEdges, '#0ea5e9', 2);
+          else removeEdgesByPrefix('rad');
+        });
+        document.getElementById('coradToggle').addEventListener('change', (e) => {
+          const checked = e.target.checked;
+          if (checked) addPlainEdges('corad', coradicalEdges, '#a855f7', 2);
+          else removeEdgesByPrefix('corad');
         });
         document.getElementById('homToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
@@ -1257,6 +1320,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               display: block;
             }
             #arFolderPanel .ar-panel-head {
+              position: sticky;
+              top: 0;
+              z-index: 2;
               display: flex;
               align-items: center;
               justify-content: space-between;
@@ -1571,12 +1637,21 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           });
           return out;
         }
-        function calcIteratedSyzygy(input, steps) {
+        function calcIteratedImage(edges, input, steps) {
           let cur = (input || []).map(Number).filter(Number.isFinite);
           for (let i = 0; i < steps; i += 1) {
-            cur = calcImageWithMultiplicity(syzygyEdges, cur);
+            cur = calcImageWithMultiplicity(edges, cur);
           }
           return cur;
+        }
+        function calcIteratedSyzygy(input, steps) {
+          return calcIteratedImage(syzygyEdges, input, steps);
+        }
+        function calcFormatMultiset(ids) {
+          const counts = new Map();
+          (ids || []).map(Number).filter(Number.isFinite).forEach(id => counts.set(id, (counts.get(id) || 0) + 1));
+          const parts = Array.from(counts.keys()).sort((a, b) => a - b).map(id => counts.get(id) > 1 ? `${id}^${counts.get(id)}` : String(id));
+          return parts.length ? parts.join(' + ') : '∅';
         }
         function calcExtKDimValue(k, a, b) {
           if (k === 0) return calcDimValue(homEdges, a, b);
@@ -1642,15 +1717,29 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               highlightB = B;
               output = calcExtKDimSum(k, A, B);
             } else if (op === 'Syzygy') {
+              const k = calcParseK();
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
               highlightA = [a];
-              highlightOutput = calcImage(syzygyEdges, [a]);
-              output = calcFormatSet(highlightOutput);
+              highlightOutput = calcIteratedImage(syzygyEdges, [a], k);
+              output = calcFormatMultiset(highlightOutput);
             } else if (op === 'Cosyzygy') {
+              const k = calcParseK();
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
               highlightA = [a];
-              highlightOutput = calcImage(cosyzygyEdges, [a]);
-              output = calcFormatSet(highlightOutput);
+              highlightOutput = calcIteratedImage(cosyzygyEdges, [a], k);
+              output = calcFormatMultiset(highlightOutput);
+            } else if (op === 'Radical') {
+              const k = calcParseK();
+              const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
+              highlightA = [a];
+              highlightOutput = calcIteratedImage(radicalEdges, [a], k);
+              output = calcFormatMultiset(highlightOutput);
+            } else if (op === 'Coradical') {
+              const k = calcParseK();
+              const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
+              highlightA = [a];
+              highlightOutput = calcIteratedImage(coradicalEdges, [a], k);
+              output = calcFormatMultiset(highlightOutput);
             } else if (op === 'ExtKperp') {
               const k = calcParseK();
               const A = calcParseSet(document.getElementById('calcA').value);
@@ -1825,8 +1914,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                 <span>Calculator</span><button id="calcClose" style="border:0; background:transparent; font-size:18px; cursor:pointer;">×</button>
               </div>
               <div style="padding:10px; display:grid; gap:8px;">
-                <label>Function <select id="calcOp" style="width:100%;"><option value="ExtK">dim Ext^k(A,B)</option><option value="ExtKperp">ker Ext^k(A,-)</option><option value="perpExtK">ker Ext^k(-,B)</option><option value="Syzygy">Syzygy(A)</option><option value="Cosyzygy">Cosyzygy(A)</option></select></label>
-                <label id="calcKLabel">k <input id="calcK" style="width:100%; box-sizing:border-box;" value="0" /></label>
+                <label>Function <select id="calcOp" style="width:100%;"><option value="ExtK">dim Ext^k(A,B)</option><option value="ExtKperp">ker Ext^k(A,-)</option><option value="perpExtK">ker Ext^k(-,B)</option><option value="Syzygy">Ω^n(A)</option><option value="Cosyzygy">Σ^n(A)</option><option value="Radical">Rad^n(A)</option><option value="Coradical">Corad^n(A)</option></select></label>
+                <label id="calcKLabel">k / n <input id="calcK" style="width:100%; box-sizing:border-box;" value="0" /></label>
                 <label id="calcALabel">A labels <span title="calculator color for A" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#bfdbfe;"></span><input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
                 <label id="calcBLabel">B labels <span title="calculator color for B" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#fde68a;"></span><input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
                 <div id="calcHint" style="color:#475569; font-size:12px;"></div>
@@ -1855,16 +1944,19 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               const bLabel = calculatorPanel.querySelector('#calcBLabel');
               const kLabel = calculatorPanel.querySelector('#calcKLabel');
               const hint = calculatorPanel.querySelector('#calcHint');
-              const usesA = ['ExtK','ExtKperp','Syzygy','Cosyzygy'].includes(op);
+              const usesA = ['ExtK','ExtKperp','Syzygy','Cosyzygy','Radical','Coradical'].includes(op);
               const usesB = ['ExtK','perpExtK'].includes(op);
-              const usesK = ['ExtK','ExtKperp','perpExtK'].includes(op);
+              const usesK = ['ExtK','ExtKperp','perpExtK','Syzygy','Cosyzygy','Radical','Coradical'].includes(op);
               aLabel.style.display = usesA ? 'block' : 'none';
               bLabel.style.display = usesB ? 'block' : 'none';
               kLabel.style.display = usesK ? 'block' : 'none';
               if (op === 'ExtK') hint.textContent = 'Computes Sum dim Ext^k(A_i, B_j); k=0 is Hom, k=1 is Ext^1, k>=2 uses syzygy and Ext^1 data.';
               else if (op === 'ExtKperp') hint.textContent = 'Input A only; returns modules X with Ext^k(A_i, X)=0 for all A_i.';
               else if (op === 'perpExtK') hint.textContent = 'Input B only; returns modules X with Ext^k(X, B_j)=0 for all B_j.';
-              else if (op === 'Syzygy' || op === 'Cosyzygy') hint.textContent = 'Input exactly one indecomposable module label in A.';
+              else if (op === 'Syzygy') hint.textContent = 'Input exactly one indecomposable module label in A; returns Ω^n(A), computed by iterating the syzygy quiver. Multiplicities are shown as powers.';
+              else if (op === 'Cosyzygy') hint.textContent = 'Input exactly one indecomposable module label in A; returns Σ^n(A), computed by iterating the cosyzygy quiver. Multiplicities are shown as powers.';
+              else if (op === 'Radical') hint.textContent = 'Input exactly one indecomposable module label in A; returns Rad^n(A), computed by iterating the radical quiver. Multiplicities are shown as powers.';
+              else if (op === 'Coradical') hint.textContent = 'Input exactly one indecomposable module label in A; returns Corad^n(A), computed by iterating the coradical quiver. Multiplicities are shown as powers.';
               else hint.textContent = 'Inputs/outputs use node label numbers.';
             };
             calculatorPanel.querySelector('#calcOp').addEventListener('change', () => {
@@ -1921,6 +2013,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <button data-toggle="trToggle">Translation quiver τ</button>
               <button data-toggle="syzToggle">Syzygy quiver</button>
               <button data-toggle="cosyzToggle">Cosyzygy quiver</button>
+              <button data-toggle="radToggle">Radical quiver</button>
+              <button data-toggle="coradToggle">Coradical quiver</button>
               <button data-toggle="homToggle">Hom dimension quiver</button>
               <button data-toggle="extToggle">Ext dimension quiver</button>
               <button data-toggle="quiverToggle">Original quiver Q</button>
@@ -1942,6 +2036,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             </div></details>
             <details><summary>Tools</summary><div class="ar-folder-body">
               <button data-action="calculator">Calculator</button>
+              <button data-action="manual">Manual</button>
               <button data-action="export-tex">Export AR quiver to TeX</button>
               <button data-action="legend">Color legend</button>
             </div></details>
@@ -2185,7 +2280,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.display = 'none';
             modal.style.fontFamily = 'system-ui,-apple-system,Segoe UI,sans-serif';
             modal.style.fontSize = '13px';
-            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;"><strong>Color legend</strong><button id="arLegendClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div>' +
+            modal.innerHTML = '<div style="position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;"><strong>Color legend</strong><button id="arLegendClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div>' +
               '<div style="padding:10px 12px;">' +
               section('Node borders', [
                 row('blue', 'white', 'projective', 'blue'),
@@ -2201,8 +2296,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               section('Edges', [
                 row('black', 'black', 'AR irreducible arrow'),
                 row('gold', 'gold', 'τM ← M'),
-                row('pink', 'pink', 'M → N if M is a summand of ΩN'),
+                row('pink', 'pink', 'M → N if N is a summand of ΩM'),
                 row('green', '#22c55e', 'M → N if N is a summand of ΣM'),
+                row('cyan', '#0ea5e9', 'M → N if N is a summand of Rad(M)'),
+                row('purple', '#a855f7', 'M → N if N is a summand of Corad(M)'),
                 row('brown', '#8b5a2b', 'M → N if dim Hom(M,N) = k'),
                 row('red', 'red', 'M → N if dim Ext¹(M,N) = k'),
                 row('light gray', '#d1d5db', 'dimmed irreducible arrow')
@@ -2224,12 +2321,35 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               section('floating labels', [
                 row('pd', 'rgba(219,234,254,0.96)', 'projective dimension'),
                 row('id', 'rgba(224,242,254,0.96)', 'injective dimension'),
-                row('top / soc', '#dcfce7', 'top and socle')
+                row('top', 'rgba(240,253,244,0.96)', 'top'),
+                row('soc', 'rgba(255,247,237,0.96)', 'socle')
               ]) + '</div>';
             document.body.appendChild(modal);
             const head = modal.firstElementChild;
-            if (head) head.style.cursor = 'move';
-            makeFloatingWindow(modal, head, { minWidth: 320, minHeight: 260 });
+            if (head) {
+              head.style.cursor = 'move';
+              head.addEventListener('mousedown', (event) => {
+                if (event.target.closest('button')) return;
+                const rect = modal.getBoundingClientRect();
+                modal.style.left = rect.left + 'px';
+                modal.style.top = rect.top + 'px';
+                modal.style.transform = 'none';
+                const startX = event.clientX;
+                const startY = event.clientY;
+                const startLeft = rect.left;
+                const startTop = rect.top;
+                const onMove = (moveEvent) => {
+                  modal.style.left = Math.max(0, Math.min(window.innerWidth - 60, startLeft + moveEvent.clientX - startX)) + 'px';
+                  modal.style.top = Math.max(0, Math.min(window.innerHeight - 40, startTop + moveEvent.clientY - startY)) + 'px';
+                };
+                const onUp = () => {
+                  document.removeEventListener('mousemove', onMove);
+                  document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+              });
+            }
             modal.querySelector('#arLegendClose').addEventListener('click', () => { modal.style.display = 'none'; });
           }
           modal.style.display = 'block';
@@ -2278,6 +2398,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (action === 'undo' && typeof undo === 'function') undo();
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
+          if (action === 'manual') {
+            const manualUrl = new URL('readme.pdf', window.location.href).href.replace(/\/ARquiver\/[^/]*$/, '/readme.pdf');
+            window.open(manualUrl, '_blank', 'noopener,noreferrer');
+          }
           if (action === 'export-tex') showTexExport(exportCurrentARQuiverToXyMatrix());
           if (action === 'legend') showColorLegend();
         }
@@ -2348,7 +2472,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const base = baseNodeStyles.get(n.id) || toBaseStyle(n);
             if (!baseNodeStyles.has(n.id)) baseNodeStyles.set(n.id, base);
             const label = nodeCircleLabel(n.id);
-            return { id: n.id, label: label, title: `Node ${n.id}<br>${label}` };
+            return { id: n.id, label: label, title: String(n.id) };
           });
           if (updates.length) network.body.data.nodes.update(updates);
           nodeLabelButtons.forEach((button, key) => button.classList.toggle('ar-top-active', key === nodeLabelMode));
@@ -3090,7 +3214,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       function updateSocLabels() {
         updateScalarLabels(showSoc, socLabelLayer, socLabelMap, id => {
           const e = topSocEntry(id); return e ? `Soc=${formatSimpleList(e.soc)}` : null;
-        }, node => ((node.shape && node.shape.height) ? (node.shape.height / 2 + 46) : 52), '#14532d', '#86efac', 'rgba(240,253,244,0.96)', 'soc');
+        }, node => ((node.shape && node.shape.height) ? (node.shape.height / 2 + 46) : 52), '#7c2d12', '#fdba74', 'rgba(255,247,237,0.96)', 'soc');
       }
 
       function togglePdLabels(visible) {
@@ -3387,17 +3511,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
           modal.style.zIndex = '30000';
           modal.style.display = 'none';
-          modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong id="arTikzTitle">Original quiver source</strong><button id="arTikzClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div style="padding:8px 10px;color:#475569;font-size:12px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;">The first line of this file contains a q.uiver.app URL.</div><textarea id="arTikzOutput" style="box-sizing:border-box;width:100%;height:300px;border:0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTikzOpen">Open in q.uiver</button></div>';
+          modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong id="arTikzTitle">Original quiver source</strong><button id="arTikzClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div style="padding:8px 10px;color:#475569;font-size:12px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;">The first line of this file contains a q.uiver.app URL.</div><textarea id="arTikzOutput" style="box-sizing:border-box;width:100%;height:336px;border:0;border-top:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea>';
           document.body.appendChild(modal);
           const head = modal.firstElementChild;
           if (head) head.style.cursor = 'move';
           makeDraggable(modal, head);
           modal.querySelector('#arTikzClose').addEventListener('click', () => { modal.style.display = 'none'; });
-          modal.querySelector('#arTikzOpen').addEventListener('click', () => {
-            const url = originalQuiverUrl();
-            if (url) window.open(url, '_blank', 'noopener,noreferrer');
-            else alert('No q.uiver.app URL found in ' + (originalQuiverFilename || 'quiver.txt'));
-          });
         }
         const title = modal.querySelector('#arTikzTitle');
         if (title) title.textContent = 'Original quiver source: ' + (originalQuiverFilename || 'quiver.txt');
@@ -3509,7 +3628,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         miniContainer.style.zIndex = '20000';
         miniContainer.style.boxSizing = 'border-box';
         miniContainer.innerHTML = `
-          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><button id="quiverTikzBtn" type="button" style="font-size:11px; padding:2px 6px; cursor:pointer;">see ${originalQuiverFilename || 'quiver.txt'}</button></div>
+          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><span style="display:flex;gap:6px;align-items:center;"><button id="quiverOpenBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">Open in q.uiver</button><button id="quiverTikzBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">see ${originalQuiverFilename || 'quiver.txt'}</button></span></div>
           <div id="quiverMini" style="width:100%; height:220px; border:1px solid #ddd; background:white; box-sizing:border-box;"></div>
           <div id="quiverRel" style="margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;"></div>
         `;
@@ -3517,6 +3636,17 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         makeDraggable(miniContainer, miniContainer.querySelector('#quiverMiniHeader'));
         const relBox = miniContainer.querySelector('#quiverRel');
         const tikzBtn = miniContainer.querySelector('#quiverTikzBtn');
+        const openBtn = miniContainer.querySelector('#quiverOpenBtn');
+        if (openBtn) {
+          openBtn.addEventListener('mousedown', (event) => { event.stopPropagation(); });
+          openBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const url = originalQuiverUrl();
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            else alert('No q.uiver.app URL found in ' + (originalQuiverFilename || 'quiver.txt'));
+          });
+        }
         if (tikzBtn) {
           tikzBtn.addEventListener('mousedown', (event) => { event.stopPropagation(); });
           tikzBtn.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); showQuiverTikz(); });
@@ -3971,6 +4101,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     js_injection = js_injection.replace("{{ZERO_OBJECT_IDS}}", zero_ids_js)
     js_injection = js_injection.replace("{{SYZ_EDGES}}", syz_edges_js)
     js_injection = js_injection.replace("{{COSYZ_EDGES}}", cosyz_edges_js)
+    js_injection = js_injection.replace("{{RAD_EDGES}}", radical_edges_js)
+    js_injection = js_injection.replace("{{CORAD_EDGES}}", coradical_edges_js)
     js_injection = js_injection.replace("{{Q_NODES}}", q_nodes_js)
     js_injection = js_injection.replace("{{Q_EDGES}}", q_edges_js)
     js_injection = js_injection.replace("{{Q_REL}}", q_rel_js)

@@ -10,6 +10,7 @@ V := [];;
 
 # ===== Runtime progress and safety guards =====
 MAX_AR_MODULES := 100;;
+MAX_TAU_ORBIT_LENGTH := 100;;
 
 Progress := function(msg)
     Print("[progress] ", msg, "\n");
@@ -23,8 +24,14 @@ AssertFiniteRepresentationTypeOrAbort := function(A)
 end;;
 
 CheckModuleCountGuard := function(count)
-    if count >= MAX_AR_MODULES then
-        Error("Computation aborted: discovered ", count, " modules (limit is ", MAX_AR_MODULES - 1, "). The algebra/subquiver is too large.");
+    if count > MAX_AR_MODULES then
+        Error("Computation aborted: discovered ", count, " modules (limit is ", MAX_AR_MODULES, "). The algebra/subquiver is too large.");
+    fi;
+end;;
+
+CheckTauOrbitLengthGuard := function(count)
+    if count > MAX_TAU_ORBIT_LENGTH then
+        Error("Computation aborted: a tau orbit contains more than ", MAX_TAU_ORBIT_LENGTH, " modules. The algebra is likely of infinite representation type or the chosen depth is too large.");
     fi;
 end;;
 
@@ -1037,14 +1044,17 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     end;
 
     CloseTauOrbit := function(startIdx)
-        local q, curIdx, dirName, tauCall, tauM, tauIdx;
+        local q, curIdx, dirName, tauCall, tauM, tauIdx, orbitLength;
         q := [startIdx];
+        orbitLength := 0;
         while Length(q) > 0 do
             curIdx := q[1];
             Remove(q, 1);
             if IsBound(tauFinished[curIdx]) and tauFinished[curIdx] = true then
                 continue;
             fi;
+            orbitLength := orbitLength + 1;
+            CheckTauOrbitLengthGuard(orbitLength);
             tauFinished[curIdx] := true;
             for dirName in ["DTr", "TrD"] do
                 if dirName = "DTr" then
@@ -1057,7 +1067,12 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
                 if IsInt(tauM) or tauM = 0 then continue; fi;
                 tauIdx := PositionIsomorphic(verts, tauM);
                 if tauIdx = fail then
+                    if orbitLength >= MAX_TAU_ORBIT_LENGTH then
+                        CheckTauOrbitLengthGuard(orbitLength + 1);
+                    fi;
                     tauIdx := AddVertexRaw(tauM);
+                    Add(q, tauIdx);
+                elif not (IsBound(tauFinished[tauIdx]) and tauFinished[tauIdx] = true) then
                     Add(q, tauIdx);
                 fi;
             od;
@@ -1532,6 +1547,23 @@ SummandNodeIds := function(verts, M)
     return Set(ids);
 end;;
 
+SummandNodeIdsWithMultiplicity := function(verts, M)
+    local projCall, ids, pr, summand, pos;
+    ids := [];
+    if IsInt(M) and M = 0 then return ids; fi;
+    if Dimension(M) = 0 then return ids; fi;
+    projCall := CALL_WITH_CATCH(DecomposeToProjections, [M]);
+    if projCall[1] <> true or not IsList(projCall[2]) then return ids; fi;
+    for pr in projCall[2] do
+        if not IsBound(pr) then continue; fi;
+        summand := Range(pr);
+        pos := PositionIsomorphic(verts, summand);
+        if pos <> fail then Add(ids, pos); fi;
+    od;
+    Sort(ids);
+    return ids;
+end;;
+
 WriteSyzygySummand := function(fname, verts, projective_node_ids)
     local source_idx, target_idx, label_str, syzCall, ids;
     AppendTo(fname,"\n\ndigraph SyzygySummand {\n");
@@ -1581,6 +1613,39 @@ ComputeCosyzygyEdges := function(verts)
     return edges;
 end;;
 
+ComputeRadicalEdges := function(verts)
+    local edges, source_idx, target_idx, radCall, ids;
+    edges := [];
+    for source_idx in [1..Length(verts)] do
+        radCall := CALL_WITH_CATCH(RadicalOfModule, [verts[source_idx]]);
+        if radCall[1] <> true then continue; fi;
+        if IsInt(radCall[2]) and radCall[2] = 0 then continue; fi;
+        if Dimension(radCall[2]) = 0 then continue; fi;
+        ids := SummandNodeIdsWithMultiplicity(verts, radCall[2]);
+        for target_idx in ids do
+            Add(edges, [source_idx, target_idx]);
+        od;
+    od;
+    return edges;
+end;;
+
+ComputeCoradicalEdges := function(verts)
+    local edges, source_idx, target_idx, socCall, coradCall, ids;
+    edges := [];
+    for source_idx in [1..Length(verts)] do
+        socCall := CALL_WITH_CATCH(SocleOfModuleInclusion, [verts[source_idx]]);
+        if socCall[1] <> true then continue; fi;
+        coradCall := CALL_WITH_CATCH(CoKernelProjection, [socCall[2]]);
+        if coradCall[1] <> true then continue; fi;
+        if Dimension(Range(coradCall[2])) = 0 then continue; fi;
+        ids := SummandNodeIdsWithMultiplicity(verts, Range(coradCall[2]));
+        for target_idx in ids do
+            Add(edges, [source_idx, target_idx]);
+        od;
+    od;
+    return edges;
+end;;
+
 WriteCosyzygySummand := function(fname, verts)
     local source_idx, target_idx, label_str, edges, edge;
     AppendTo(fname,"\n\ndigraph CosyzygySummand {\n");
@@ -1595,6 +1660,43 @@ WriteCosyzygySummand := function(fname, verts)
         AppendTo(fname,"  ", String(source_idx), " -> ", String(target_idx), ";\n");
     od;
     AppendTo(fname,"}\n");
+end;;
+
+ComputeRadicalData := function(verts)
+    local rows, idx, M, powers, cur, radCall, ids, socCall, coradCall, coradIds, step;
+    rows := [];
+    for idx in [1..Length(verts)] do
+        M := verts[idx];
+        powers := [];
+        cur := M;
+        step := 1;
+        while true do
+            radCall := CALL_WITH_CATCH(RadicalOfModule, [cur]);
+            if radCall[1] <> true then break; fi;
+            cur := radCall[2];
+            if IsInt(cur) and cur = 0 then break; fi;
+            if Dimension(cur) = 0 then break; fi;
+            ids := SummandNodeIdsWithMultiplicity(verts, cur);
+            if Length(ids) = 0 then break; fi;
+            Add(powers, ids);
+            step := step + 1;
+            if step > Length(verts) + 1 then break; fi;
+        od;
+        coradIds := [];
+        socCall := CALL_WITH_CATCH(SocleOfModuleInclusion, [M]);
+        if socCall[1] = true then
+            coradCall := CALL_WITH_CATCH(CoKernelProjection, [socCall[2]]);
+            if coradCall[1] = true then
+                coradIds := SummandNodeIdsWithMultiplicity(verts, Range(coradCall[2]));
+            fi;
+        fi;
+        Add(rows, [idx, powers, coradIds]);
+    od;
+    return rows;
+end;;
+
+WriteRadicalData := function(fname, verts)
+    AppendTo(fname, "RadicalData := ", ComputeRadicalData(verts), ";\n");
 end;;
 
 AddRepeated := function(list, value, times)
@@ -1828,25 +1930,22 @@ WriteExtDimQuiver := function(fname, verts, dim_vectors, ext_dim)
 end;;
 
 ComputeSyzygyEdges := function(verts, projective_node_ids)
-    local nonproj_node_ids, source_node_ids, target_node_ids, Nidx, syzCall, M, dsCall, idx, edges;
+    local edges, source_idx, target_idx, syzCall, ids;
     edges := [];
-    nonproj_node_ids := Filtered([1..Length(verts)], k -> not (k in projective_node_ids));
-    source_node_ids := [1..Length(verts)];
-    target_node_ids := nonproj_node_ids;
-    for Nidx in target_node_ids do
-        syzCall := CALL_WITH_CATCH(1stSyzygy, [verts[Nidx]]);
+    for source_idx in [1..Length(verts)] do
+        syzCall := CALL_WITH_CATCH(1stSyzygy, [verts[source_idx]]);
         if syzCall[1] <> true then
             continue;
         fi;
         if IsInt(syzCall[2]) and syzCall[2] = 0 then
             continue;
         fi;
-        for idx in source_node_ids do
-            M := verts[idx];
-            dsCall := CALL_WITH_CATCH(IsDirectSummand, [M, syzCall[2]]);
-            if dsCall[1] = true and dsCall[2] = true then
-                Add(edges, [idx, Nidx]);
-            fi;
+        if Dimension(syzCall[2]) = 0 then
+            continue;
+        fi;
+        ids := SummandNodeIds(verts, syzCall[2]);
+        for target_idx in ids do
+            Add(edges, [source_idx, target_idx]);
         od;
     od;
     return edges;
@@ -2485,7 +2584,7 @@ end;;
 
 GenerateQuiverData := function(A, N, arg)
     local res, tr_list, torsionless_node_ids, reflexive_node_ids,
-        dim_vectors, hom_dim, ext_dim, tau_map, pdid, syz_edges, cosyz_edges, gi_gp;
+        dim_vectors, hom_dim, ext_dim, tau_map, pdid, syz_edges, cosyz_edges, rad_edges, corad_edges, gi_gp;
 
     Progress("starting computation");
 
@@ -2508,6 +2607,9 @@ GenerateQuiverData := function(A, N, arg)
     syz_edges := ComputeSyzygyEdges(res.verts, res.projective_node_ids);
     Progress("computing cosyzygy edges");
     cosyz_edges := ComputeCosyzygyEdges(res.verts);
+    Progress("computing radical and coradical edges");
+    rad_edges := ComputeRadicalEdges(res.verts);
+    corad_edges := ComputeCoradicalEdges(res.verts);
     Progress("deriving projective/injective dimensions");
     pdid := DeriveProjInjDimsFromSyzygies(res.verts, res.projective_node_ids, res.injective_node_ids, syz_edges, cosyz_edges);
 
@@ -2515,6 +2617,8 @@ GenerateQuiverData := function(A, N, arg)
     WriteIndecomposableModuleData(res.fname, A, res.verts);
     WriteSummandQuiverFromEdges(res.fname, "SyzygySummand", res.verts, syz_edges);
     WriteSummandQuiverFromEdges(res.fname, "CosyzygySummand", res.verts, cosyz_edges);
+    WriteSummandQuiverFromEdges(res.fname, "RadicalSummand", res.verts, rad_edges);
+    WriteSummandQuiverFromEdges(res.fname, "CoradicalSummand", res.verts, corad_edges);
     Progress("computing top/soc data");
     WriteTopSocData(res.fname, A, res.verts);
     WriteTranslationQuiver(res.fname, res.verts, dim_vectors, tau_map);
