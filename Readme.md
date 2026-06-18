@@ -4,25 +4,32 @@
 
 ### Launch the container
 
-**A VPN is required to access the binder when you are in China.**
+> [!important]
+>
+> **A VPN is required to access the binder when you are in China.**
 
 Automatic launch: click [![Binder](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgbadge_logo.svg)](https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/HEAD), or open one of the following links:
 
 - Stable version: https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/main
 - Testing version: https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/test
 
-Manual launch: open [Binder](https://mybinder.org/) and choose the GitHub repository option. Complete only the following steps.
+Manual launch: open [Binder](https://mybinder.org/) and choose the `GitHub` option. Complete only the following steps.
 
 1. Make sure that the `GitHub repository name or URL` field is set to `GitHub`. Paste `https://github.com/zhangchenchengSJTU/GAP_AR_Quiver` into the box on the right.
-2. Click `Launch` directly.
+2. Click `launch` directly. 
+
+   > [!Note]
+   >
+   > You can also set `Git ref (branch, tag, or commit)` field to `test` to try the latest testing version.
 3. Wait until the environment is ready. Binder will then redirect you to the Jupyter Notebook page.
 
 ### Enter Jupyter Notebook
 
-After entering Jupyter Notebook, the browser address should look like `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/treee`. In the root directory, you should see the following three items:
+After entering Jupyter Notebook, the browser address should look like `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/treee`. In the root directory, you should see the following items:
 
 - `Dockerfile`: the environment specification, mainly for developers. Users do not need to edit it.
-- `Readme.md`: this documentation file.
+- `Readme.md`
+- `Readme.pdf`
 - `ARquiver`: the working directory for drawing AR quivers. After entering this folder, you will see:
   - `source`: the source-code directory. Users usually do not need to inspect it.
   - `run.ipynb`: the notebook used to run the computation and rendering scripts.
@@ -30,7 +37,7 @@ After entering Jupyter Notebook, the browser address should look like `https://h
 
 ### Draw the path algebra
 
-Use `https://q.uiver.app/` to draw a quiver with relations. Please follow these conventions:
+Use https://q.uiver.app to draw a quiver with relations. Please follow these conventions:
 
 - vertices of the quiver should be positive integers;
 - arrows should be simple Latin letters or Greek letters written in $\LaTeX$ format, such as `a` or `\alpha`;
@@ -40,7 +47,7 @@ Example:
 
 ![image-20260612214532284](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612214532284.png)
 
-Click `LaTeX` at the bottom of the q.uiver page and copy the generated `tikzcd` source code.
+Click `LaTeX` at the bottom of the `q.uiver` page and copy the generated `tikzcd` source code. 
 
 Create a new `txt` file named `yourfile.txt` inside the `ARquiver` directory, paste the copied source code into it, save the file, and close it.
 
@@ -58,6 +65,10 @@ Open `run.ipynb` and run the following cells in order:
 %run source/render_all.py
 ```
 
+> [!Note]
+>
+> The chronological order: `yourfile.txt` `->` `yourfile.log` `->` `yourfile.html`.
+
 The `ARquiver` directory will then contain:
 
 - `yourfile.log`: the algebra computation log;
@@ -67,7 +78,7 @@ The `ARquiver` directory will then contain:
 
 Open `yourfile.html` to view the interactive visualization of the AR quiver.
 
-![image-20260612215317720](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612215317720.png)
+![image-20260618215409128](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618215409128.png)
 
 We first describe the basic AR-quiver controls.
 
@@ -506,3 +517,4 @@ Opens a draggable legend explaining all visual conventions: vertex borders, modu
 ## Acknowledgement
 
 The author gratefully acknowledges the developers and maintainers of [GAP](https://www.gap-system.org/), [Binder](https://mybinder.org/), and [q.uiver](https://q.uiver.app/) for providing essential tools and infrastructure used by this project. The implementation was inspired in part by A. Konovalov's [try-gap-in-jupyter](https://github.com/gap-system/try-gap-in-jupyter) repository. The author also acknowledges the assistance of the AI model `chatgpt-5.5-thinking` during the development and refinement of the codebase.
+

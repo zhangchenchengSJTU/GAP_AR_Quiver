@@ -416,7 +416,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                 return
             
     # Draw with the default engine, then add grid snapping and straight-edge behavior through JS.
-    net = Network(height='750px', width='100%', directed=True, notebook=False)
+    net = Network(height='calc(100vh - 16px)', width='100vw', directed=True, notebook=False)
     # Note: find_golden_edges removed in favor of trans_content parsing above
     # golden_edges is already set
     node_positions = calculate_initial_layout(golden_edges)
@@ -488,6 +488,31 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     # This ensures they appear/disappear cleanly on toggle.
 
     html_content = net.generate_html(notebook=False)
+    viewport_css = """
+        <style type="text/css">
+          html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+          }
+          body > .card {
+            width: 100vw !important;
+            height: 100vh !important;
+            border: 0 !important;
+          }
+          #mynetwork {
+            width: 100vw !important;
+            height: 100vh !important;
+            border: 0 !important;
+            float: none !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+          }
+        </style>
+    """
+    html_content = html_content.replace('</head>', viewport_css + '</head>')
     
     golden_edges_js_string = json.dumps(golden_edges)
     tors_ids_js = json.dumps(sorted(list(tors_ids)))
