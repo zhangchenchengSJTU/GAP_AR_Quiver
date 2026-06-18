@@ -1634,8 +1634,29 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         }
 
         let calculatorPanel = null;
+        function allModuleIds() {
+          const ids = new Set();
+          const add = (value) => {
+            const n = Number(value);
+            if (Number.isFinite(n)) ids.add(n);
+          };
+          if (pdidMap && typeof pdidMap === 'object') Object.keys(pdidMap).forEach(add);
+          (tiltingData || []).forEach(item => {
+            (item.L || []).forEach(add);
+            (item.F || []).forEach(add);
+            (item.T || []).forEach(add);
+          });
+          (torsionPairData || []).forEach(item => {
+            (item.T || []).forEach(add);
+            (item.F || []).forEach(add);
+          });
+          if (ids.size === 0 && network && network.body && network.body.data && network.body.data.nodes && typeof network.body.data.nodes.getIds === 'function') {
+            network.body.data.nodes.getIds().forEach(add);
+          }
+          return Array.from(ids).sort((a, b) => a - b);
+        }
         function calcAllIds() {
-          return network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+          return allModuleIds();
         }
         function calcParseSet(text) {
           const all = calcAllIds();
@@ -2812,7 +2833,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function tiltingTags(item) {
-        return [tiltingIsSplit(item) ? 'split' : 'non-split', tiltingIsSeparating(item) ? 'separating' : 'non-separating'];
+        return [tiltingIsSplit(item) ? 'splitting' : 'non-splitting', tiltingIsSeparating(item) ? 'separating' : 'non-separating'];
       }
 
       function isSplitPair(item) {

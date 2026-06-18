@@ -460,7 +460,9 @@ T := [...]
 
 where `L` is the tilting module, `T` is the torsion class, and `F` is the torsion-free class.
 
+The `splitting` tag records whether the tilting module is splitting, using the criterion that every indecomposable module in `F` has injective dimension at most one over the original algebra.
 
+The `separating` tag records whether the induced torsion pair `(T,F)` is split, i.e. every indecomposable module belongs to `T` or to `F`.
 
 #### `Support τ-tilting`
 
