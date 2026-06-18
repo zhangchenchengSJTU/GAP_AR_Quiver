@@ -4,10 +4,8 @@ ARquiver/.venv-binder36/
 ARquiver/.benchmark_runs/
 ARquiver/source/__pycache__/
 ARquiver/source/_tex_/
-ARquiver/yourfile.log
-ARquiver/untitled.log
-ARquiver/yourfile.html
-ARquiver/untitled.html
+ARquiver/*.log
+ARquiver/*.html
 .cursor/rules/**/*.bak
 .cursor/rules/**/*.backup
 .cursor/rules/**/*~
