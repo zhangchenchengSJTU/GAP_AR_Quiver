@@ -716,6 +716,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const edgeCurveMemory = new Map();
       const baseNodeStyles = new Map();
       let tiltingHighlighted = new Set();
+      let calculatorHighlighted = new Set();
       function toBaseStyle(n) {
         return {
           id: n.id,
@@ -1134,6 +1135,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           splitPairHighlights = new Map();
           pairHighlighted = new Set();
           tiltingHighlighted = new Set();
+          calculatorHighlighted = new Set();
           if (typeof activeModuleClasses !== 'undefined') activeModuleClasses.clear();
           ['torsBtn','reflBtn','gpBtn','giBtn'].forEach(id => {
             const btn = document.getElementById(id);
@@ -1404,28 +1406,43 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         function calcRunOperation() {
           const op = document.getElementById('calcOp').value;
           let output = '';
+          let highlightA = [];
+          let highlightB = [];
+          let highlightOutput = [];
           try {
             if (op === 'ExtK') {
               const k = calcParseK();
               const A = calcParseSet(document.getElementById('calcA').value);
               const B = calcParseSet(document.getElementById('calcB').value);
+              highlightA = A;
+              highlightB = B;
               output = calcExtKDimSum(k, A, B);
             } else if (op === 'Syzygy') {
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
-              output = calcFormatSet(calcImage(syzygyEdges, [a]));
+              highlightA = [a];
+              highlightOutput = calcImage(syzygyEdges, [a]);
+              output = calcFormatSet(highlightOutput);
             } else if (op === 'Cosyzygy') {
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
-              output = calcFormatSet(calcImage(cosyzygyEdges, [a]));
+              highlightA = [a];
+              highlightOutput = calcImage(cosyzygyEdges, [a]);
+              output = calcFormatSet(highlightOutput);
             } else if (op === 'ExtKperp') {
               const k = calcParseK();
               const A = calcParseSet(document.getElementById('calcA').value);
-              output = calcFormatSet(calcRightExtKPerp(k, A));
+              highlightA = A;
+              highlightOutput = calcRightExtKPerp(k, A);
+              output = calcFormatSet(highlightOutput);
             } else if (op === 'perpExtK') {
               const k = calcParseK();
               const B = calcParseSet(document.getElementById('calcB').value);
-              output = calcFormatSet(calcLeftExtKPerp(k, B));
+              highlightB = B;
+              highlightOutput = calcLeftExtKPerp(k, B);
+              output = calcFormatSet(highlightOutput);
             }
+            applyCalculatorHighlights(highlightA, highlightB, highlightOutput);
           } catch (err) {
+            clearCalculatorHighlight();
             output = err && err.message ? err.message : String(err);
           }
           document.getElementById('calcOutput').textContent = output;
@@ -1583,7 +1600,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                   <button id="calcRun" style="flex:1; padding:6px 10px; border:1px solid #2563eb; background:#dbeafe; color:#1d4ed8; border-radius:6px; cursor:pointer; font-weight:650;">Run</button>
                   <button id="calcRunGap" style="flex:1; padding:6px 10px; border:1px solid #16a34a; background:#dcfce7; color:#166534; border-radius:6px; cursor:pointer; font-weight:650;">Run with GAP</button>
                 </div>
-                <div style="color:#475569; font-size:12px;">Inputs/outputs use node label numbers. Run with GAP shows copyable GAP/QPA code and can download a .g file.</div>
+                <div style="color:#475569; font-size:12px;">Inputs/outputs use node label numbers. Calculator coloring uses at most two internal split-fill colors and does not change borders. Run with GAP shows copyable GAP/QPA code and can download a .g file.</div>
                 <pre id="calcOutput" style="min-height:48px; max-height:180px; overflow:auto; white-space:pre-wrap; margin:0; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px;"></pre>
               </div>`;
             document.body.appendChild(calculatorPanel);
@@ -1605,7 +1622,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               else if (op === 'Syzygy' || op === 'Cosyzygy') hint.textContent = 'Input exactly one indecomposable module label in A.';
               else hint.textContent = 'Inputs/outputs use node label numbers.';
             };
-            calculatorPanel.querySelector('#calcOp').addEventListener('change', updateCalculatorFields);
+            calculatorPanel.querySelector('#calcOp').addEventListener('change', () => {
+              updateCalculatorFields();
+              calcRunOperation();
+            });
+            ['calcA','calcB','calcK'].forEach(id => {
+              const el = calculatorPanel.querySelector('#' + id);
+              if (el) el.addEventListener('input', calcRunOperation);
+            });
             updateCalculatorFields();
             calculatorPanel.querySelector('#calcClose').addEventListener('click', () => { calculatorPanel.style.display = 'none'; });
             calculatorPanel.querySelector('#calcRun').addEventListener('click', calcRunOperation);
@@ -2599,6 +2623,52 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           borderWidthSelected: showBorders ? (base.borderWidthSelected || 5) : 0,
           shadow: { enabled: false }
         });
+      }
+
+      function clearCalculatorHighlight() {
+        splitPairHighlights.forEach((parts, key) => {
+          const kept = (parts || []).filter(part => part.source !== 'calculator');
+          if (kept.length) splitPairHighlights.set(key, kept);
+          else splitPairHighlights.delete(key);
+        });
+        calculatorHighlighted = new Set();
+        network.redraw();
+      }
+
+      function addCalculatorSplitFill(ids, part, colorHex) {
+        (ids || []).forEach(rawId => {
+          const id = Number(rawId);
+          if (!Number.isFinite(id) || !getExistingNode(id)) return;
+          const key = String(id);
+          const parts = splitPairHighlights.get(key) || [];
+          parts.push({ part, color: colorHex, source: 'calculator' });
+          splitPairHighlights.set(key, parts);
+          calculatorHighlighted.add(id);
+        });
+      }
+
+      function applyCalculatorHighlights(inputA, inputB, outputIds) {
+        clearCalculatorHighlight();
+        const hasA = (inputA || []).length > 0;
+        const hasB = (inputB || []).length > 0;
+        const hasOutput = (outputIds || []).length > 0;
+        if (hasA && hasB) {
+          addCalculatorSplitFill(inputA, 'top', '#bfdbfe');
+          addCalculatorSplitFill(inputB, 'bottom', '#fde68a');
+        } else if (hasA && hasOutput) {
+          addCalculatorSplitFill(inputA, 'top', '#bfdbfe');
+          addCalculatorSplitFill(outputIds, 'bottom', '#bbf7d0');
+        } else if (hasB && hasOutput) {
+          addCalculatorSplitFill(inputB, 'top', '#fde68a');
+          addCalculatorSplitFill(outputIds, 'bottom', '#bbf7d0');
+        } else if (hasA) {
+          addCalculatorSplitFill(inputA, 'top', '#bfdbfe');
+        } else if (hasB) {
+          addCalculatorSplitFill(inputB, 'top', '#fde68a');
+        } else if (hasOutput) {
+          addCalculatorSplitFill(outputIds, 'bottom', '#bbf7d0');
+        }
+        network.redraw();
       }
 
       function resetTiltingStyles() {
