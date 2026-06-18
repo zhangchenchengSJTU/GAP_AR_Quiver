@@ -1274,7 +1274,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             renderSupportTauList('almostSupportTauList', almostSupportTauTiltingData, 'Almost support tau-tilting modules');
           }
           resizeDrawerContent();
-          typesetMath(drawerBody);
+          if (containsTeX(drawerBody.textContent || '')) typesetMath(drawerBody);
           return true;
         }
 
@@ -2654,25 +2654,25 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         });
       });
 
+      const zeroNodeIdCache = new Set((zeroObjectIds || []).map(Number));
+      const tiltingPairIndex = (() => {
+        const index = new Map();
+        (tiltingData || []).forEach((t, i) => {
+          index.set(`${sortedKey(t.T)}|${sortedKey(t.F)}`, { index: i, item: t });
+        });
+        return index;
+      })();
+
       function zeroNodeIds() {
-        return new Set((zeroObjectIds || []).map(Number));
+        return zeroNodeIdCache;
       }
 
       function sortedKey(arr) {
-        const zeros = zeroNodeIds();
-        return (arr || []).map(Number).filter(n => Number.isFinite(n) && !zeros.has(n)).sort((a, b) => a - b).join(',');
+        return (arr || []).map(Number).filter(n => Number.isFinite(n) && !zeroNodeIdCache.has(n)).sort((a, b) => a - b).join(',');
       }
 
       function findTiltingForTorsionPair(item) {
-        const keyT = sortedKey(item.T);
-        const keyF = sortedKey(item.F);
-        for (let i = 0; i < tiltingData.length; i += 1) {
-          const t = tiltingData[i] || {};
-          if (sortedKey(t.T) === keyT && sortedKey(t.F) === keyF) {
-            return { index: i, item: t };
-          }
-        }
-        return null;
+        return tiltingPairIndex.get(`${sortedKey(item.T)}|${sortedKey(item.F)}`) || null;
       }
 
       function resetPairStyles() {
@@ -2796,6 +2796,13 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         return (!arr || arr.length === 0) ? '0' : arr.join(',');
       }
 
+      function containsTeX(text) {
+        const s = String(text || '');
+        const bs = String.fromCharCode(92);
+        if (s.includes(bs + '(') || s.includes(bs + '[') || s.includes('$')) return true;
+        return s.split(bs).slice(1).some(part => /^[A-Za-z]+/.test(part));
+      }
+
       const listStates = new Map();
       const pairListFilters = {
         torsionTilting: 'all',
@@ -2807,7 +2814,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         pairListFilters[key] = value;
       }
 
-      function listAllModuleIds() {
+      const listModuleIdCache = (() => {
         const ids = new Set();
         const add = (value) => {
           const n = Number(value);
@@ -2828,14 +2835,27 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           });
         }
         return Array.from(ids).sort((a, b) => a - b);
+      })();
+      const listModuleIdSet = new Set(listModuleIdCache);
+      const torsionSplitCache = new WeakMap();
+      const tiltingTagCache = new WeakMap();
+
+      function listAllModuleIds() {
+        return listModuleIdCache;
       }
 
       function isSplitTorsionPair(item) {
-        const all = new Set(listAllModuleIds());
+        if (!item || typeof item !== 'object') return false;
+        if (torsionSplitCache.has(item)) return torsionSplitCache.get(item);
         const union = new Set([...(item.T || []), ...(item.F || [])].map(Number).filter(Number.isFinite));
-        if (union.size !== all.size) return false;
-        for (const id of all) if (!union.has(id)) return false;
-        return true;
+        let split = union.size === listModuleIdSet.size;
+        if (split) {
+          for (const id of listModuleIdSet) {
+            if (!union.has(id)) { split = false; break; }
+          }
+        }
+        torsionSplitCache.set(item, split);
+        return split;
       }
 
       function tiltingIsSeparating(item) {
@@ -2856,17 +2876,19 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function tiltingTags(item) {
-        return [tiltingIsSplit(item) ? 'splitting' : 'non-splitting', tiltingIsSeparating(item) ? 'separating' : 'non-separating'];
+        if (item && typeof item === 'object' && tiltingTagCache.has(item)) return tiltingTagCache.get(item);
+        const tags = [tiltingIsSplit(item) ? 'splitting' : 'non-splitting', tiltingIsSeparating(item) ? 'separating' : 'non-separating'];
+        if (item && typeof item === 'object') tiltingTagCache.set(item, tags);
+        return tags;
       }
 
       function isSplitPair(item) {
         if (item && (Object.prototype.hasOwnProperty.call(item, 'T') || Object.prototype.hasOwnProperty.call(item, 'F'))) {
           return isSplitTorsionPair(item);
         }
-        const all = new Set(calcAllIds());
         const union = new Set([...(item.L || []), ...(item.R || [])].map(Number).filter(Number.isFinite));
-        if (union.size !== all.size) return false;
-        for (const id of all) if (!union.has(id)) return false;
+        if (union.size !== listModuleIdSet.size) return false;
+        for (const id of listModuleIdSet) if (!union.has(id)) return false;
         return true;
       }
 
@@ -2980,7 +3002,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. ${body}${extra}</button>`;
         }).join('');
         el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
-        typesetMath(el);
+        if (containsTeX(title) || containsTeX(items)) typesetMath(el);
         el.querySelectorAll('button[data-sort-key]').forEach(btn => btn.addEventListener('click', () => {
           const key = btn.getAttribute('data-sort-key');
           if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
