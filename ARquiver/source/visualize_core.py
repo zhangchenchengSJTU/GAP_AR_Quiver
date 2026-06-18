@@ -2848,11 +2848,61 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const pairListFilters = {
         torsionTilting: 'all',
         torsionSplit: 'all',
-        cotorsionHereditary: 'all'
+        cotorsionHereditary: 'all',
+        tiltingSplitting: 'all',
+        tiltingSeparating: 'all'
       };
 
       function setPairFilter(key, value) {
         pairListFilters[key] = value;
+      }
+
+      function tiltingSplittingFlag(item) {
+        if (item && Object.prototype.hasOwnProperty.call(item, 'splitting')) return !!item.splitting;
+        return tiltingIsSplit(item);
+      }
+
+      function tiltingSeparatingFlag(item) {
+        if (item && Object.prototype.hasOwnProperty.call(item, 'separating')) return !!item.separating;
+        return tiltingIsSeparating(item);
+      }
+
+      function filterTiltingRows(data) {
+        return (data || []).filter(item => {
+          const splitting = tiltingSplittingFlag(item);
+          const separating = tiltingSeparatingFlag(item);
+          const splittingOk = pairListFilters.tiltingSplitting === 'all' || (pairListFilters.tiltingSplitting === 'splitting' ? splitting : !splitting);
+          const separatingOk = pairListFilters.tiltingSeparating === 'all' || (pairListFilters.tiltingSeparating === 'separating' ? separating : !separating);
+          return splittingOk && separatingOk;
+        });
+      }
+
+      function installTiltingFilterButtons(containerId) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexWrap = 'wrap';
+        row.style.gap = '4px';
+        row.style.margin = '0 0 6px 0';
+        [
+          { key: 'tiltingSplitting', vals: ['all','splitting','non-splitting'] },
+          { key: 'tiltingSeparating', vals: ['all','separating','non-separating'] }
+        ].forEach(group => {
+          group.vals.forEach(val => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = val;
+            btn.style.fontSize = '11px';
+            btn.style.padding = '2px 6px';
+            btn.style.border = '1px solid ' + (pairListFilters[group.key] === val ? '#0f766e' : '#ccc');
+            btn.style.borderRadius = '4px';
+            btn.style.background = pairListFilters[group.key] === val ? '#ccfbf1' : '#fff';
+            btn.addEventListener('click', () => { pairListFilters[group.key] = val; renderTiltingList(); });
+            row.appendChild(btn);
+          });
+        });
+        el.prepend(row);
       }
 
       const listModuleIdCache = (() => {
@@ -3219,7 +3269,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 
       function renderTiltingListFallback(el, err) {
         if (!el) return;
-        const data = tiltingData || [];
+        const data = filterTiltingRows(tiltingData || []);
         const errorHtml = err ? `<pre style="white-space:pre-wrap;color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;padding:8px;margin:0 0 6px 0;">Tilting render fallback: ${String(err && err.message ? err.message : err)}</pre>` : '';
         const items = data.map((item, idx) => {
           const L = displayClassList(item.L || []);
@@ -3229,6 +3279,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. L=[${L}] | F=[${F}] | T=[${T}]${extra}</button>`;
         }).join('');
         el.innerHTML = `<b>Tilting modules</b><div style="margin:4px 0;color:#64748b;">${data.length} records</div>${errorHtml}<div role="listbox">${items || '<span style="color:#666;">No tilting data.</span>'}</div>`;
+        installTiltingFilterButtons('tiltingList');
         el.querySelectorAll('button[data-row]').forEach(btn => {
           btn.addEventListener('click', () => {
             const idx = Number(btn.getAttribute('data-row'));
@@ -3246,7 +3297,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       function renderTiltingList() {
         const el = document.getElementById('tiltingList');
         try {
-          renderButtonRecordList('tiltingList', tiltingData, 'Tilting modules', [
+          const data = filterTiltingRows(tiltingData);
+          renderButtonRecordList('tiltingList', data, 'Tilting modules', [
             { key: 'L', label: 'L' },
             { key: 'F', label: 'F' },
             { key: 'T', label: 'T' }
@@ -3256,7 +3308,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const idx = tiltingData.indexOf(item);
             setActiveTilting(idx);
           }, tiltingExtraText);
-          if (el && !el.querySelector('button[data-row]') && tiltingData && tiltingData.length) {
+          installTiltingFilterButtons('tiltingList');
+          if (el && !el.querySelector('button[data-row]') && data && data.length) {
             throw new Error('tiltingData is nonempty but no tilting row was rendered');
           }
         } catch (err) {
@@ -3270,7 +3323,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         buttons.forEach((b) => {
           const row = Number(b.getAttribute('data-row'));
           const state = listStates.get('tiltingList');
-          const originalIndex = state && state.rows[row] ? state.rows[row].originalIndex : row;
+          const item = state && state.rows[row] ? state.rows[row].item : null;
+          const originalIndex = item ? tiltingData.indexOf(item) : row;
           b.classList.toggle('tilting-btn-active', originalIndex === idx);
         });
       }
@@ -3292,7 +3346,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 
       function selectTiltingByIndex(nextIdx) {
         const listEl = document.getElementById('tiltingList');
-        const buttons = listEl.querySelectorAll('button');
+        const buttons = listEl.querySelectorAll('button[data-row]');
         if (!buttons.length) return;
         let idx = nextIdx;
         if (idx < 0) idx = 0;
