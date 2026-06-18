@@ -2330,16 +2330,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.display = 'none';
             modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Export AR quiver to TeX / xymatrix</strong><button id="arTexClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arTexOutput" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTexCopy">Copy</button><button id="arTexDownload">Download .tex</button></div>';
             document.body.appendChild(modal);
-            const texHead = modal.firstElementChild;
-            if (texHead) texHead.style.cursor = 'move';
-            makeFloatingWindow(modal, texHead, {
-              minWidth: 320,
-              minHeight: 220,
-              onResize: (panel, width, height) => {
-                const ta = panel.querySelector('#arTexOutput');
-                if (ta) ta.style.height = Math.max(90, height - 106) + 'px';
-              }
-            });
             modal.querySelector('#arTexClose').addEventListener('click', () => { modal.style.display = 'none'; });
             modal.querySelector('#arTexCopy').addEventListener('click', () => {
               const ta = modal.querySelector('#arTexOutput');
@@ -2505,16 +2495,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.display = 'none';
             modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: compact node positions and arrow curves</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .txt</button></div>';
             document.body.appendChild(modal);
-            const head = modal.firstElementChild;
-            if (head) head.style.cursor = 'move';
-            makeFloatingWindow(modal, head, {
-              minWidth: 320,
-              minHeight: 220,
-              onResize: (panel, width, height) => {
-                const ta = panel.querySelector('#arDisplayCodeText');
-                if (ta) ta.style.height = Math.max(90, height - 106) + 'px';
-              }
-            });
             modal.querySelector('#arDisplayCodeClose').addEventListener('click', () => { modal.style.display = 'none'; });
             modal.querySelector('#arDisplayCodeRefresh').addEventListener('click', () => { modal.querySelector('#arDisplayCodeText').value = exportDisplayCodeText(); });
             modal.querySelector('#arDisplayCodeApply').addEventListener('click', () => {
