@@ -977,6 +977,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         UpdateAllFinishedByDimension, ApplyStructuralRulesAtVertex, ApplySpecialRulesAtVertex, ExpandForwardByIrr, ExpandBackwardByIrr,
         RunStabilizingClosure,
         beforeVerts, beforeEdges, changed,
+        idMap, newVerts, newEdges, oldIdx,
         srcM, uSrc, orbitQueue, orbitCurrent, orbitCall, orbitM, orbitPos;
 
     outDir := Directory(".");
@@ -1439,6 +1440,28 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
     if reindexed.changed then
         Progress("reindexed nodes to match GAP indecomposable list M[i]");
     fi;
+
+    idMap := [];
+    newVerts := [];
+    for oldIdx in [1..Length(verts)] do
+        if Dimension(verts[oldIdx]) = 0 then
+            idMap[oldIdx] := fail;
+        else
+            Add(newVerts, verts[oldIdx]);
+            idMap[oldIdx] := Length(newVerts);
+        fi;
+    od;
+    newEdges := [];
+    for e in edges do
+        if IsBound(idMap[e[1]]) and IsBound(idMap[e[2]]) and idMap[e[1]] <> fail and idMap[e[2]] <> fail then
+            Add(newEdges, [idMap[e[1]], idMap[e[2]]]);
+        fi;
+    od;
+    if Length(newVerts) <> Length(verts) then
+        Progress("removed zero modules and compacted node ids");
+    fi;
+    verts := newVerts;
+    edges := newEdges;
 
     out := OutputTextFile(fname, false);
     PrintTo(out, "digraph Quiver {\n");
