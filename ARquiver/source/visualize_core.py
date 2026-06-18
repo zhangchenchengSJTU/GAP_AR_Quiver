@@ -202,6 +202,19 @@ def parse_quiver_data(quiver_file):
             "T": parse_class_expr(m.group(1)),
             "F": parse_class_expr(m.group(2)),
         })
+    if not torsion_pair_data and tilting_data:
+        # Older output files do not have a TorsionPairTable; recover the visible
+        # torsion-class list from the tilting table instead.
+        seen_torsion_pairs = set()
+        for item in tilting_data:
+            key = (tuple(item.get("T", [])), tuple(item.get("F", [])))
+            if key in seen_torsion_pairs:
+                continue
+            seen_torsion_pairs.add(key)
+            torsion_pair_data.append({
+                "T": list(item.get("T", [])),
+                "F": list(item.get("F", [])),
+            })
 
     cotorsion_pair_data = []
     cotorsion_section = ""
@@ -1120,9 +1133,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             closeListDrawer(true);
             return false;
           }
+          if (drawerListId && drawerListId !== listId) clearButtonListActive(drawerListId);
+          if (drawerToggleId && drawerToggleId !== toggleId) setCheckbox(drawerToggleId, false);
+          clearListMenuActive();
           setCheckbox(toggleId, true);
           const listEl = document.getElementById(listId);
-          if (!listEl) return;
+          if (!listEl) return false;
           while (drawerBody.firstChild) {
             container.appendChild(drawerBody.firstChild);
           }
@@ -1288,12 +1304,116 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             .ar-list-resize-ne { right:0; top:0; width:9px; height:9px; cursor:nesw-resize; }
             .ar-list-resize-sw { left:0; bottom:0; width:9px; height:9px; cursor:nesw-resize; }
             .ar-list-resize-se { right:0; bottom:0; width:9px; height:9px; cursor:nwse-resize; }
+            .ar-window-resize-handle { position:absolute; background:transparent; z-index:3; }
+            .ar-window-resize-handle:hover { background:rgba(37,99,235,0.18); }
+            .ar-window-resize-left { left:0; top:8px; bottom:8px; width:7px; cursor:ew-resize; }
+            .ar-window-resize-right { right:0; top:8px; bottom:8px; width:7px; cursor:ew-resize; }
+            .ar-window-resize-top { left:8px; right:8px; top:0; height:7px; cursor:ns-resize; }
+            .ar-window-resize-bottom { left:8px; right:8px; bottom:0; height:7px; cursor:ns-resize; }
+            .ar-window-resize-nw { left:0; top:0; width:9px; height:9px; cursor:nwse-resize; }
+            .ar-window-resize-ne { right:0; top:0; width:9px; height:9px; cursor:nesw-resize; }
+            .ar-window-resize-sw { left:0; bottom:0; width:9px; height:9px; cursor:nesw-resize; }
+            .ar-window-resize-se { right:0; bottom:0; width:9px; height:9px; cursor:nwse-resize; }
             #arListDrawerBody { padding: 8px; }
             #tiltingList, #torsionPairList, #cotorsionPairList, #supportTauList, #almostSupportTauList { min-width: 240px; max-width: 100%; }
             .ar-record-row { display:block; width:100%; text-align:left; margin:2px 0; padding:4px 6px; border:1px solid #dbeafe; border-radius:4px; background:#fff; font-family:monospace; font-size:11px; cursor:pointer; }
             .ar-record-row:hover { background:#eff6ff; }
           `;
           document.head.appendChild(style);
+        }
+
+        function addWindowResizeHandles(el) {
+          if (!el || el.dataset.arResizable === 'true') return;
+          el.dataset.arResizable = 'true';
+          const classSuffix = {
+            'left': 'left',
+            'right': 'right',
+            'top': 'top',
+            'bottom': 'bottom',
+            'top left': 'nw',
+            'top right': 'ne',
+            'bottom left': 'sw',
+            'bottom right': 'se'
+          };
+          ['left','right','top','bottom','top left','top right','bottom left','bottom right'].forEach(dir => {
+            const handle = document.createElement('div');
+            handle.className = 'ar-window-resize-handle ar-window-resize-' + classSuffix[dir];
+            handle.dataset.resize = dir;
+            el.appendChild(handle);
+          });
+        }
+
+        function makeFloatingWindow(el, handle, options = {}) {
+          if (!el || el.dataset.arFloatingWindow === 'true') return;
+          el.dataset.arFloatingWindow = 'true';
+          const minWidth = Number(options.minWidth || 260);
+          const minHeight = Number(options.minHeight || 160);
+          const onResize = typeof options.onResize === 'function' ? options.onResize : null;
+          if (getComputedStyle(el).position === 'static') el.style.position = 'fixed';
+          addWindowResizeHandles(el);
+          let drag = null;
+          let resize = null;
+          const startDrag = (event) => {
+            if (event.target.closest('button,input,select,textarea,.ar-window-resize-handle,.ar-list-resize-handle')) return;
+            const rect = el.getBoundingClientRect();
+            el.style.left = rect.left + 'px';
+            el.style.top = rect.top + 'px';
+            el.style.right = 'auto';
+            el.style.bottom = 'auto';
+            el.style.width = rect.width + 'px';
+            el.style.height = rect.height + 'px';
+            drag = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
+            event.preventDefault();
+          };
+          (handle || el).addEventListener('mousedown', startDrag);
+          el.querySelectorAll('.ar-window-resize-handle').forEach(handleEl => {
+            handleEl.addEventListener('mousedown', (event) => {
+              const rect = el.getBoundingClientRect();
+              el.style.left = rect.left + 'px';
+              el.style.top = rect.top + 'px';
+              el.style.right = 'auto';
+              el.style.bottom = 'auto';
+              el.style.width = rect.width + 'px';
+              el.style.height = rect.height + 'px';
+              resize = { dirs: handleEl.dataset.resize.split(' '), x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+              event.preventDefault();
+              event.stopPropagation();
+            });
+          });
+          document.addEventListener('mousemove', (event) => {
+            if (drag) {
+              const width = el.offsetWidth || minWidth;
+              const height = el.offsetHeight || minHeight;
+              const left = Math.max(0, Math.min(window.innerWidth - Math.min(60, width), drag.left + event.clientX - drag.x));
+              const top = Math.max(0, Math.min(window.innerHeight - Math.min(40, height), drag.top + event.clientY - drag.y));
+              el.style.left = Math.min(left, Math.max(0, window.innerWidth - width - 4)) + 'px';
+              el.style.top = Math.min(top, Math.max(0, window.innerHeight - height - 4)) + 'px';
+            }
+            if (resize) {
+              let left = resize.left;
+              let top = resize.top;
+              let width = resize.width;
+              let height = resize.height;
+              const dx = event.clientX - resize.x;
+              const dy = event.clientY - resize.y;
+              if (resize.dirs.includes('right')) width = resize.width + dx;
+              if (resize.dirs.includes('bottom')) height = resize.height + dy;
+              if (resize.dirs.includes('left')) { width = resize.width - dx; left = resize.left + dx; }
+              if (resize.dirs.includes('top')) { height = resize.height - dy; top = resize.top + dy; }
+              if (width < minWidth) { if (resize.dirs.includes('left')) left -= minWidth - width; width = minWidth; }
+              if (height < minHeight) { if (resize.dirs.includes('top')) top -= minHeight - height; height = minHeight; }
+              left = Math.max(0, left);
+              top = Math.max(0, top);
+              width = Math.min(width, window.innerWidth - left - 4);
+              height = Math.min(height, window.innerHeight - top - 4);
+              el.style.left = left + 'px';
+              el.style.top = top + 'px';
+              el.style.width = width + 'px';
+              el.style.height = height + 'px';
+              if (onResize) onResize(el, width, height);
+            }
+          });
+          document.addEventListener('mouseup', () => { drag = null; resize = null; });
         }
 
         function ensureDrawer() {
@@ -1656,6 +1776,16 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                 <pre id="calcOutput" style="min-height:48px; max-height:180px; overflow:auto; white-space:pre-wrap; margin:0; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px;"></pre>
               </div>`;
             document.body.appendChild(calculatorPanel);
+            const calculatorHead = calculatorPanel.firstElementChild;
+            if (calculatorHead) calculatorHead.style.cursor = 'move';
+            makeFloatingWindow(calculatorPanel, calculatorHead, {
+              minWidth: 300,
+              minHeight: 260,
+              onResize: (panel, width, height) => {
+                const out = panel.querySelector('#calcOutput');
+                if (out) out.style.maxHeight = Math.max(80, height - 270) + 'px';
+              }
+            });
             const updateCalculatorFields = () => {
               const op = calculatorPanel.querySelector('#calcOp').value;
               const aLabel = calculatorPanel.querySelector('#calcALabel');
@@ -1741,6 +1871,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             </div></details>
           `;
           document.body.appendChild(folderPanel);
+          makeFloatingWindow(folderPanel, folderPanel.querySelector('.ar-panel-head'), { minWidth: 220, minHeight: 180 });
           folderPanel.addEventListener('click', handleMenuAction);
         }
 
@@ -1920,6 +2051,16 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.display = 'none';
             modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Export AR quiver to TeX / xymatrix</strong><button id="arTexClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arTexOutput" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTexCopy">Copy</button><button id="arTexDownload">Download .tex</button></div>';
             document.body.appendChild(modal);
+            const texHead = modal.firstElementChild;
+            if (texHead) texHead.style.cursor = 'move';
+            makeFloatingWindow(modal, texHead, {
+              minWidth: 320,
+              minHeight: 220,
+              onResize: (panel, width, height) => {
+                const ta = panel.querySelector('#arTexOutput');
+                if (ta) ta.style.height = Math.max(90, height - 106) + 'px';
+              }
+            });
             modal.querySelector('#arTexClose').addEventListener('click', () => { modal.style.display = 'none'; });
             modal.querySelector('#arTexCopy').addEventListener('click', () => {
               const ta = modal.querySelector('#arTexOutput');
@@ -1969,7 +2110,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (listSpec) {
             const parts = listSpec.split('|');
             const opened = showListInDrawer(parts[0], parts[1], parts[2]);
-            btn.classList.toggle('ar-control-active', !!opened);
+            clearListMenuActive();
+            if (opened) btn.classList.add('ar-control-active');
           }
           if (action === 'close-panel') folderPanel.style.display = 'none';
           if (action === 'fit') network.fit({ animation: true });
@@ -2911,13 +3053,23 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         miniContainer.style.padding = '6px';
         miniContainer.style.borderRadius = '6px';
         miniContainer.style.zIndex = '998';
+        miniContainer.style.boxSizing = 'border-box';
         miniContainer.innerHTML = `
-          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600;">Quiver Q</div>
-          <div id="quiverMini" style="width:340px; height:220px; border:1px solid #ddd; background:white;"></div>
+          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none;">Quiver Q</div>
+          <div id="quiverMini" style="width:100%; height:220px; border:1px solid #ddd; background:white; box-sizing:border-box;"></div>
           <div id="quiverRel" style="margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;"></div>
         `;
         document.body.appendChild(miniContainer);
-        makeDraggable(miniContainer, miniContainer.querySelector('#quiverMiniHeader'));
+        makeFloatingWindow(miniContainer, miniContainer.querySelector('#quiverMiniHeader'), {
+          minWidth: 240,
+          minHeight: 180,
+          onResize: (panel, width, height) => {
+            const graph = panel.querySelector('#quiverMini');
+            const rel = panel.querySelector('#quiverRel');
+            if (graph) graph.style.height = Math.max(100, height - 52 - (rel ? rel.offsetHeight : 0)) + 'px';
+            if (miniQuiver) miniQuiver.redraw();
+          }
+        });
         const relBox = miniContainer.querySelector('#quiverRel');
         relBox.textContent = quiverRel ? `rel := ${quiverRel}` : 'rel := []';
         if (!quiverNodes || quiverNodes.length === 0) {
