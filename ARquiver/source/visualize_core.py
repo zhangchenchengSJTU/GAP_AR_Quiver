@@ -3081,17 +3081,59 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
       }
 
+      function tiltingExtraText(item) {
+        try {
+          return ' | ' + tiltingTags(item).join(' | ');
+        } catch (err) {
+          return ' | tag-error';
+        }
+      }
+
+      function renderTiltingListFallback(el, err) {
+        if (!el) return;
+        const data = tiltingData || [];
+        const errorHtml = err ? `<pre style="white-space:pre-wrap;color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;padding:8px;margin:0 0 6px 0;">Tilting render fallback: ${String(err && err.message ? err.message : err)}</pre>` : '';
+        const items = data.map((item, idx) => {
+          const L = displayClassList(item.L || []);
+          const F = displayClassList(item.F || []);
+          const T = displayClassList(item.T || []);
+          const extra = tiltingExtraText(item);
+          return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. L=[${L}] | F=[${F}] | T=[${T}]${extra}</button>`;
+        }).join('');
+        el.innerHTML = `<b>Tilting modules</b><div style="margin:4px 0;color:#64748b;">${data.length} records</div>${errorHtml}<div role="listbox">${items || '<span style="color:#666;">No tilting data.</span>'}</div>`;
+        el.querySelectorAll('button[data-row]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = Number(btn.getAttribute('data-row'));
+            const item = data[idx];
+            if (!item) return;
+            el.querySelectorAll('button[data-row]').forEach(b => b.classList.remove('tilting-btn-active'));
+            btn.classList.add('tilting-btn-active');
+            resetPairStyles();
+            applyTiltingHighlight(item);
+            setActiveTilting(idx);
+          });
+        });
+      }
+
       function renderTiltingList() {
-        renderButtonRecordList('tiltingList', tiltingData, 'Tilting modules', [
-          { key: 'L', label: 'L' },
-          { key: 'F', label: 'F' },
-          { key: 'T', label: 'T' }
-        ], (item) => {
-          resetPairStyles();
-          applyTiltingHighlight(item);
-          const idx = tiltingData.indexOf(item);
-          setActiveTilting(idx);
-        }, (item) => ' | ' + tiltingTags(item).join(' | '));
+        const el = document.getElementById('tiltingList');
+        try {
+          renderButtonRecordList('tiltingList', tiltingData, 'Tilting modules', [
+            { key: 'L', label: 'L' },
+            { key: 'F', label: 'F' },
+            { key: 'T', label: 'T' }
+          ], (item) => {
+            resetPairStyles();
+            applyTiltingHighlight(item);
+            const idx = tiltingData.indexOf(item);
+            setActiveTilting(idx);
+          }, tiltingExtraText);
+          if (el && !el.querySelector('button[data-row]') && tiltingData && tiltingData.length) {
+            throw new Error('tiltingData is nonempty but no tilting row was rendered');
+          }
+        } catch (err) {
+          renderTiltingListFallback(el, err);
+        }
       }
 
       function setActiveTilting(idx) {
