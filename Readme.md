@@ -1,8 +1,13 @@
 # 使用 GAP 绘制有限维代数的 AR Quiver
 
-## 启动容器
+## 快速上手
 
-自动启动: 点击 [![Binder](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgbadge_logo.svg)](https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/HEAD).
+### 启动容器
+
+自动启动: 点击 [![Binder](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgbadge_logo.svg)](https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/HEAD). 或输入
+
+- (稳定版本) https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/main
+- (测试版本) https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/test
 
 手动启动: 在 [Binder](https://mybinder.org/) 中打开 GitHub 仓库. 依次完成以下两个步骤即可, 请勿进行多余动作.
 
@@ -10,7 +15,7 @@
 2. 直接点击 `Launch` 按钮.
 3. 等待环境启动完成. 随后 Binder 会自动跳转至 Jupyter Notebook 页面.
 
-## 进入 Jupyter Notebook
+### 进入 Jupyter Notebook
 
 进入 Jupyter Notebook 后, 浏览器上的地址形如 `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/treee`. 此时 root 目录下出现以下三项
 
@@ -21,8 +26,7 @@
   - `run.ipynb` 文件, 这是运行脚本.
   - `example.txt`, `untitled.txt` 等文件, 这是输入 quiver 信息的文件.
 
-
-## 绘制路代数
+### 绘制路代数
 
 请使用 `https://q.uiver.app/` 网页绘制 quiver with relation. 绘制时请注意
 
@@ -38,7 +42,7 @@
 
 在 `ARquiver` 文件夹中新建 `txt` 文件 `yourfile.txt`, 粘贴刚才复制的源码. 保存并退出.
 
-## 绘制 AR quiver
+### 绘制 AR quiver
 
 请打开 `run.ipynb`. 依次运行
 
@@ -57,7 +61,7 @@
 - `yourfile.log`  (代数计算日志) 与
 - `yourfile.html` (quiver 画布).
 
-## 将 AR quiver 转换成常见形式
+### 将 AR quiver 转换成常见形式
 
 打开 `yourfile.html` 文件, 即可查看 AR quiver 的可视化图像. 
 
@@ -95,7 +99,13 @@
 
 ![image-20260612222112774](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612222112774.png)
 
-## 其他功能
+## 功能介绍
+
+### 快捷键
+
+### 配色规范
+
+### 介绍 controls 中的所有功能
 
 按钮 `Torsionless`, `Reflexive` 与 `GProj` 分别用于显示不可分解且非投射的
 

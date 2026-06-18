@@ -485,6 +485,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     pdid_js = json.dumps(pdid_map or {})
     top_soc_js = json.dumps(globals().get("top_soc_map", {}))
     q_structure_js = json.dumps(quiver_structure or "")
+    txt_path = Path(quiver_filepath).with_suffix('.txt')
+    original_quiver_text = ""
+    if txt_path.exists():
+        original_quiver_text = txt_path.read_text(encoding='utf-8', errors='replace')
+    original_quiver_text_js = json.dumps(original_quiver_text)
+    original_quiver_filename_js = json.dumps(txt_path.name)
 
     # ------------------- JAVASCRIPT MODIFICATION START -------------------
     js_injection = """
@@ -512,6 +518,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const pdidMap = {{PDID_MAP}};
       const topSocMap = {{TOP_SOC_MAP}};
       const quiverStructure = {{Q_STRUCTURE}};
+      const originalQuiverText = {{ORIGINAL_QUIVER_TEXT}};
+      const originalQuiverFilename = {{ORIGINAL_QUIVER_FILENAME}};
       const goldenEdgeSet = new Set(goldenEdges.map(e => `${e[0]}->${e[1]}`));
       var options = {
         "edges": {
@@ -770,10 +778,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         container.style.gap = '6px';
         container.innerHTML = `
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-            <button id="torsBtn" style="padding:4px 8px;">Torsionless</button>
-            <button id="reflBtn" style="padding:4px 8px;">Reflexive</button>
-            <button id="gpBtn" style="padding:4px 8px;">GProj</button>
-            <button id="giBtn" style="padding:4px 8px;">GInj</button>
+            <button id="torsBtn" style="padding:4px 8px;">Torsionless (${torsionlessIds.length})</button>
+            <button id="reflBtn" style="padding:4px 8px;">Reflexive (${reflexiveIds.length})</button>
+            <button id="gpBtn" style="padding:4px 8px;">GProj (${gorensteinProjectiveIds.length})</button>
+            <button id="giBtn" style="padding:4px 8px;">GInj (${gorensteinInjectiveIds.length})</button>
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
             <label style="font-size:12px; background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:4px;">
@@ -828,11 +836,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <input id="borderToggle" type="checkbox" checked /> Border
             </label>
           </div>
-          <div id="tiltingList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:240px; overflow:auto; font-size:12px;"></div>
-          <div id="torsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
-          <div id="cotorsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
-          <div id="supportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
-          <div id="almostSupportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; max-height:260px; overflow:auto; font-size:12px;"></div>
+          <div id="tiltingList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; overflow:auto; font-size:12px;"></div>
+          <div id="torsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; overflow:auto; font-size:12px;"></div>
+          <div id="cotorsionPairList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; overflow:auto; font-size:12px;"></div>
+          <div id="supportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; overflow:auto; font-size:12px;"></div>
+          <div id="almostSupportTauList" style="display:none; background: rgba(255,255,255,0.9); padding:6px; border-radius:6px; overflow:auto; font-size:12px;"></div>
         `;
         document.body.appendChild(container);
         container.style.display = 'none';
@@ -887,9 +895,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             if (btn) btn.classList.add('ar-control-active');
           }
           redrawActiveModuleClasses();
-          const selected = Array.from(activeModuleIds());
-          if (selected.length === 1) network.focus(selected[0], { scale: 1.2, animation: true });
-          else if (selected.length > 1) network.fit({ nodes: selected, animation: true });
           return true;
         }
         document.getElementById('torsBtn').addEventListener('click', () => toggleModuleClass('torsBtn', torsionlessIds, '#0ea5e9'));
@@ -1026,7 +1031,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (!el) return;
           el.style.display = e.target.checked ? 'block' : 'none';
           if (e.target.checked) {
-            renderPairList('torsionPairList', torsionPairData, 'T', 'F', 'Torsion pairs', null, { kind: 'torsion' });
+            renderTorsionClassListLikeCotorsion('torsionPairList');
           } else {
             clearPairListHighlight();
           }
@@ -1127,6 +1132,23 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           drawerToggleId = null;
         }
 
+        function drawerSwatch(color, label) {
+          return '<span title="' + label + '" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin:0 0.2em;border:1px solid #64748b;border-radius:2px;background:' + color + ';"></span>';
+        }
+
+        function drawerTitleHtml(listId, title) {
+          const meta = {
+            torsionPairList: [['T', '#ffe1c7'], ['F', '#d9f2d9']],
+            cotorsionPairList: [['left', '#93c5fd'], ['right', '#fca5a5']],
+            tiltingList: [['L', '#b5b5b5'], ['T', '#ffe1c7'], ['F', '#d9f2d9']],
+            supportTauList: [['P', '#dbeafe'], ['M', '#b5b5b5']],
+            almostSupportTauList: [['P', '#dbeafe'], ['M', '#b5b5b5']]
+          };
+          const items = meta[listId];
+          if (!items) return title;
+          return title + ' <span style="font-weight:400;color:#475569;font-size:11px;">(' + items.map(item => item[0] + ' ' + drawerSwatch(item[1], item[0])).join(', ') + ')</span>';
+        }
+
         function showListInDrawer(toggleId, listId, title) {
           ensureDrawer();
           if (drawer && drawer.style.display === 'block' && drawerToggleId === toggleId && drawerListId === listId) {
@@ -1144,10 +1166,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           }
           drawerToggleId = toggleId;
           drawerListId = listId;
-          drawerTitle.textContent = title;
+          drawerTitle.innerHTML = drawerTitleHtml(listId, title);
           drawerBody.appendChild(listEl);
           listEl.style.display = 'block';
           drawer.style.display = 'block';
+          if (listId === 'torsionPairList' && typeof renderTorsionClassListLikeCotorsion === 'function') {
+            renderTorsionClassListLikeCotorsion(listId);
+          }
+          resizeDrawerContent();
           typesetMath(drawerBody);
           return true;
         }
@@ -1416,6 +1442,24 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           document.addEventListener('mouseup', () => { drag = null; resize = null; });
         }
 
+        function resizeDrawerContent() {
+          if (!drawer || !drawerBody) return;
+          const rect = drawer.getBoundingClientRect();
+          const head = drawer.querySelector('.ar-panel-head');
+          const headHeight = head ? head.offsetHeight : 0;
+          const bodyHeight = Math.max(80, rect.height - headHeight - 2);
+          drawerBody.style.height = bodyHeight + 'px';
+          drawerBody.style.overflow = 'auto';
+          if (drawerListId) {
+            const listEl = document.getElementById(drawerListId);
+            if (listEl) {
+              listEl.style.maxHeight = Math.max(60, bodyHeight - 16) + 'px';
+              listEl.style.height = Math.max(60, bodyHeight - 16) + 'px';
+              listEl.style.overflow = 'auto';
+            }
+          }
+        }
+
         function ensureDrawer() {
           if (drawer) return;
           drawer = document.createElement('div');
@@ -1480,6 +1524,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               drawer.style.top = Math.max(0, top) + 'px';
               drawer.style.width = width + 'px';
               drawer.style.height = height + 'px';
+              resizeDrawerContent();
             }
           });
           document.addEventListener('mouseup', () => { drawerDrag = null; drawerResize = null; });
@@ -1492,7 +1537,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         function calcParseSet(text) {
           const all = calcAllIds();
           const raw = String(text || '').trim();
-          if (!raw || raw.toLowerCase() === 'all' || raw === '*') return all;
+          if (!raw) return [];
+          if (raw.toLowerCase() === 'all' || raw === '*') return all;
           return Array.from(new Set((raw.match(/-?\d+/g) || []).map(Number).filter(x => all.includes(x)))).sort((a, b) => a - b);
         }
         function calcFormatSet(ids) {
@@ -1743,6 +1789,22 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           out.appendChild(buttons);
           out.appendChild(textarea);
         }
+        function setCalculatorControlActive(active) {
+          if (!folderPanel) return;
+          const btn = folderPanel.querySelector('button[data-action="calculator"]');
+          if (btn) btn.classList.toggle('ar-control-active', !!active);
+        }
+
+        function hideCalculator() {
+          if (calculatorPanel) calculatorPanel.style.display = 'none';
+          clearCalculatorHighlight();
+          setCalculatorControlActive(false);
+        }
+
+        function isCalculatorVisible() {
+          return !!(calculatorPanel && calculatorPanel.style.display !== 'none');
+        }
+
         function showCalculator() {
           if (!calculatorPanel) {
             calculatorPanel = document.createElement('div');
@@ -1765,14 +1827,15 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <div style="padding:10px; display:grid; gap:8px;">
                 <label>Function <select id="calcOp" style="width:100%;"><option value="ExtK">dim Ext^k(A,B)</option><option value="ExtKperp">ker Ext^k(A,-)</option><option value="perpExtK">ker Ext^k(-,B)</option><option value="Syzygy">Syzygy(A)</option><option value="Cosyzygy">Cosyzygy(A)</option></select></label>
                 <label id="calcKLabel">k <input id="calcK" style="width:100%; box-sizing:border-box;" value="0" /></label>
-                <label id="calcALabel">A labels <input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
-                <label id="calcBLabel">B labels <input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
+                <label id="calcALabel">A labels <span title="calculator color for A" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#bfdbfe;"></span><input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
+                <label id="calcBLabel">B labels <span title="calculator color for B" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#fde68a;"></span><input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
                 <div id="calcHint" style="color:#475569; font-size:12px;"></div>
                 <div style="display:flex; gap:8px;">
                   <button id="calcRun" style="flex:1; padding:6px 10px; border:1px solid #2563eb; background:#dbeafe; color:#1d4ed8; border-radius:6px; cursor:pointer; font-weight:650;">Run</button>
                   <button id="calcRunGap" style="flex:1; padding:6px 10px; border:1px solid #16a34a; background:#dcfce7; color:#166534; border-radius:6px; cursor:pointer; font-weight:650;">Run with GAP</button>
                 </div>
-                <div style="color:#475569; font-size:12px;">Inputs/outputs use node label numbers. Calculator coloring uses at most two internal split-fill colors and does not change borders. Run with GAP shows copyable GAP/QPA code and can download a .g file.</div>
+                <div style="color:#475569; font-size:12px;">Inputs/outputs use node label numbers. Empty input means ∅; type all or * for all modules. Calculator coloring uses at most two internal split-fill colors and does not change borders. Run with GAP shows copyable GAP/QPA code and can download a .g file.</div>
+                <div style="font-weight:600; font-size:12px;">Result <span title="calculator color for result set" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#bbf7d0;"></span></div>
                 <pre id="calcOutput" style="min-height:48px; max-height:180px; overflow:auto; white-space:pre-wrap; margin:0; padding:8px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px;"></pre>
               </div>`;
             document.body.appendChild(calculatorPanel);
@@ -1813,17 +1876,33 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               if (el) el.addEventListener('input', calcRunOperation);
             });
             updateCalculatorFields();
-            calculatorPanel.querySelector('#calcClose').addEventListener('click', () => {
-              calculatorPanel.style.display = 'none';
-              clearCalculatorHighlight();
-            });
+            calculatorPanel.querySelector('#calcClose').addEventListener('click', hideCalculator);
             calculatorPanel.querySelector('#calcRun').addEventListener('click', calcRunOperation);
             calculatorPanel.querySelector('#calcRunGap').addEventListener('click', calcRunWithGap);
           }
           calculatorPanel.style.display = 'block';
+          setCalculatorControlActive(true);
+        }
+
+        function toggleCalculator() {
+          if (isCalculatorVisible()) hideCalculator();
+          else showCalculator();
         }
 
         let folderPanel = null;
+        function refreshFolderControlStates() {
+          if (!folderPanel) return;
+          folderPanel.querySelectorAll('button[data-toggle]').forEach(btn => {
+            const id = btn.getAttribute('data-toggle');
+            const el = document.getElementById(id);
+            btn.classList.toggle('ar-control-active', !!(el && el.checked));
+          });
+          folderPanel.querySelectorAll('button[data-click]').forEach(btn => {
+            const id = btn.getAttribute('data-click');
+            btn.classList.toggle('ar-control-active', activeModuleClasses.has(id));
+          });
+        }
+
         function createFolderPanel() {
           if (folderPanel) return;
           folderPanel = document.createElement('div');
@@ -1847,10 +1926,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <button data-toggle="quiverToggle">Original quiver Q</button>
             </div></details>
             <details><summary>Modules</summary><div class="ar-folder-body">
-              <button data-click="torsBtn">Torsionless</button>
-              <button data-click="reflBtn">Reflexive</button>
-              <button data-click="gpBtn">Gorenstein projective</button>
-              <button data-click="giBtn">Gorenstein injective</button>
+              <button data-click="torsBtn">Torsionless (${torsionlessIds.length})</button>
+              <button data-click="reflBtn">Reflexive (${reflexiveIds.length})</button>
+              <button data-click="gpBtn">Gorenstein projective (${gorensteinProjectiveIds.length})</button>
+              <button data-click="giBtn">Gorenstein injective (${gorensteinInjectiveIds.length})</button>
             </div></details>
             <details><summary>Classes</summary><div class="ar-folder-body">
               <button data-list="torsionPairToggle|torsionPairList|Torsion classes">Torsion classes</button>
@@ -1862,9 +1941,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <button data-list="almostSupportTauToggle|almostSupportTauList|Almost support τ-tilting modules">Almost support τ-tilting</button>
             </div></details>
             <details><summary>Tools</summary><div class="ar-folder-body">
-              <button data-action="fit">Fit graph</button>
-              <button data-action="undo">Undo Ctrl+Z</button>
-              <button data-action="redo">Redo Ctrl+Y</button>
               <button data-action="calculator">Calculator</button>
               <button data-action="export-tex">Export AR quiver to TeX</button>
               <button data-action="legend">Color legend</button>
@@ -1873,6 +1949,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           document.body.appendChild(folderPanel);
           makeFloatingWindow(folderPanel, folderPanel.querySelector('.ar-panel-head'), { minWidth: 220, minHeight: 180 });
           folderPanel.addEventListener('click', handleMenuAction);
+          refreshFolderControlStates();
         }
 
         function texBackslash() {
@@ -2085,6 +2162,79 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.display = 'block';
         }
 
+        function showColorLegend() {
+          let modal = document.getElementById('arColorLegendModal');
+          if (!modal) {
+            const row = (label, color, note, borderColor) => '<div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="display:inline-block;width:0.95em;height:0.95em;border:2px solid ' + (borderColor || '#64748b') + ';border-radius:2px;background:' + color + ';"></span><span><strong>' + label + '</strong>' + (note ? ' — ' + note : '') + '</span></div>';
+            const section = (title, rows) => '<section style="margin:8px 0;"><div style="font-weight:700;color:#0f172a;margin-bottom:3px;">' + title + '</div>' + rows.join('') + '</section>';
+            modal = document.createElement('div');
+            modal.id = 'arColorLegendModal';
+            modal.style.position = 'fixed';
+            modal.style.left = '50%';
+            modal.style.top = '50%';
+            modal.style.transform = 'translate(-50%, -50%)';
+            modal.style.width = '460px';
+            modal.style.maxWidth = '92vw';
+            modal.style.maxHeight = '86vh';
+            modal.style.overflow = 'auto';
+            modal.style.background = 'white';
+            modal.style.border = '1px solid #94a3b8';
+            modal.style.borderRadius = '10px';
+            modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
+            modal.style.zIndex = '30000';
+            modal.style.display = 'none';
+            modal.style.fontFamily = 'system-ui,-apple-system,Segoe UI,sans-serif';
+            modal.style.fontSize = '13px';
+            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;"><strong>Color legend</strong><button id="arLegendClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div>' +
+              '<div style="padding:10px 12px;">' +
+              section('Node borders', [
+                row('blue', 'white', 'projective', 'blue'),
+                row('red', 'white', 'injective', 'red'),
+                row('purple', 'white', 'projective-injective', 'purple')
+              ]) +
+              section('Module class highlights', [
+                row('cyan', '#fff7cc', 'torsionless module', '#0ea5e9'),
+                row('purple', '#fff7cc', 'reflexive module', '#8b5cf6'),
+                row('green', '#fff7cc', 'Gorenstein projective module', '#16a34a'),
+                row('red', '#fff7cc', 'Gorenstein injective module', '#dc2626')
+              ]) +
+              section('Edges', [
+                row('black', 'black', 'AR irreducible arrow'),
+                row('gold', 'gold', 'τM ← M'),
+                row('pink', 'pink', 'M → N if M is a summand of ΩN'),
+                row('green', '#22c55e', 'M → N if N is a summand of ΣM'),
+                row('brown', '#8b5a2b', 'M → N if dim Hom(M,N) = k'),
+                row('red', 'red', 'M → N if dim Ext¹(M,N) = k'),
+                row('light gray', '#d1d5db', 'dimmed irreducible arrow')
+              ]) +
+              section('(co)torsion and (tau) tilting', [
+                row('T', '#ffe1c7', 'torsion class'),
+                row('F', '#d9f2d9', 'torsion-free class'),
+                row('L', '#b5b5b5', 'tilting module L'),
+                row('left', '#93c5fd', 'cotorsion left class'),
+                row('right', '#fca5a5', 'cotorsion right class'),
+                row('P', '#dbeafe', 'support τ-tilting projective part'),
+                row('M', '#b5b5b5', 'support τ-tilting module part')
+              ]) +
+              section('calculator', [
+                row('A', '#bfdbfe', 'input A'),
+                row('B', '#fde68a', 'input B'),
+                row('result', '#bbf7d0', 'output class')
+              ]) +
+              section('floating labels', [
+                row('pd', 'rgba(219,234,254,0.96)', 'projective dimension'),
+                row('id', 'rgba(224,242,254,0.96)', 'injective dimension'),
+                row('top / soc', '#dcfce7', 'top and socle')
+              ]) + '</div>';
+            document.body.appendChild(modal);
+            const head = modal.firstElementChild;
+            if (head) head.style.cursor = 'move';
+            makeFloatingWindow(modal, head, { minWidth: 320, minHeight: 260 });
+            modal.querySelector('#arLegendClose').addEventListener('click', () => { modal.style.display = 'none'; });
+          }
+          modal.style.display = 'block';
+        }
+
         function handleMenuAction(event) {
           const btn = event.target.closest('button');
           if (!btn) return;
@@ -2097,7 +2247,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const toggleEl = document.getElementById(toggleId);
             btn.classList.toggle('ar-control-active', !!(toggleEl && toggleEl.checked));
           }
-          if (!toggleId && !clickId && !listSpec && action) {
+          if (!toggleId && !clickId && !listSpec && action && action !== 'calculator') {
             btn.classList.add('ar-control-active');
             setTimeout(() => btn.classList.remove('ar-control-active'), 350);
           }
@@ -2119,9 +2269,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (action === 'clear-colors') clearListColoring();
           if (action === 'undo' && typeof undo === 'function') undo();
           if (action === 'redo' && typeof redo === 'function') redo();
-          if (action === 'calculator') showCalculator();
+          if (action === 'calculator') toggleCalculator();
           if (action === 'export-tex') showTexExport(exportCurrentARQuiverToXyMatrix());
-          if (action === 'legend') alert(['Legend:', 'blue border = projective', 'red border = injective', 'purple border = projective-injective', 'gold edge = τ', 'pink edge = syzygy', 'green edge = cosyzygy', 'orange fill = torsion class', 'green fill = torsion-free class', 'gray fill = tilting L'].join('\\n'));
+          if (action === 'legend') showColorLegend();
         }
 
         function translateTexToken(token) {
@@ -2202,7 +2352,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           createFolderPanel();
           menuBar = document.createElement('div');
           menuBar.id = 'arTopMenu';
-          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="fit">Fit</button><button data-action="clear-colors">Clear colors</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
+          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="fit">Fit graph</button><button data-action="undo">Ctrl+Z</button><button data-action="redo">Ctrl+Y</button><button data-action="clear-colors">Clear colors</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
           document.body.appendChild(menuBar);
           menuBar.querySelectorAll('button[data-label-mode]').forEach(button => {
             nodeLabelButtons.set(button.getAttribute('data-label-mode'), button);
@@ -2221,6 +2371,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               folderPanel.style.display = folderPanel.style.display === 'block' ? 'none' : 'block';
             }
             if (action === 'fit') network.fit({ animation: true });
+            if (action === 'undo' && typeof undo === 'function') undo();
+            if (action === 'redo' && typeof redo === 'function') redo();
             if (action === 'clear-colors') clearListColoring();
           });
         }
@@ -2382,9 +2534,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         const L = new Set((tiltingItem.L || []).map(Number).filter(Number.isFinite));
         const T = (tiltingItem.T || []).map(Number).filter(id => Number.isFinite(id) && !L.has(id));
         const F = (tiltingItem.F || []).map(Number).filter(id => Number.isFinite(id) && !L.has(id));
-        applyFullFill([...L], '#b5b5b5', nextSet);
-        applyFullFill(T, '#ffe1c7', nextSet);
-        applyFullFill(F, '#d9f2d9', nextSet);
+        applyFullFill([...L], arColors.tiltingL, nextSet);
+        applyFullFill(T, arColors.torsionT, nextSet);
+        applyFullFill(F, arColors.torsionF, nextSet);
         tiltingHighlighted = nextSet;
         pairHighlighted = nextSet;
         network.unselectAll();
@@ -2395,8 +2547,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         resetTiltingStyles();
         resetPairStyles();
         const nextSet = new Set();
-        applyFullFill(item.T || [], '#ffe1c7', nextSet);
-        applyFullFill(item.F || [], '#d9f2d9', nextSet);
+        applyFullFill(item.T || [], arColors.torsionT, nextSet);
+        applyFullFill(item.F || [], arColors.torsionF, nextSet);
         pairHighlighted = nextSet;
         network.unselectAll();
         network.redraw();
@@ -2406,8 +2558,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         resetTiltingStyles();
         resetPairStyles();
         const nextSet = new Set();
-        addSplitFill(item.L || [], 'top', '#93c5fd', nextSet);
-        addSplitFill(item.R || [], 'bottom', '#fca5a5', nextSet);
+        addSplitFill(item.L || [], 'top', arColors.cotorsionL, nextSet);
+        addSplitFill(item.R || [], 'bottom', arColors.cotorsionR, nextSet);
         pairHighlighted = nextSet;
         network.unselectAll();
         network.redraw();
@@ -2417,11 +2569,37 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         resetTiltingStyles();
         resetPairStyles();
         const nextSet = new Set();
-        applyFullFill(item.P || [], '#dbeafe', nextSet);
-        applyFullFill(item.M || [], '#d1d5db', nextSet);
+        applyFullFill(item.P || [], arColors.supportP, nextSet);
+        applyFullFill(item.M || [], arColors.supportM, nextSet);
         pairHighlighted = nextSet;
         network.unselectAll();
         network.redraw();
+      }
+
+      const arColors = {
+        torsionT: '#ffe1c7',
+        torsionF: '#d9f2d9',
+        tiltingL: '#b5b5b5',
+        cotorsionL: '#93c5fd',
+        cotorsionR: '#fca5a5',
+        supportP: '#dbeafe',
+        supportM: '#b5b5b5',
+        calcA: '#bfdbfe',
+        calcB: '#fde68a',
+        calcResult: '#bbf7d0'
+      };
+
+      function colorSwatch(color, label) {
+        const title = label ? ` title="${label}"` : '';
+        return `<span${title} style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin:0 0.2em;border:1px solid #64748b;border-radius:2px;background:${color};"></span>`;
+      }
+
+      function colorKey(label, color) {
+        return `${label} ${colorSwatch(color, label)}`;
+      }
+
+      function titleWithColorKeys(title, entries) {
+        return `${title} <span style="font-weight:400;color:#475569;font-size:11px;">(${entries.map(entry => colorKey(entry[0], entry[1])).join(', ')})</span>`;
       }
 
       function displayClassList(arr) {
@@ -2575,7 +2753,103 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function renderSupportTauList(containerId, data, title) {
-        renderButtonRecordList(containerId, data, title, [{ key: 'P', label: 'P' }, { key: 'M', label: 'M' }], applySupportTauHighlight);
+        renderButtonRecordList(
+          containerId,
+          data,
+          title,
+          [{ key: 'P', label: 'P' }, { key: 'M', label: 'M' }],
+          applySupportTauHighlight
+        );
+      }
+
+      function renderTorsionClassListLikeCotorsion(containerId) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        try {
+          const safeList = (arr) => (!arr || arr.length === 0) ? '0' : arr.join(',');
+          const safeHasTilting = (item) => {
+            try { return !!findTiltingForTorsionPair(item); } catch (err) { return false; }
+          };
+          const safeIsSplit = (item) => {
+            try { return isSplitPair(item); } catch (err) { return false; }
+          };
+          let rows = (torsionPairData || []).slice();
+          rows = rows.filter(item => {
+            const hasTilting = safeHasTilting(item);
+            const split = safeIsSplit(item);
+            const tiltingOk = pairListFilters.torsionTilting === 'all' || (pairListFilters.torsionTilting === 'tilting' ? hasTilting : !hasTilting);
+            const splitOk = pairListFilters.torsionSplit === 'all' || (pairListFilters.torsionSplit === 'split' ? split : !split);
+            return tiltingOk && splitOk;
+          });
+
+          el.innerHTML = '';
+          const title = document.createElement('div');
+          title.innerHTML = '<b>Torsion pairs</b>';
+          el.appendChild(title);
+
+          const filterRow = document.createElement('div');
+          filterRow.style.display = 'flex';
+          filterRow.style.flexWrap = 'wrap';
+          filterRow.style.gap = '4px';
+          filterRow.style.margin = '6px 0';
+          [
+            { key: 'torsionTilting', vals: ['all','tilting','non-tilting'] },
+            { key: 'torsionSplit', vals: ['all','split','non-split'] }
+          ].forEach(group => {
+            group.vals.forEach(val => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.textContent = val;
+              btn.style.fontSize = '11px';
+              btn.style.padding = '2px 6px';
+              btn.style.border = '1px solid ' + (pairListFilters[group.key] === val ? '#0f766e' : '#ccc');
+              btn.style.borderRadius = '4px';
+              btn.style.background = pairListFilters[group.key] === val ? '#ccfbf1' : '#fff';
+              btn.addEventListener('click', () => {
+                pairListFilters[group.key] = val;
+                renderTorsionClassListLikeCotorsion(containerId);
+              });
+              filterRow.appendChild(btn);
+            });
+          });
+          el.appendChild(filterRow);
+
+          if (!rows.length) {
+            const empty = document.createElement('div');
+            empty.style.color = '#666';
+            empty.textContent = 'No torsion pairs after filters.';
+            el.appendChild(empty);
+            if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
+            return;
+          }
+
+          rows.sort((a, b) => {
+            const la = (a.T || []).length;
+            const lb = (b.T || []).length;
+            if (la !== lb) return la - lb;
+            return safeList(a.T).localeCompare(safeList(b.T), undefined, { numeric: true });
+          });
+
+          const listBox = document.createElement('div');
+          listBox.setAttribute('role', 'listbox');
+          rows.forEach((item, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.dataset.row = String(idx);
+            btn.className = 'ar-record-row';
+            btn.textContent = `${idx + 1}. T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${safeHasTilting(item) ? 'tilting' : 'non-tilting'}`;
+            btn.addEventListener('click', () => {
+              el.querySelectorAll('button[data-row]').forEach(b => b.classList.remove('tilting-btn-active'));
+              btn.classList.add('tilting-btn-active');
+              applyTorsionPairHighlight(item);
+            });
+            listBox.appendChild(btn);
+          });
+          el.appendChild(listBox);
+          if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
+        } catch (err) {
+          el.innerHTML = '<b>Torsion pairs</b><pre style="white-space:pre-wrap;color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;padding:8px;">Torsion render error: ' + (err && err.message ? err.message : String(err)) + '</pre>';
+        }
       }
 
       function renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer, options = {}) {
@@ -2585,25 +2859,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         const rerender = () => renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer, options);
         const applyFn = (item) => {
           if (isTorsion) {
-            const tilting = findTiltingForTorsionPair(item);
-            if (tilting) {
-              applyTiltingTorsionPairHighlight(tilting.item);
-              setActiveTilting(tilting.index);
-              const tl = document.getElementById('tiltingList');
-              const tt = document.getElementById('tiltingToggle');
-              if (tl) tl.style.display = 'block';
-              if (tt) tt.checked = true;
-            } else {
-              applyTorsionPairHighlight(item);
-            }
+            applyTorsionPairHighlight(item);
           } else {
             applyCotorsionPairHighlight(item);
           }
         };
         const formatExtra = (item) => {
           if (isTorsion) {
-            const tilting = findTiltingForTorsionPair(item);
-            return tilting ? ` | Tilting=yes L=[${displayClassList(tilting.item.L || [])}]` : ' | Tilting=no';
+            return findTiltingForTorsionPair(item) ? ' | tilting' : ' | non-tilting';
           }
           if (extraRenderer) return ` | ${item.hereditary ? 'hereditary' : 'non-hereditary'}`;
           return '';
@@ -2611,6 +2874,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         renderButtonRecordList(containerId, filteredData, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra);
         if (isTorsion) installPairFilterButtons(containerId, 'torsion', rerender);
         if (isCotorsion) installPairFilterButtons(containerId, 'cotorsion', rerender);
+        if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
       }
 
       function renderTiltingList() {
@@ -2803,12 +3067,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       function updatePdLabels() {
         updateScalarLabels(showPd, pdLabelLayer, pdLabelMap, id => {
           const e = pdidEntry(id); return e ? `pd=${formatHomologicalDimension(e.pd)}` : null;
-        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 42) : 46), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)', 'pd');
+        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 42) : 46), '#1f4a7a', '#9eb6d3', 'rgba(219,234,254,0.96)', 'pd');
       }
       function updateIdValueLabels() {
         updateScalarLabels(showId, idValueLabelLayer, idValueLabelMap, id => {
           const e = pdidEntry(id); return e ? `id=${formatHomologicalDimension(e.id)}` : null;
-        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 24) : 28), '#1f4a7a', '#9eb6d3', 'rgba(255,255,255,0.95)', 'id');
+        }, node => -((node.shape && node.shape.height) ? (node.shape.height / 2 + 24) : 28), '#1f4a7a', '#9eb6d3', 'rgba(224,242,254,0.96)', 'id');
       }
       function updateTopLabels() {
         updateScalarLabels(showTop, topLabelLayer, topLabelMap, id => {
@@ -2943,20 +3207,20 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         const hasB = (inputB || []).length > 0;
         const hasOutput = (outputIds || []).length > 0;
         if (hasA && hasB) {
-          addCalculatorSplitFill(inputA, 'top', '#bfdbfe');
-          addCalculatorSplitFill(inputB, 'bottom', '#fde68a');
+          addCalculatorSplitFill(inputA, 'top', arColors.calcA);
+          addCalculatorSplitFill(inputB, 'bottom', arColors.calcB);
         } else if (hasA && hasOutput) {
-          addCalculatorSplitFill(inputA, 'top', '#bfdbfe');
-          addCalculatorSplitFill(outputIds, 'bottom', '#bbf7d0');
+          addCalculatorSplitFill(inputA, 'top', arColors.calcA);
+          addCalculatorSplitFill(outputIds, 'bottom', arColors.calcResult);
         } else if (hasB && hasOutput) {
-          addCalculatorSplitFill(inputB, 'top', '#fde68a');
-          addCalculatorSplitFill(outputIds, 'bottom', '#bbf7d0');
+          addCalculatorSplitFill(inputB, 'top', arColors.calcB);
+          addCalculatorSplitFill(outputIds, 'bottom', arColors.calcResult);
         } else if (hasA) {
-          addCalculatorSplitFill(inputA, 'top', '#bfdbfe');
+          addCalculatorSplitFill(inputA, 'top', arColors.calcA);
         } else if (hasB) {
-          addCalculatorSplitFill(inputB, 'top', '#fde68a');
+          addCalculatorSplitFill(inputB, 'top', arColors.calcB);
         } else if (hasOutput) {
-          addCalculatorSplitFill(outputIds, 'bottom', '#bbf7d0');
+          addCalculatorSplitFill(outputIds, 'bottom', arColors.calcResult);
         }
         network.redraw();
       }
@@ -3002,9 +3266,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           network.body.data.nodes.update({ id: node.id, color: colorObj });
         };
 
-        L.forEach(id => applyFill(id, '#b5b5b5'));
-        F.forEach(id => applyFill(id, '#d9f2d9'));
-        T.forEach(id => applyFill(id, '#ffe1c7'));
+        L.forEach(id => applyFill(id, arColors.tiltingL));
+        F.forEach(id => applyFill(id, arColors.torsionF));
+        T.forEach(id => applyFill(id, arColors.torsionT));
         tiltingHighlighted = newHighlighted;
       }
 
@@ -3040,6 +3304,115 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         return 'v' + vertexId;
       }
 
+      function quiverTikzCode() {
+        const nl = String.fromCharCode(10);
+        const nodes = (quiverNodes || []).map(n => Number(n.id)).filter(Number.isFinite).sort((a, b) => a - b);
+        const nodeSet = new Set(nodes);
+        (quiverEdges || []).forEach(e => {
+          const a = Number(e[0]);
+          const b = Number(e[1]);
+          if (Number.isFinite(a)) nodeSet.add(a);
+          if (Number.isFinite(b)) nodeSet.add(b);
+        });
+        const allNodes = Array.from(nodeSet).sort((a, b) => a - b);
+        const pos = {};
+        if (quiverStructure) {
+          let s = quiverStructure.trim();
+          if (s.startsWith('[') && s.endsWith(']')) s = s.slice(1, -1);
+          s.split(';').forEach((row, r) => {
+            let c = 0;
+            for (let i = 0; i < row.length; i += 1) {
+              if (/\d/.test(row[i])) pos[Number(row[i])] = [r, c];
+              c += 1;
+            }
+          });
+        }
+        allNodes.forEach((id, i) => { if (!pos[id]) pos[id] = [0, i * 2]; });
+        const rows = [];
+        const maxR = Math.max.apply(null, Object.values(pos).map(p => p[0]).concat([0]));
+        const maxC = Math.max.apply(null, Object.values(pos).map(p => p[1]).concat([0]));
+        for (let r = 0; r <= maxR; r += 1) {
+          const cells = [];
+          for (let c = 0; c <= maxC; c += 1) {
+            const found = allNodes.find(id => pos[id][0] === r && pos[id][1] === c);
+            cells.push(found ? String(found) : '{}');
+          }
+          rows.push(cells.join(' & '));
+        }
+        const cellById = new Map(allNodes.map(id => [id, pos[id]]));
+        const arrows = (quiverEdges || []).map(e => {
+          const from = Number(e[0]);
+          const to = Number(e[1]);
+          if (!cellById.has(from) || !cellById.has(to)) return '';
+          const a = cellById.get(from);
+          const b = cellById.get(to);
+          const dr = b[0] - a[0];
+          const dc = b[1] - a[1];
+          let dir = '';
+          if (dr > 0) dir += 'd'.repeat(dr);
+          if (dr < 0) dir += 'u'.repeat(-dr);
+          if (dc > 0) dir += 'r'.repeat(dc);
+          if (dc < 0) dir += 'l'.repeat(-dc);
+          if (!dir) dir = 'loop right';
+          const label = e[2] ? ', "' + String(e[2]).replace(/"/g, '\\"') + '"' : '';
+          return '\\arrow[' + dir + label + ']';
+        }).filter(Boolean);
+        return '\\begin{tikzcd}' + nl + rows.join(' \\\\' + nl) + nl + arrows.join(nl) + nl + '\\end{tikzcd}';
+      }
+
+      function showQuiverTikz() {
+        let modal = document.getElementById('arQuiverTikzModal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'arQuiverTikzModal';
+          modal.style.position = 'fixed';
+          modal.style.left = '50%';
+          modal.style.top = '50%';
+          modal.style.transform = 'translate(-50%, -50%)';
+          modal.style.width = '620px';
+          modal.style.maxWidth = '92vw';
+          modal.style.height = '420px';
+          modal.style.maxHeight = '86vh';
+          modal.style.background = 'white';
+          modal.style.border = '1px solid #94a3b8';
+          modal.style.borderRadius = '10px';
+          modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
+          modal.style.zIndex = '30000';
+          modal.style.display = 'none';
+          modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong id="arTikzTitle">Original quiver source</strong><button id="arTikzClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div style="padding:8px 10px;color:#475569;font-size:12px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;">Copy this text into <a href="https://q.uiver.app" target="_blank" rel="noopener noreferrer">q.uiver.app</a>, or open the q.uiver URL in the first line.</div><textarea id="arTikzOutput" style="box-sizing:border-box;width:100%;height:300px;border:0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTikzCopy">Copy</button></div>';
+          document.body.appendChild(modal);
+          const head = modal.firstElementChild;
+          if (head) head.style.cursor = 'move';
+          makeFloatingWindow(modal, head, {
+            minWidth: 320,
+            minHeight: 220,
+            onResize: (panel, width, height) => {
+              const ta = panel.querySelector('#arTikzOutput');
+              if (ta) ta.style.height = Math.max(120, height - 112) + 'px';
+            }
+          });
+          modal.querySelector('#arTikzClose').addEventListener('click', () => { modal.style.display = 'none'; });
+          modal.querySelector('#arTikzCopy').addEventListener('click', async () => {
+            const ta = modal.querySelector('#arTikzOutput');
+            ta.focus();
+            ta.select();
+            try { await navigator.clipboard.writeText(ta.value); } catch (e) { document.execCommand('copy'); }
+          });
+        }
+        const title = modal.querySelector('#arTikzTitle');
+        if (title) title.textContent = 'Original quiver source: ' + (originalQuiverFilename || 'quiver.txt');
+        modal.querySelector('#arTikzOutput').value = originalQuiverText || quiverTikzCode();
+        modal.style.display = 'block';
+      }
+
+      function originalQuiverUrl() {
+        const firstLine = String(originalQuiverText || '').split(String.fromCharCode(10))[0].replace(String.fromCharCode(13), '') || '';
+        const marker = 'https://q.uiver.app/';
+        const start = firstLine.indexOf(marker);
+        if (start < 0) return '';
+        return firstLine.slice(start).trim();
+      }
+
       function ensureMiniQuiver() {
         if (miniContainer) return;
         miniContainer = document.createElement('div');
@@ -3055,7 +3428,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         miniContainer.style.zIndex = '998';
         miniContainer.style.boxSizing = 'border-box';
         miniContainer.innerHTML = `
-          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none;">Quiver Q</div>
+          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><button id="quiverTikzBtn" type="button" style="font-size:11px; padding:2px 6px; cursor:pointer;">see ${originalQuiverFilename || 'quiver.txt'}</button></div>
           <div id="quiverMini" style="width:100%; height:220px; border:1px solid #ddd; background:white; box-sizing:border-box;"></div>
           <div id="quiverRel" style="margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;"></div>
         `;
@@ -3071,7 +3444,23 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           }
         });
         const relBox = miniContainer.querySelector('#quiverRel');
+        const tikzBtn = miniContainer.querySelector('#quiverTikzBtn');
+        if (tikzBtn) tikzBtn.addEventListener('click', (event) => { event.stopPropagation(); showQuiverTikz(); });
         relBox.textContent = quiverRel ? `rel := ${quiverRel}` : 'rel := []';
+        const qUrl = originalQuiverUrl();
+        if (qUrl) {
+          const mini = miniContainer.querySelector('#quiverMini');
+          mini.innerHTML = '';
+          const iframe = document.createElement('iframe');
+          iframe.src = qUrl;
+          iframe.title = 'Original quiver from ' + (originalQuiverFilename || 'quiver.txt');
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          iframe.style.border = '0';
+          iframe.style.background = 'white';
+          mini.appendChild(iframe);
+          return;
+        }
         if (!quiverNodes || quiverNodes.length === 0) {
           miniContainer.querySelector('#quiverMini').textContent = 'No Q data.';
           return;
@@ -3528,6 +3917,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     js_injection = js_injection.replace("{{PDID_MAP}}", pdid_js)
     js_injection = js_injection.replace("{{TOP_SOC_MAP}}", top_soc_js)
     js_injection = js_injection.replace("{{Q_STRUCTURE}}", q_structure_js)
+    js_injection = js_injection.replace("{{ORIGINAL_QUIVER_TEXT}}", original_quiver_text_js)
+    js_injection = js_injection.replace("{{ORIGINAL_QUIVER_FILENAME}}", original_quiver_filename_js)
 
     # ------------------- JAVASCRIPT MODIFICATION END -------------------
     final_html = html_content.replace('</body>', js_injection + '</body>')

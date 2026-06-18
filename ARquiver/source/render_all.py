@@ -13,7 +13,12 @@ def log_files():
 
 
 def needs_render(log_path: Path) -> bool:
-    return not (ROOT / f"{log_path.stem}.html").exists()
+    html_path = ROOT / f"{log_path.stem}.html"
+    if not html_path.exists():
+        return True
+    renderer_path = Path(__file__).resolve()
+    html_mtime = html_path.stat().st_mtime
+    return log_path.stat().st_mtime > html_mtime or renderer_path.stat().st_mtime > html_mtime or (renderer_path.parent / "visualize_core.py").stat().st_mtime > html_mtime
 
 
 def render_one(log_path: Path) -> None:
