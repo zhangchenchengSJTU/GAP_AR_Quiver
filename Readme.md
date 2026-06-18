@@ -510,13 +510,13 @@ Inside the calculator, this generates copyable GAP/QPA code reconstructing the q
 
 #### `Export AR-quiver to TeX`
 
-Exports the current arranged AR-quiver layout as TeX code. The export uses the current vertex positions.
+Exports the current arranged AR-quiver layout as `xymatrix{}` in $\LaTeX$ code. The export uses the current vertex positions.
 
 #### `Color legend`
 
-Opens a draggable legend explaining all visual conventions: vertex borders, module-class highlights, AR arrows, $\tau$-arrows, syzygy, cosyzygy, radical, coradical, Hom/Ext arrows, torsion/cotorsion colors, tilting colors, support $\tau$-tilting colors, calculator colors, and floating labels.
+Opens a draggable legend explaining all visual conventions: vertex borders, module-class highlights, AR arrows, $\tau$-arrows, syzygy, cosyzygy, radical, coradical, Hom/Ext arrows, torsion/cotorsion colours, tilting colours, support $\tau$-tilting colours, calculator colours, and floating labels.
 
 ## Acknowledgement
 
-The author gratefully acknowledges the developers and maintainers of [GAP](https://www.gap-system.org/), [Binder](https://mybinder.org/), and [q.uiver](https://q.uiver.app/) for providing essential tools and infrastructure used by this project. The implementation was inspired in part by A. Konovalov's [try-gap-in-jupyter](https://github.com/gap-system/try-gap-in-jupyter) repository. The author also acknowledges the assistance of the AI model `chatgpt-5.5-thinking` during the development and refinement of the codebase.
+The author gratefully acknowledges the developers and maintainers of [GAP](https://www.gap-system.org/), [Binder](https://mybinder.org/), and [quiver](https://q.uiver.app/) for providing essential tools and infrastructure used by this project. The implementation was inspired in part by A. Konovalov's [try-gap-in-jupyter](https://github.com/gap-system/try-gap-in-jupyter) repository. The author also acknowledges the assistance of the AI model `chatgpt-5.5-thinking` during the development and refinement of the codebase.
 

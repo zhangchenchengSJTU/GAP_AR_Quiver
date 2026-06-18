@@ -2808,7 +2808,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function isSplitTorsionPair(item) {
-        const all = new Set(calcAllIds());
+        const all = new Set(allModuleIds());
         const union = new Set([...(item.T || []), ...(item.F || [])].map(Number).filter(Number.isFinite));
         if (union.size !== all.size) return false;
         for (const id of all) if (!union.has(id)) return false;
@@ -3106,7 +3106,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         try {
           return ' | ' + tiltingTags(item).join(' | ');
         } catch (err) {
-          return ' | tag-error';
+          const msg = err && err.message ? err.message : String(err);
+          return ' | tag-error: ' + msg;
         }
       }
 
