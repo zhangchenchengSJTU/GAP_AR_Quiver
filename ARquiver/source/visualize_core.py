@@ -2144,6 +2144,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <button data-action="calculator">Calculator</button>
               <button data-action="manual">Manual</button>
               <button data-action="export-tex">Export AR quiver to TeX</button>
+              <button data-action="display-code">Display code</button>
               <button data-action="legend">Color legend</button>
             </div></details>
           `;
@@ -2363,6 +2364,157 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.display = 'block';
         }
 
+        function displayEdgeKey(edge, counters) {
+          const rawId = edge && edge.id;
+          if (rawId !== undefined && rawId !== null && rawId !== '') return 'id:' + String(rawId);
+          const base = 'edge:' + String(edge.from) + '->' + String(edge.to) + ':' + String(edge.label || '');
+          const n = counters.get(base) || 0;
+          counters.set(base, n + 1);
+          return base + '#' + n;
+        }
+
+        function cloneSmoothForCode(smooth) {
+          if (!smooth || typeof smooth !== 'object' || !smooth.enabled) return false;
+          return {
+            enabled: true,
+            type: smooth.type || 'curvedCW',
+            roundness: Number(smooth.roundness || 0)
+          };
+        }
+
+        function currentDisplayCode() {
+          const ids = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+          const positions = network.getPositions(ids);
+          const nodes = {};
+          ids.forEach(id => {
+            const p = positions[id];
+            if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) nodes[String(id)] = [Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100];
+          });
+          const curves = {};
+          const counters = new Map();
+          network.body.data.edges.get().forEach(edge => {
+            curves[displayEdgeKey(edge, counters)] = cloneSmoothForCode(edge.smooth);
+          });
+          edgeCurveMemory.forEach((smooth, id) => {
+            const key = 'id:' + String(id);
+            if (!Object.prototype.hasOwnProperty.call(curves, key)) curves[key] = cloneSmoothForCode(smooth);
+          });
+          return {
+            type: 'ARQuiverDisplayCode',
+            version: 1,
+            nodes,
+            curves
+          };
+        }
+
+        function exportDisplayCodeText() {
+          return JSON.stringify(currentDisplayCode(), null, 2);
+        }
+
+        function applyDisplayCodeText(text) {
+          let code;
+          try {
+            code = JSON.parse(String(text || ''));
+          } catch (err) {
+            alert('Invalid display code JSON: ' + (err && err.message ? err.message : String(err)));
+            return false;
+          }
+          if (!code || code.type !== 'ARQuiverDisplayCode') {
+            alert('This is not an ARQuiverDisplayCode object.');
+            return false;
+          }
+          const nodes = code.nodes || {};
+          Object.keys(nodes).forEach(idStr => {
+            const id = Number(idStr);
+            const pos = nodes[idStr];
+            if (!Number.isFinite(id) || !Array.isArray(pos) || pos.length < 2) return;
+            const x = Number(pos[0]);
+            const y = Number(pos[1]);
+            if (Number.isFinite(x) && Number.isFinite(y) && network.body.data.nodes.get(id) !== null) network.moveNode(id, x, y);
+          });
+          const curves = code.curves || {};
+          const counters = new Map();
+          const updates = [];
+          network.body.data.edges.get().forEach(edge => {
+            const key = displayEdgeKey(edge, counters);
+            const idKey = edge.id !== undefined && edge.id !== null && edge.id !== '' ? 'id:' + String(edge.id) : null;
+            const smooth = Object.prototype.hasOwnProperty.call(curves, key) ? curves[key] : (idKey && Object.prototype.hasOwnProperty.call(curves, idKey) ? curves[idKey] : undefined);
+            if (smooth === undefined) return;
+            const nextSmooth = cloneSmoothForCode(smooth);
+            if (edge.id !== undefined && edge.id !== null) {
+              edgeCurveMemory.set(String(edge.id), nextSmooth);
+              updates.push({ id: edge.id, smooth: nextSmooth });
+            }
+          });
+          Object.keys(curves).forEach(key => {
+            if (key.indexOf('id:') === 0) edgeCurveMemory.set(key.slice(3), cloneSmoothForCode(curves[key]));
+          });
+          if (updates.length) network.body.data.edges.update(updates);
+          network.redraw();
+          updateAllFloatingLabels();
+          snapshot();
+          return true;
+        }
+
+        function showDisplayCodeModal() {
+          let modal = document.getElementById('arDisplayCodeModal');
+          if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'arDisplayCodeModal';
+            modal.style.position = 'fixed';
+            modal.style.left = '50%';
+            modal.style.top = '50%';
+            modal.style.transform = 'translate(-50%, -50%)';
+            modal.style.width = '760px';
+            modal.style.maxWidth = '92vw';
+            modal.style.height = '520px';
+            modal.style.maxHeight = '86vh';
+            modal.style.background = 'white';
+            modal.style.border = '1px solid #94a3b8';
+            modal.style.borderRadius = '10px';
+            modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
+            modal.style.zIndex = '30000';
+            modal.style.display = 'none';
+            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: node positions and arrow curves</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .json</button></div>';
+            document.body.appendChild(modal);
+            const head = modal.firstElementChild;
+            if (head) head.style.cursor = 'move';
+            makeFloatingWindow(modal, head, {
+              minWidth: 320,
+              minHeight: 220,
+              onResize: (panel, width, height) => {
+                const ta = panel.querySelector('#arDisplayCodeText');
+                if (ta) ta.style.height = Math.max(90, height - 106) + 'px';
+              }
+            });
+            modal.querySelector('#arDisplayCodeClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelector('#arDisplayCodeRefresh').addEventListener('click', () => { modal.querySelector('#arDisplayCodeText').value = exportDisplayCodeText(); });
+            modal.querySelector('#arDisplayCodeApply').addEventListener('click', () => {
+              if (applyDisplayCodeText(modal.querySelector('#arDisplayCodeText').value)) alert('Display code applied.');
+            });
+            modal.querySelector('#arDisplayCodeCopy').addEventListener('click', () => {
+              const ta = modal.querySelector('#arDisplayCodeText');
+              ta.focus();
+              ta.select();
+              document.execCommand('copy');
+            });
+            modal.querySelector('#arDisplayCodeDownload').addEventListener('click', () => {
+              const ta = modal.querySelector('#arDisplayCodeText');
+              const blob = new Blob([ta.value], { type: 'application/json;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'ar-quiver-display-code.json';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            });
+          }
+          modal.querySelector('#arDisplayCodeText').value = exportDisplayCodeText();
+          modal.style.display = 'block';
+        }
+
         function showColorLegend() {
           let modal = document.getElementById('arColorLegendModal');
           if (!modal) {
@@ -2509,6 +2661,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             window.open(manualUrl, '_blank', 'noopener,noreferrer');
           }
           if (action === 'export-tex') showTexExport(exportCurrentARQuiverToXyMatrix());
+          if (action === 'display-code') showDisplayCodeModal();
           if (action === 'legend') showColorLegend();
         }
 
