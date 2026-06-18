@@ -2807,8 +2807,31 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         pairListFilters[key] = value;
       }
 
+      function listAllModuleIds() {
+        const ids = new Set();
+        const add = (value) => {
+          const n = Number(value);
+          if (Number.isFinite(n)) ids.add(n);
+        };
+        if (typeof pdidMap !== 'undefined' && pdidMap && typeof pdidMap === 'object') Object.keys(pdidMap).forEach(add);
+        if (typeof tiltingData !== 'undefined') {
+          (tiltingData || []).forEach(item => {
+            (item.L || []).forEach(add);
+            (item.F || []).forEach(add);
+            (item.T || []).forEach(add);
+          });
+        }
+        if (typeof torsionPairData !== 'undefined') {
+          (torsionPairData || []).forEach(item => {
+            (item.T || []).forEach(add);
+            (item.F || []).forEach(add);
+          });
+        }
+        return Array.from(ids).sort((a, b) => a - b);
+      }
+
       function isSplitTorsionPair(item) {
-        const all = new Set(allModuleIds());
+        const all = new Set(listAllModuleIds());
         const union = new Set([...(item.T || []), ...(item.F || [])].map(Number).filter(Number.isFinite));
         if (union.size !== all.size) return false;
         for (const id of all) if (!union.has(id)) return false;
