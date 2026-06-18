@@ -2354,124 +2354,119 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.display = 'block';
         }
 
-        function cloneSmoothForCode(smooth) {
-          if (!smooth || typeof smooth !== 'object' || !smooth.enabled) return false;
+        const displayCodeAlphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_';
+        const displayCodeZero = 32;
+        const displayCurveStep = 0.1;
+
+        function encodeDisplaySigned(value) {
+          const n = Math.round(Number(value));
+          const idx = n + displayCodeZero;
+          if (!Number.isInteger(n) || idx < 0 || idx >= displayCodeAlphabet.length) throw new Error('Display offset out of range: ' + value);
+          return displayCodeAlphabet.charAt(idx);
+        }
+
+        function decodeDisplaySigned(ch) {
+          const idx = displayCodeAlphabet.indexOf(ch);
+          if (idx < 0) throw new Error('Invalid display code character: ' + ch);
+          return idx - displayCodeZero;
+        }
+
+        function encodeDisplayUnsigned2(value) {
+          const n = Math.round(Number(value));
+          if (!Number.isInteger(n) || n < 0 || n >= 4096) throw new Error('Display index out of range: ' + value);
+          return displayCodeAlphabet.charAt(Math.floor(n / 64)) + displayCodeAlphabet.charAt(n % 64);
+        }
+
+        function decodeDisplayUnsigned2(text, offset) {
+          const hi = displayCodeAlphabet.indexOf(text.charAt(offset));
+          const lo = displayCodeAlphabet.indexOf(text.charAt(offset + 1));
+          if (hi < 0 || lo < 0) throw new Error('Invalid display index at character ' + offset);
+          return hi * 64 + lo;
+        }
+
+        function curveStepFromSmooth(smooth) {
+          if (!smooth || typeof smooth !== 'object' || !smooth.enabled) return 0;
+          const round = Number(smooth.roundness || 0);
+          if (!Number.isFinite(round) || round <= 0.005) return 0;
+          const signed = (smooth.type || 'curvedCW') === 'curvedCCW' ? -round : round;
+          return Math.round(signed / displayCurveStep);
+        }
+
+        function smoothFromCurveStep(step) {
+          if (!step) return false;
           return {
             enabled: true,
-            type: smooth.type || 'curvedCW',
-            roundness: Number(smooth.roundness || 0)
+            type: step < 0 ? 'curvedCCW' : 'curvedCW',
+            roundness: Math.abs(step) * displayCurveStep
           };
         }
 
-        function smoothToCompact(smooth) {
-          const cloned = cloneSmoothForCode(smooth);
-          if (!cloned) return 0;
-          const typeCode = cloned.type === 'curvedCCW' ? 2 : (cloned.type === 'curvedCW' ? 1 : cloned.type);
-          return [typeCode, Math.round(Number(cloned.roundness || 0) * 1000)];
-        }
-
-        function compactToSmooth(value) {
-          if (!value) return false;
-          if (Array.isArray(value)) {
-            const rawType = value[0];
-            const type = rawType === 2 ? 'curvedCCW' : (rawType === 1 ? 'curvedCW' : String(rawType || 'curvedCW'));
-            return { enabled: true, type, roundness: Number(value[1] || 0) / 1000 };
-          }
-          return cloneSmoothForCode(value);
-        }
-
-        function base64UrlEncode(text) {
-          const bytes = new TextEncoder().encode(text);
-          let binary = '';
-          bytes.forEach(b => { binary += String.fromCharCode(b); });
-          return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
-        }
-
-        function base64UrlDecode(text) {
-          const normalized = String(text || '').replace(/-/g, '+').replace(/_/g, '/');
-          const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
-          const binary = atob(padded);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-          return new TextDecoder().decode(bytes);
-        }
-
-        function currentDisplayPayload() {
-          const ids = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
-          const positions = network.getPositions(ids);
-          const nodes = [];
-          ids.forEach(id => {
-            const p = positions[id];
-            if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) nodes.push([id, Math.round(p.x), Math.round(p.y)]);
-          });
-          const curves = [];
-          network.body.data.edges.get().forEach((edge, index) => {
-            const compact = smoothToCompact(edge.smooth);
-            if (compact) curves.push([index, compact]);
-          });
-          edgeCurveMemory.forEach((smooth, id) => {
-            const compact = smoothToCompact(smooth);
-            if (compact) curves.push(['m', String(id), compact]);
-          });
-          return [1, nodes, curves];
-        }
-
         function exportDisplayCodeText() {
-          return 'ARQ1.' + base64UrlEncode(JSON.stringify(currentDisplayPayload()));
-        }
-
-        function parseDisplayCodeText(text) {
-          const raw = String(text || '').trim();
-          if (!raw.startsWith('ARQ1.')) throw new Error('Display code must start with ARQ1.');
-          const payload = JSON.parse(base64UrlDecode(raw.slice(5)));
-          if (!Array.isArray(payload) || payload[0] !== 1) throw new Error('Unsupported display code version.');
-          return payload;
+          const ids = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+          if (!ids.length) return 'ARQ2..';
+          const positions = network.getPositions(ids);
+          const anchor = positions[ids[0]];
+          if (!anchor) throw new Error('Cannot read anchor node position.');
+          let nodePart = '';
+          ids.slice(1).forEach(id => {
+            const p = positions[id];
+            if (!p) throw new Error('Cannot read node position: ' + id);
+            nodePart += encodeDisplaySigned((p.x - anchor.x) / gridSize) + encodeDisplaySigned((p.y - anchor.y) / gridSize);
+          });
+          let curvePart = '';
+          network.body.data.edges.get().forEach((edge, index) => {
+            const step = curveStepFromSmooth(edge.smooth);
+            if (step) curvePart += encodeDisplayUnsigned2(index) + encodeDisplaySigned(step);
+          });
+          return 'ARQ2.' + nodePart + '.' + curvePart;
         }
 
         function applyDisplayCodeText(text) {
-          let payload;
+          const raw = String(text || '').trim();
           try {
-            payload = parseDisplayCodeText(text);
+            if (!raw.startsWith('ARQ2.')) throw new Error('Display code must start with ARQ2.');
+            const parts = raw.slice(5).split('.');
+            if (parts.length !== 2) throw new Error('Display code must have node and curve sections.');
+            const nodePart = parts[0];
+            const curvePart = parts[1];
+            const ids = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+            const expectedNodeLength = Math.max(0, ids.length - 1) * 2;
+            if (nodePart.length !== expectedNodeLength) throw new Error('Node section length mismatch.');
+            if (curvePart.length % 3 !== 0) throw new Error('Curve section length mismatch.');
+            const positions = network.getPositions(ids);
+            const anchor = ids.length ? positions[ids[0]] : null;
+            if (anchor) {
+              for (let i = 1; i < ids.length; i += 1) {
+                const off = (i - 1) * 2;
+                const dx = decodeDisplaySigned(nodePart.charAt(off));
+                const dy = decodeDisplaySigned(nodePart.charAt(off + 1));
+                network.moveNode(ids[i], anchor.x + dx * gridSize, anchor.y + dy * gridSize);
+              }
+            }
+            edgeCurveMemory.clear();
+            const edges = network.body.data.edges.get();
+            const updates = edges
+              .filter(edge => edge.id !== undefined && edge.id !== null)
+              .map(edge => ({ id: edge.id, smooth: false }));
+            for (let i = 0; i < curvePart.length; i += 3) {
+              const index = decodeDisplayUnsigned2(curvePart, i);
+              const step = decodeDisplaySigned(curvePart.charAt(i + 2));
+              if (index < 0 || index >= edges.length) continue;
+              const edge = edges[index];
+              if (edge.id === undefined || edge.id === null) continue;
+              const smooth = smoothFromCurveStep(step);
+              edgeCurveMemory.set(String(edge.id), smooth);
+              updates.push({ id: edge.id, smooth });
+            }
+            if (updates.length) network.body.data.edges.update(updates);
+            network.redraw();
+            updateAllFloatingLabels();
+            snapshot();
+            return true;
           } catch (err) {
             alert('Invalid display code: ' + (err && err.message ? err.message : String(err)));
             return false;
           }
-          const nodes = Array.isArray(payload[1]) ? payload[1] : [];
-          nodes.forEach(entry => {
-            if (!Array.isArray(entry) || entry.length < 3) return;
-            const id = Number(entry[0]);
-            const x = Number(entry[1]);
-            const y = Number(entry[2]);
-            if (Number.isFinite(id) && Number.isFinite(x) && Number.isFinite(y) && network.body.data.nodes.get(id) !== null) network.moveNode(id, x, y);
-          });
-          edgeCurveMemory.clear();
-          const edges = network.body.data.edges.get();
-          const resetUpdates = edges
-            .filter(edge => edge.id !== undefined && edge.id !== null)
-            .map(edge => ({ id: edge.id, smooth: false }));
-          const curveUpdates = [];
-          const curves = Array.isArray(payload[2]) ? payload[2] : [];
-          curves.forEach(entry => {
-            if (!Array.isArray(entry)) return;
-            if (entry[0] === 'm') {
-              edgeCurveMemory.set(String(entry[1]), compactToSmooth(entry[2]));
-              return;
-            }
-            const index = Number(entry[0]);
-            if (!Number.isInteger(index) || index < 0 || index >= edges.length) return;
-            const edge = edges[index];
-            const nextSmooth = compactToSmooth(entry[1]);
-            if (edge.id !== undefined && edge.id !== null) {
-              edgeCurveMemory.set(String(edge.id), nextSmooth);
-              curveUpdates.push({ id: edge.id, smooth: nextSmooth });
-            }
-          });
-          const updates = resetUpdates.concat(curveUpdates);
-          if (updates.length) network.body.data.edges.update(updates);
-          network.redraw();
-          updateAllFloatingLabels();
-          snapshot();
-          return true;
         }
 
         function showDisplayCodeModal() {
