@@ -514,63 +514,23 @@ Inside the calculator, this generates copyable GAP/QPA code reconstructing the q
 
 #### `Export AR-quiver to TeX`
 
-Exports the current arranged AR-quiver layout as `xymatrix{}` in $\LaTeX$ code. The export uses the current vertex positions. The following `xymatrix` is available in `Typora`.
-$$
-\scriptsize\xymatrix{
-{} & {\begin{smallmatrix}2 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@/^0.3pc/@{-->}[rrrrrrrrrrrrrrrr] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 3\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 2\end{smallmatrix}} \ar@{-->}[ll] & {} \\
-{\begin{smallmatrix}2 \\ 0 & 2\end{smallmatrix}} \ar[ur] \ar[dr] & {} & {\begin{smallmatrix}2 \\ 0 & 2\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 0 & 1\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 0\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 3\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {} \\
-{} & {\begin{smallmatrix}2 \\ 0 & 3\end{smallmatrix}} \ar[ur] & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}2 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar[dr] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 4\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 2 & 0\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} \\
-{} & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 1 & 0\end{smallmatrix}} \ar[ur] \ar[dr] \ar@/^0.3pc/@{-->}[rrrrrrrrrr] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 3\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 1 & 0\end{smallmatrix}} \ar@{-->}[ll] \\
-{} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar[dr] \ar@/^0.3pc/@{-->}[rrrrrrrrrr] & {} & {\begin{smallmatrix}1 \\ 1 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 3\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 1 & 2\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} \\
-{} & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar@/^0.6pc/@{-->}[rrrr] & {} & {\begin{smallmatrix}2 \\ 1 & 1\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {} & {} & {} & {} & {}
-}
-$$
+Exports the current arranged AR-quiver layout as copyable TeX code. The export dialog has two modes:
 
+- `xymatrix`: the original matrix-style export, useful for quick Typora/xy-pic output.
+- `TikZ`: a `tikzpicture` export preserving the current vertex positions, dashed $\tau$-arrows, and curved arrows via `bend left` / `bend right`.
+
+For TikZ output, include
+
+```tex
+\usepackage{tikz,amsmath}
+```
+
+in the LaTeX preamble. TikZ is recommended when the picture contains curved dashed arrows, since `xymatrix` has limited support for that combination.
 
 #### `Display code`
 
-The display code records only the current visual calibration of an already generated HTML page:
-
-- node positions;
-- AR-arrow and $\tau$-arrow curve offsets.
-
-It does not record or recreate the quiver, module data, labels, torsion classes, tilting data, or any other mathematical data. It should therefore be used only between HTML files with the same underlying graph.
-
-The current short-code format is
-
-```text
-ARQ2.<node-section>.<curve-section>
-```
-
-The character alphabet is
-
-```text
-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_
-```
-
-Each character represents an integer by subtracting the central offset `32`; hence one character stores a signed value from `-32` to `31`.
-
-For nodes, the first node in increasing node-id order is used as the anchor. The anchor itself is not written into the code. Every later node is represented by two characters:
-
-```text
-horizontal grid offset, vertical grid offset
-```
-
-Offsets are measured in units of the canvas snap grid. Thus if the grid size is `100`, the pair `(3,-2)` means the node is placed at
-
-```text
-anchor + (3 * 100, -2 * 100).
-```
-
-For curves, only non-straight edges are written. Each curved edge uses three characters:
-
-```text
-edge index, edge index, curve step
-```
-
-The first two characters encode the edge index in base `64`. The third character encodes the signed curve step. A positive step means `curvedCW`, and a negative step means `curvedCCW`. The step size is `0.1`, so a step of `3` means `roundness = 0.3`.
-
-When a display code is imported, existing edges are first reset to straight, and then the listed curve offsets are applied. If the pasted text contains surrounding backticks, whitespace, or explanatory text, the importer attempts to extract the first valid `ARQ2...` code automatically.
+> [!TIP]
+> Use `Display code` to copy and paste the current arrangement of an already generated HTML quiver. It records the node positions and arrow-curve offsets, so the same layout can be restored later or transferred to another HTML file with the same underlying graph. It does not store the mathematical data of the quiver.
 
 #### `Color legend`
 
