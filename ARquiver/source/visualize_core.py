@@ -2364,15 +2364,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.display = 'block';
         }
 
-        function displayEdgeKey(edge, counters) {
-          const rawId = edge && edge.id;
-          if (rawId !== undefined && rawId !== null && rawId !== '') return 'id:' + String(rawId);
-          const base = 'edge:' + String(edge.from) + '->' + String(edge.to) + ':' + String(edge.label || '');
-          const n = counters.get(base) || 0;
-          counters.set(base, n + 1);
-          return base + '#' + n;
-        }
-
         function cloneSmoothForCode(smooth) {
           if (!smooth || typeof smooth !== 'object' || !smooth.enabled) return false;
           return {
@@ -2382,73 +2373,110 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           };
         }
 
-        function currentDisplayCode() {
+        function smoothToCompact(smooth) {
+          const cloned = cloneSmoothForCode(smooth);
+          if (!cloned) return 0;
+          const typeCode = cloned.type === 'curvedCCW' ? 2 : (cloned.type === 'curvedCW' ? 1 : cloned.type);
+          return [typeCode, Math.round(Number(cloned.roundness || 0) * 1000)];
+        }
+
+        function compactToSmooth(value) {
+          if (!value) return false;
+          if (Array.isArray(value)) {
+            const rawType = value[0];
+            const type = rawType === 2 ? 'curvedCCW' : (rawType === 1 ? 'curvedCW' : String(rawType || 'curvedCW'));
+            return { enabled: true, type, roundness: Number(value[1] || 0) / 1000 };
+          }
+          return cloneSmoothForCode(value);
+        }
+
+        function base64UrlEncode(text) {
+          const bytes = new TextEncoder().encode(text);
+          let binary = '';
+          bytes.forEach(b => { binary += String.fromCharCode(b); });
+          return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+        }
+
+        function base64UrlDecode(text) {
+          const normalized = String(text || '').replace(/-/g, '+').replace(/_/g, '/');
+          const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+          const binary = atob(padded);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+          return new TextDecoder().decode(bytes);
+        }
+
+        function currentDisplayPayload() {
           const ids = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
           const positions = network.getPositions(ids);
-          const nodes = {};
+          const nodes = [];
           ids.forEach(id => {
             const p = positions[id];
-            if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) nodes[String(id)] = [Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100];
+            if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) nodes.push([id, Math.round(p.x), Math.round(p.y)]);
           });
-          const curves = {};
-          const counters = new Map();
-          network.body.data.edges.get().forEach(edge => {
-            curves[displayEdgeKey(edge, counters)] = cloneSmoothForCode(edge.smooth);
+          const curves = [];
+          network.body.data.edges.get().forEach((edge, index) => {
+            const compact = smoothToCompact(edge.smooth);
+            if (compact) curves.push([index, compact]);
           });
           edgeCurveMemory.forEach((smooth, id) => {
-            const key = 'id:' + String(id);
-            if (!Object.prototype.hasOwnProperty.call(curves, key)) curves[key] = cloneSmoothForCode(smooth);
+            const compact = smoothToCompact(smooth);
+            if (compact) curves.push(['m', String(id), compact]);
           });
-          return {
-            type: 'ARQuiverDisplayCode',
-            version: 1,
-            nodes,
-            curves
-          };
+          return [1, nodes, curves];
         }
 
         function exportDisplayCodeText() {
-          return JSON.stringify(currentDisplayCode(), null, 2);
+          return 'ARQ1.' + base64UrlEncode(JSON.stringify(currentDisplayPayload()));
+        }
+
+        function parseDisplayCodeText(text) {
+          const raw = String(text || '').trim();
+          if (!raw.startsWith('ARQ1.')) throw new Error('Display code must start with ARQ1.');
+          const payload = JSON.parse(base64UrlDecode(raw.slice(5)));
+          if (!Array.isArray(payload) || payload[0] !== 1) throw new Error('Unsupported display code version.');
+          return payload;
         }
 
         function applyDisplayCodeText(text) {
-          let code;
+          let payload;
           try {
-            code = JSON.parse(String(text || ''));
+            payload = parseDisplayCodeText(text);
           } catch (err) {
-            alert('Invalid display code JSON: ' + (err && err.message ? err.message : String(err)));
+            alert('Invalid display code: ' + (err && err.message ? err.message : String(err)));
             return false;
           }
-          if (!code || code.type !== 'ARQuiverDisplayCode') {
-            alert('This is not an ARQuiverDisplayCode object.');
-            return false;
-          }
-          const nodes = code.nodes || {};
-          Object.keys(nodes).forEach(idStr => {
-            const id = Number(idStr);
-            const pos = nodes[idStr];
-            if (!Number.isFinite(id) || !Array.isArray(pos) || pos.length < 2) return;
-            const x = Number(pos[0]);
-            const y = Number(pos[1]);
-            if (Number.isFinite(x) && Number.isFinite(y) && network.body.data.nodes.get(id) !== null) network.moveNode(id, x, y);
+          const nodes = Array.isArray(payload[1]) ? payload[1] : [];
+          nodes.forEach(entry => {
+            if (!Array.isArray(entry) || entry.length < 3) return;
+            const id = Number(entry[0]);
+            const x = Number(entry[1]);
+            const y = Number(entry[2]);
+            if (Number.isFinite(id) && Number.isFinite(x) && Number.isFinite(y) && network.body.data.nodes.get(id) !== null) network.moveNode(id, x, y);
           });
-          const curves = code.curves || {};
-          const counters = new Map();
-          const updates = [];
-          network.body.data.edges.get().forEach(edge => {
-            const key = displayEdgeKey(edge, counters);
-            const idKey = edge.id !== undefined && edge.id !== null && edge.id !== '' ? 'id:' + String(edge.id) : null;
-            const smooth = Object.prototype.hasOwnProperty.call(curves, key) ? curves[key] : (idKey && Object.prototype.hasOwnProperty.call(curves, idKey) ? curves[idKey] : undefined);
-            if (smooth === undefined) return;
-            const nextSmooth = cloneSmoothForCode(smooth);
+          edgeCurveMemory.clear();
+          const edges = network.body.data.edges.get();
+          const resetUpdates = edges
+            .filter(edge => edge.id !== undefined && edge.id !== null)
+            .map(edge => ({ id: edge.id, smooth: false }));
+          const curveUpdates = [];
+          const curves = Array.isArray(payload[2]) ? payload[2] : [];
+          curves.forEach(entry => {
+            if (!Array.isArray(entry)) return;
+            if (entry[0] === 'm') {
+              edgeCurveMemory.set(String(entry[1]), compactToSmooth(entry[2]));
+              return;
+            }
+            const index = Number(entry[0]);
+            if (!Number.isInteger(index) || index < 0 || index >= edges.length) return;
+            const edge = edges[index];
+            const nextSmooth = compactToSmooth(entry[1]);
             if (edge.id !== undefined && edge.id !== null) {
               edgeCurveMemory.set(String(edge.id), nextSmooth);
-              updates.push({ id: edge.id, smooth: nextSmooth });
+              curveUpdates.push({ id: edge.id, smooth: nextSmooth });
             }
           });
-          Object.keys(curves).forEach(key => {
-            if (key.indexOf('id:') === 0) edgeCurveMemory.set(key.slice(3), cloneSmoothForCode(curves[key]));
-          });
+          const updates = resetUpdates.concat(curveUpdates);
           if (updates.length) network.body.data.edges.update(updates);
           network.redraw();
           updateAllFloatingLabels();
@@ -2475,7 +2503,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
             modal.style.zIndex = '30000';
             modal.style.display = 'none';
-            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: node positions and arrow curves</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .json</button></div>';
+            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: compact node positions and arrow curves</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .txt</button></div>';
             document.body.appendChild(modal);
             const head = modal.firstElementChild;
             if (head) head.style.cursor = 'move';
@@ -2500,11 +2528,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             });
             modal.querySelector('#arDisplayCodeDownload').addEventListener('click', () => {
               const ta = modal.querySelector('#arDisplayCodeText');
-              const blob = new Blob([ta.value], { type: 'application/json;charset=utf-8' });
+              const blob = new Blob([ta.value], { type: 'text/plain;charset=utf-8' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
-              a.download = 'ar-quiver-display-code.json';
+              a.download = 'ar-quiver-display-code.txt';
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
