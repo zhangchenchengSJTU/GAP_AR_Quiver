@@ -1023,7 +1023,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (!el) return;
           el.style.display = e.target.checked ? 'block' : 'none';
           if (e.target.checked) {
-            renderPairList('cotorsionPairList', cotorsionPairData, 'L', 'R', 'Cotorsion pairs', item => `<td style="border:1px solid #ddd; padding:3px;">${item.hereditary ? 'hereditary' : 'non-hereditary'}</td>`);
+            renderPairList('cotorsionPairList', cotorsionPairData, 'L', 'R', 'Cotorsion pairs', item => `<td style="border:1px solid #ddd; padding:3px;">${item.hereditary ? 'hereditary' : 'non-hereditary'}</td>`, { kind: 'cotorsion' });
           } else {
             clearPairListHighlight();
           }
@@ -1116,6 +1116,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 
         function showListInDrawer(toggleId, listId, title) {
           ensureDrawer();
+          if (drawer && drawer.style.display === 'block' && drawerToggleId === toggleId && drawerListId === listId) {
+            closeListDrawer(true);
+            return false;
+          }
           setCheckbox(toggleId, true);
           const listEl = document.getElementById(listId);
           if (!listEl) return;
@@ -1129,6 +1133,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           listEl.style.display = 'block';
           drawer.style.display = 'block';
           typesetMath(drawerBody);
+          return true;
         }
 
         function clearAllNodeHighlights() {
@@ -1246,9 +1251,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               top: 42px;
               right: 10px;
               width: 390px;
+              height: auto;
               min-width: 260px;
-              max-width: 90vw;
-              max-height: calc(100vh - 54px);
+              min-height: 160px;
+              max-width: 96vw;
+              max-height: 96vh;
               overflow: auto;
               background: rgba(255,255,255,0.97);
               border: 1px solid #cbd5e1;
@@ -1268,10 +1275,19 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               font-weight: 650;
               font-family: system-ui,-apple-system,Segoe UI,sans-serif;
               font-size: 13px;
+              cursor: move;
             }
             #arListDrawer .ar-panel-close { border: 0; background: transparent; font-size: 18px; cursor: pointer; }
-            #arListDrawerResizeHandle { position:absolute; left:0; top:0; bottom:0; width:7px; cursor:ew-resize; background:transparent; }
-            #arListDrawerResizeHandle:hover { background:rgba(37,99,235,0.18); }
+            .ar-list-resize-handle { position:absolute; background:transparent; z-index:2; }
+            .ar-list-resize-handle:hover { background:rgba(37,99,235,0.18); }
+            .ar-list-resize-left { left:0; top:8px; bottom:8px; width:7px; cursor:ew-resize; }
+            .ar-list-resize-right { right:0; top:8px; bottom:8px; width:7px; cursor:ew-resize; }
+            .ar-list-resize-top { left:8px; right:8px; top:0; height:7px; cursor:ns-resize; }
+            .ar-list-resize-bottom { left:8px; right:8px; bottom:0; height:7px; cursor:ns-resize; }
+            .ar-list-resize-nw { left:0; top:0; width:9px; height:9px; cursor:nwse-resize; }
+            .ar-list-resize-ne { right:0; top:0; width:9px; height:9px; cursor:nesw-resize; }
+            .ar-list-resize-sw { left:0; bottom:0; width:9px; height:9px; cursor:nesw-resize; }
+            .ar-list-resize-se { right:0; bottom:0; width:9px; height:9px; cursor:nwse-resize; }
             #arListDrawerBody { padding: 8px; }
             #tiltingList, #torsionPairList, #cotorsionPairList, #supportTauList, #almostSupportTauList { min-width: 240px; max-width: 100%; }
             .ar-record-row { display:block; width:100%; text-align:left; margin:2px 0; padding:4px 6px; border:1px solid #dbeafe; border-radius:4px; background:#fff; font-family:monospace; font-size:11px; cursor:pointer; }
@@ -1284,27 +1300,69 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (drawer) return;
           drawer = document.createElement('div');
           drawer.id = 'arListDrawer';
-          drawer.innerHTML = '<div id="arListDrawerResizeHandle"></div><div class="ar-panel-head"><strong id="arDrawerTitle"></strong><button id="arDrawerClose" class="ar-panel-close">×</button></div><div id="arListDrawerBody"></div>';
+          drawer.innerHTML = '<div class="ar-list-resize-handle ar-list-resize-left" data-resize="left"></div><div class="ar-list-resize-handle ar-list-resize-right" data-resize="right"></div><div class="ar-list-resize-handle ar-list-resize-top" data-resize="top"></div><div class="ar-list-resize-handle ar-list-resize-bottom" data-resize="bottom"></div><div class="ar-list-resize-handle ar-list-resize-nw" data-resize="top left"></div><div class="ar-list-resize-handle ar-list-resize-ne" data-resize="top right"></div><div class="ar-list-resize-handle ar-list-resize-sw" data-resize="bottom left"></div><div class="ar-list-resize-handle ar-list-resize-se" data-resize="bottom right"></div><div class="ar-panel-head"><strong id="arDrawerTitle"></strong><button id="arDrawerClose" class="ar-panel-close">×</button></div><div id="arListDrawerBody"></div>';
           document.body.appendChild(drawer);
           drawerTitle = drawer.querySelector('#arDrawerTitle');
           drawerBody = drawer.querySelector('#arListDrawerBody');
           drawer.querySelector('#arDrawerClose').addEventListener('click', () => {
             closeListDrawer(true);
           });
-          const resizeHandle = drawer.querySelector('#arListDrawerResizeHandle');
-          let resizingDrawer = false;
-          resizeHandle.addEventListener('mousedown', (event) => {
-            resizingDrawer = true;
+          const drawerHead = drawer.querySelector('.ar-panel-head');
+          let drawerDrag = null;
+          drawerHead.addEventListener('mousedown', (event) => {
+            if (event.target.closest('button')) return;
+            const rect = drawer.getBoundingClientRect();
+            drawer.style.left = rect.left + 'px';
+            drawer.style.top = rect.top + 'px';
+            drawer.style.right = 'auto';
+            drawer.style.bottom = 'auto';
+            drawer.style.width = rect.width + 'px';
+            drawer.style.height = rect.height + 'px';
+            drawerDrag = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
             event.preventDefault();
-            event.stopPropagation();
+          });
+          let drawerResize = null;
+          drawer.querySelectorAll('.ar-list-resize-handle').forEach(handle => {
+            handle.addEventListener('mousedown', (event) => {
+              const rect = drawer.getBoundingClientRect();
+              drawer.style.left = rect.left + 'px';
+              drawer.style.top = rect.top + 'px';
+              drawer.style.right = 'auto';
+              drawer.style.bottom = 'auto';
+              drawer.style.width = rect.width + 'px';
+              drawer.style.height = rect.height + 'px';
+              drawerResize = { dirs: handle.dataset.resize.split(' '), x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+              event.preventDefault();
+              event.stopPropagation();
+            });
           });
           document.addEventListener('mousemove', (event) => {
-            if (!resizingDrawer) return;
-            const right = window.innerWidth - drawer.getBoundingClientRect().right;
-            const nextWidth = Math.max(260, Math.min(window.innerWidth * 0.9, window.innerWidth - event.clientX - right));
-            drawer.style.width = nextWidth + 'px';
+            if (drawerDrag) {
+              drawer.style.left = Math.max(0, Math.min(window.innerWidth - 60, drawerDrag.left + event.clientX - drawerDrag.x)) + 'px';
+              drawer.style.top = Math.max(0, Math.min(window.innerHeight - 40, drawerDrag.top + event.clientY - drawerDrag.y)) + 'px';
+            }
+            if (drawerResize) {
+              let left = drawerResize.left;
+              let top = drawerResize.top;
+              let width = drawerResize.width;
+              let height = drawerResize.height;
+              const dx = event.clientX - drawerResize.x;
+              const dy = event.clientY - drawerResize.y;
+              if (drawerResize.dirs.includes('right')) width = drawerResize.width + dx;
+              if (drawerResize.dirs.includes('bottom')) height = drawerResize.height + dy;
+              if (drawerResize.dirs.includes('left')) { width = drawerResize.width - dx; left = drawerResize.left + dx; }
+              if (drawerResize.dirs.includes('top')) { height = drawerResize.height - dy; top = drawerResize.top + dy; }
+              if (width < 260) { if (drawerResize.dirs.includes('left')) left -= 260 - width; width = 260; }
+              if (height < 160) { if (drawerResize.dirs.includes('top')) top -= 160 - height; height = 160; }
+              width = Math.min(width, window.innerWidth - left - 4);
+              height = Math.min(height, window.innerHeight - top - 4);
+              drawer.style.left = Math.max(0, left) + 'px';
+              drawer.style.top = Math.max(0, top) + 'px';
+              drawer.style.width = width + 'px';
+              drawer.style.height = height + 'px';
+            }
           });
-          document.addEventListener('mouseup', () => { resizingDrawer = false; });
+          document.addEventListener('mouseup', () => { drawerDrag = null; drawerResize = null; });
         }
 
         let calculatorPanel = null;
@@ -1910,8 +1968,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           }
           if (listSpec) {
             const parts = listSpec.split('|');
-            showListInDrawer(parts[0], parts[1], parts[2]);
-            btn.classList.add('ar-control-active');
+            const opened = showListInDrawer(parts[0], parts[1], parts[2]);
+            btn.classList.toggle('ar-control-active', !!opened);
           }
           if (action === 'close-panel') folderPanel.style.display = 'none';
           if (action === 'fit') network.fit({ animation: true });
@@ -2229,6 +2287,67 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       const listStates = new Map();
+      const pairListFilters = {
+        torsionTilting: 'all',
+        torsionSplit: 'all',
+        cotorsionHereditary: 'all'
+      };
+
+      function setPairFilter(key, value) {
+        pairListFilters[key] = value;
+      }
+
+      function isSplitPair(item) {
+        const all = new Set(calcAllIds());
+        const union = new Set([...(item.T || []), ...(item.F || []), ...(item.L || []), ...(item.R || [])].map(Number).filter(Number.isFinite));
+        if (union.size !== all.size) return false;
+        for (const id of all) if (!union.has(id)) return false;
+        return true;
+      }
+
+      function filterPairRows(data, kind) {
+        let rows = data || [];
+        if (kind === 'torsion') {
+          rows = rows.filter(item => {
+            const hasTilting = !!findTiltingForTorsionPair(item);
+            const split = isSplitPair(item);
+            const tiltingOk = pairListFilters.torsionTilting === 'all' || (pairListFilters.torsionTilting === 'tilting' ? hasTilting : !hasTilting);
+            const splitOk = pairListFilters.torsionSplit === 'all' || (pairListFilters.torsionSplit === 'split' ? split : !split);
+            return tiltingOk && splitOk;
+          });
+        } else if (kind === 'cotorsion') {
+          rows = rows.filter(item => pairListFilters.cotorsionHereditary === 'all' || (pairListFilters.cotorsionHereditary === 'hereditary' ? !!item.hereditary : !item.hereditary));
+        }
+        return rows;
+      }
+
+      function installPairFilterButtons(containerId, kind, rerender) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexWrap = 'wrap';
+        row.style.gap = '4px';
+        row.style.margin = '0 0 6px 0';
+        const groups = kind === 'torsion'
+          ? [{ key: 'torsionTilting', vals: ['all','tilting','non-tilting'] }, { key: 'torsionSplit', vals: ['all','split','non-split'] }]
+          : [{ key: 'cotorsionHereditary', vals: ['all','hereditary','non-hereditary'] }];
+        groups.forEach(group => {
+          group.vals.forEach(val => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = val;
+            btn.style.fontSize = '11px';
+            btn.style.padding = '2px 6px';
+            btn.style.border = '1px solid ' + (pairListFilters[group.key] === val ? '#0f766e' : '#ccc');
+            btn.style.borderRadius = '4px';
+            btn.style.background = pairListFilters[group.key] === val ? '#ccfbf1' : '#fff';
+            btn.addEventListener('click', () => { setPairFilter(group.key, val); rerender(); });
+            row.appendChild(btn);
+          });
+        });
+        el.prepend(row);
+      }
 
       function listLexCompare(a, b) {
         const aa = (a || []).map(Number);
@@ -2319,6 +2438,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 
       function renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer, options = {}) {
         const isTorsion = options.kind === 'torsion';
+        const isCotorsion = options.kind === 'cotorsion';
+        const filteredData = filterPairRows(data, isTorsion ? 'torsion' : (isCotorsion ? 'cotorsion' : ''));
+        const rerender = () => renderPairList(containerId, data, leftKey, rightKey, title, extraRenderer, options);
         const applyFn = (item) => {
           if (isTorsion) {
             const tilting = findTiltingForTorsionPair(item);
@@ -2344,7 +2466,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (extraRenderer) return ` | ${item.hereditary ? 'hereditary' : 'non-hereditary'}`;
           return '';
         };
-        renderButtonRecordList(containerId, data, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra);
+        renderButtonRecordList(containerId, filteredData, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra);
+        if (isTorsion) installPairFilterButtons(containerId, 'torsion', rerender);
+        if (isCotorsion) installPairFilterButtons(containerId, 'cotorsion', rerender);
       }
 
       function renderTiltingList() {
@@ -3916,6 +4040,8 @@ def _inject_tilting_graph_override(html: str) -> str:
         container.style.left = '10px';
         container.style.bottom = '10px';
         container.style.width = '380px';
+        container.style.minWidth = '280px';
+        container.style.minHeight = '220px';
         container.style.background = 'rgba(255,255,255,0.95)';
         container.style.border = '1px solid #ccc';
         container.style.padding = '6px';
@@ -3924,8 +4050,16 @@ def _inject_tilting_graph_override(html: str) -> str:
         container.style.boxShadow = '0 2px 10px rgba(0,0,0,0.15)';
 
         container.innerHTML = `
-          <div id=\"tiltingGraphHeader\" style=\"font-size:12px; margin-bottom:4px; cursor:move; font-weight:600;\">Tilting</div>
-          <div id=\"tiltingGraph\" style=\"width:360px; height:240px; border:1px solid #ddd; background:white;\"></div>
+          <div class=\"tilting-resize-handle tilting-resize-left\" data-resize=\"left\" style=\"position:absolute; left:0; top:8px; bottom:8px; width:7px; cursor:ew-resize; z-index:2;\"></div>
+          <div class=\"tilting-resize-handle tilting-resize-right\" data-resize=\"right\" style=\"position:absolute; right:0; top:8px; bottom:8px; width:7px; cursor:ew-resize; z-index:2;\"></div>
+          <div class=\"tilting-resize-handle tilting-resize-top\" data-resize=\"top\" style=\"position:absolute; left:8px; right:8px; top:0; height:7px; cursor:ns-resize; z-index:2;\"></div>
+          <div class=\"tilting-resize-handle tilting-resize-bottom\" data-resize=\"bottom\" style=\"position:absolute; left:8px; right:8px; bottom:0; height:7px; cursor:ns-resize; z-index:2;\"></div>
+          <div class=\"tilting-resize-handle tilting-resize-nw\" data-resize=\"top left\" style=\"position:absolute; left:0; top:0; width:9px; height:9px; cursor:nwse-resize; z-index:2;\"></div>
+          <div class=\"tilting-resize-handle tilting-resize-ne\" data-resize=\"top right\" style=\"position:absolute; right:0; top:0; width:9px; height:9px; cursor:nesw-resize; z-index:2;\"></div>
+          <div class=\"tilting-resize-handle tilting-resize-sw\" data-resize=\"bottom left\" style=\"position:absolute; left:0; bottom:0; width:9px; height:9px; cursor:nesw-resize; z-index:2;\"></div>
+          <div class=\"tilting-resize-handle tilting-resize-se\" data-resize=\"bottom right\" style=\"position:absolute; right:0; bottom:0; width:9px; height:9px; cursor:nwse-resize; z-index:2;\"></div>
+          <div id=\"tiltingGraphHeader\" style=\"font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none;\">Tilting</div>
+          <div id=\"tiltingGraph\" style=\"width:100%; height:240px; border:1px solid #ddd; background:white; box-sizing:border-box;\"></div>
           <div id=\"tiltingDetails\" style=\"margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;\"></div>
         `;
 
@@ -3940,16 +4074,67 @@ def _inject_tilting_graph_override(html: str) -> str:
           const rect = container.getBoundingClientRect();
           offsetX = e.clientX - rect.left;
           offsetY = e.clientY - rect.top;
-          e.preventDefault();
-        });
-        document.addEventListener('mousemove', (e) => {
-          if (!isDown) return;
-          container.style.left = `${e.clientX - offsetX}px`;
-          container.style.top = `${e.clientY - offsetY}px`;
+          container.style.left = rect.left + 'px';
+          container.style.top = rect.top + 'px';
           container.style.right = 'auto';
           container.style.bottom = 'auto';
+          container.style.width = rect.width + 'px';
+          container.style.height = rect.height + 'px';
+          e.preventDefault();
         });
-        document.addEventListener('mouseup', () => { isDown = false; });
+
+        let resizing = null;
+        container.querySelectorAll('.tilting-resize-handle').forEach((handle) => {
+          handle.addEventListener('mousedown', (e) => {
+            const rect = container.getBoundingClientRect();
+            container.style.left = rect.left + 'px';
+            container.style.top = rect.top + 'px';
+            container.style.right = 'auto';
+            container.style.bottom = 'auto';
+            container.style.width = rect.width + 'px';
+            container.style.height = rect.height + 'px';
+            resizing = { dirs: handle.dataset.resize.split(' '), x: e.clientX, y: e.clientY, left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+            e.preventDefault();
+            e.stopPropagation();
+          });
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (isDown) {
+            const width = container.offsetWidth || 380;
+            const height = container.offsetHeight || 300;
+            container.style.left = Math.max(0, Math.min(window.innerWidth - 60, e.clientX - offsetX)) + 'px';
+            container.style.top = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - offsetY)) + 'px';
+            if (Number.parseFloat(container.style.left) + width > window.innerWidth) container.style.left = Math.max(0, window.innerWidth - width - 4) + 'px';
+            if (Number.parseFloat(container.style.top) + height > window.innerHeight) container.style.top = Math.max(0, window.innerHeight - height - 4) + 'px';
+          }
+          if (resizing) {
+            let left = resizing.left;
+            let top = resizing.top;
+            let width = resizing.width;
+            let height = resizing.height;
+            const dx = e.clientX - resizing.x;
+            const dy = e.clientY - resizing.y;
+            if (resizing.dirs.includes('right')) width = resizing.width + dx;
+            if (resizing.dirs.includes('bottom')) height = resizing.height + dy;
+            if (resizing.dirs.includes('left')) { width = resizing.width - dx; left = resizing.left + dx; }
+            if (resizing.dirs.includes('top')) { height = resizing.height - dy; top = resizing.top + dy; }
+            if (width < 280) { if (resizing.dirs.includes('left')) left -= 280 - width; width = 280; }
+            if (height < 220) { if (resizing.dirs.includes('top')) top -= 220 - height; height = 220; }
+            left = Math.max(0, left);
+            top = Math.max(0, top);
+            width = Math.min(width, window.innerWidth - left - 4);
+            height = Math.min(height, window.innerHeight - top - 4);
+            container.style.left = left + 'px';
+            container.style.top = top + 'px';
+            container.style.width = width + 'px';
+            container.style.height = height + 'px';
+            const graph = container.querySelector('#tiltingGraph');
+            if (graph) graph.style.height = Math.max(120, height - 84) + 'px';
+            if (window.__tiltingGraphNetwork) window.__tiltingGraphNetwork.redraw();
+          }
+        });
+        document.addEventListener('mouseup', () => { isDown = false; resizing = null; });
 
         return container;
       }
