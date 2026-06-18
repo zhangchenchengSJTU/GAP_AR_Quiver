@@ -1,50 +1,50 @@
-# 使用 GAP 绘制有限维代数的 AR Quiver
+# Drawing AR Quivers of Finite-Dimensional Algebras with GAP
 
-## 快速上手
+## Quick Start
 
-### 启动容器
+### Launch the container
 
-自动启动: 点击 [![Binder](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgbadge_logo.svg)](https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/HEAD). 或输入
+Automatic launch: click [![Binder](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgbadge_logo.svg)](https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/HEAD), or open one of the following links:
 
-- (稳定版本) https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/main
-- (测试版本) https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/test
+- Stable version: https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/main
+- Testing version: https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/test
 
-手动启动: 在 [Binder](https://mybinder.org/) 中打开 GitHub 仓库. 依次完成以下两个步骤即可, 请勿进行多余动作.
+Manual launch: open [Binder](https://mybinder.org/) and choose the GitHub repository option. Complete only the following steps.
 
-1. 确认 `GitHub repository name or URL` 一栏显示 `GitHub`. 在右侧粘贴 `https://github.com/zhangchenchengSJTU/GAP_AR_Quiver`.
-2. 直接点击 `Launch` 按钮.
-3. 等待环境启动完成. 随后 Binder 会自动跳转至 Jupyter Notebook 页面.
+1. Make sure that the `GitHub repository name or URL` field is set to `GitHub`. Paste `https://github.com/zhangchenchengSJTU/GAP_AR_Quiver` into the box on the right.
+2. Click `Launch` directly.
+3. Wait until the environment is ready. Binder will then redirect you to the Jupyter Notebook page.
 
-### 进入 Jupyter Notebook
+### Enter Jupyter Notebook
 
-进入 Jupyter Notebook 后, 浏览器上的地址形如 `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/treee`. 此时 root 目录下出现以下三项
+After entering Jupyter Notebook, the browser address should look like `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/treee`. In the root directory, you should see the following three items:
 
-- `Dockerfile`: 这是搭建环境的说明文件, 供开发者使用. 用户无需关注.
-- `Readme.md`: 这是说明文档.
-- `ARquiver`: 这是绘制 ARquiver 的文件夹. 进入该文件夹后会出现
-  - `source` 文件夹, 这是存放源码的文档, 用户无需关注.
-  - `run.ipynb` 文件, 这是运行脚本.
-  - `example.txt`, `untitled.txt` 等文件, 这是输入 quiver 信息的文件.
+- `Dockerfile`: the environment specification, mainly for developers. Users do not need to edit it.
+- `Readme.md`: this documentation file.
+- `ARquiver`: the working directory for drawing AR quivers. After entering this folder, you will see:
+  - `source`: the source-code directory. Users usually do not need to inspect it.
+  - `run.ipynb`: the notebook used to run the computation and rendering scripts.
+  - `example.txt`, `untitled.txt`, and similar files: input files containing quiver data.
 
-### 绘制路代数
+### Draw the path algebra
 
-请使用 `https://q.uiver.app/` 网页绘制 quiver with relation. 绘制时请注意
+Use `https://q.uiver.app/` to draw a quiver with relations. Please follow these conventions:
 
-- quiver 的顶点只能是简单正整数,
-- quiver 的边是简单的拉丁字母或 $\LaTeX$ 格式的希腊字母, 如 `a` 或者 `\alpha`,
-- 请随机寻找空白的格子输入路代数的关系 `rel: ....` .
+- vertices of the quiver should be positive integers;
+- arrows should be simple Latin letters or Greek letters written in $\LaTeX$ format, such as `a` or `\alpha`;
+- choose an empty grid cell and enter the relations of the path algebra in the form `rel: ....`.
 
-示例图:
+Example:
 
 ![image-20260612214532284](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612214532284.png)
 
-点击网页下方 `LaTeX`, 复制 `tikzcd` 源码. 
+Click `LaTeX` at the bottom of the q.uiver page and copy the generated `tikzcd` source code.
 
-在 `ARquiver` 文件夹中新建 `txt` 文件 `yourfile.txt`, 粘贴刚才复制的源码. 保存并退出.
+Create a new `txt` file named `yourfile.txt` inside the `ARquiver` directory, paste the copied source code into it, save the file, and close it.
 
-### 绘制 AR quiver
+### Draw the AR quiver
 
-请打开 `run.ipynb`. 依次运行
+Open `run.ipynb` and run the following cells in order:
 
 ```python
 # Compute algebra data: filename.txt -> filename.log
@@ -56,103 +56,134 @@
 %run source/render_all.py
 ```
 
-此时 `ARquiver` 文件夹中将出现
+The `ARquiver` directory will then contain:
 
-- `yourfile.log`  (代数计算日志) 与
-- `yourfile.html` (quiver 画布).
+- `yourfile.log`: the algebra computation log;
+- `yourfile.html`: the interactive AR-quiver canvas.
 
-### 将 AR quiver 转换成常见形式
+### Arrange the AR quiver into a standard form
 
-打开 `yourfile.html` 文件, 即可查看 AR quiver 的可视化图像. 
+Open `yourfile.html` to view the interactive visualization of the AR quiver.
 
 ![image-20260612215317720](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612215317720.png)
 
-先介绍与 AR quiver 相关的功能.
+We first describe the basic AR-quiver controls.
 
-- 界面中的每个椭圆表示一个不可分解模, 维数向量依照 `tikzcd` 的顶点位置排列. 
-- 紫色为投射且内射的对象. 红色为投射且非内射的对象, 蓝色为内射且非投射的对象.
-- `Irr`: 显示/隐藏不可约态射 (黑色箭头).
-- `tau`: 显示/隐藏 AR 平移 $\tau = D \mathrm{Tr}$ (金色箭头).
-- `Border`: 显示/隐藏圆框. 
-- `Ctrl + Z` 撤销, `Ctrl + Y` 重做.
+- Each ellipse represents an indecomposable module. Its dimension vector is arranged according to the vertex positions in the original `tikzcd` input.
+- Purple vertices are both projective and injective. Red vertices are projective but not injective, while blue vertices are injective but not projective.
+- `Irr`: show or hide irreducible morphisms, drawn as black arrows.
+- `tau`: show or hide the AR translation $\tau = D \mathrm{Tr}$, drawn as golden arrows.
+- `Border`: show or hide vertex borders.
+- `Ctrl + Z` undoes an operation, and `Ctrl + Y` redoes it.
 
-我们需要手动完成的任务是将 AR quiver 排列成标准格式. 此处介绍一些技巧. 
+The main manual task is to arrange the AR quiver into a readable standard form. Here are some useful guidelines.
 
-*Lemma* 所有 $\tau$-轨道 (金色箭头的轨道) 不交. 投射内射对象不属于任何 $\tau$ 轨道, 除此以外的不可分解模恰好属于一个 $\tau$ 轨道. 因此, $\tau$ 轨道分为两类
+*Lemma.* The $\tau$-orbits, namely the orbits of the golden arrows, are disjoint. Projective-injective objects do not belong to any $\tau$-orbit. Every other indecomposable module belongs to exactly one $\tau$-orbit. Hence each $\tau$-orbit is one of the following two types:
 
-- 一条直路, 从内射对象一路指向投射对象,
-- 一条环路, 不经过任何投射或内射对象.
+- a straight path from an injective object to a projective object;
+- a cycle that contains no projective or injective object.
 
-依照引理. 我们优先对投射对象 $\substack{2\\ 2 \quad 0}$ 进行操作. 请先关闭 `Irr`, 再将箭头 $\substack{2\\ 2 \quad 0} \ \ \leftarrow \ \substack{2\\ 2 \quad 2}$ 水平放置在空的地方. 长按金色箭头, 以校准下一箭头的位置. 最终得到
+Following this lemma, we first arrange the projective object $\substack{2\\ 2 \quad 0}$. Turn off `Irr`, then place the arrow $\substack{2\\ 2 \quad 0} \ \ \leftarrow \ \substack{2\\ 2 \quad 2}$ horizontally in an empty region. Long-press the golden arrow to align the next arrow. This gives:
 
 ![image-20260612220603319](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612220603319.png)
 
-接着打开 `Irr`, 尝试找到几乎可裂短正合列 $\substack{2\\ 2 \quad 0} \ \ \rightarrowtail \bigoplus M_i  \twoheadrightarrow \ \substack{2\\ 2 \quad 2}$ 
+Next, turn on `Irr` and look for the almost split short exact sequence $\substack{2\\ 2 \quad 0} \ \ \rightarrowtail \bigoplus M_i  \twoheadrightarrow \ \substack{2\\ 2 \quad 2}$.
 
 ![image-20260612220820836](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612220820836.png)
 
-接着关闭 `Irr`, 长按金色箭头校准. 如果存在环路, 可以用鼠标选中边, 使用 `↑` 与 `↓` 键调整箭头弧度. 经过一系列操作可得 $\tau$ 轨道
+Then turn off `Irr` again and long-press the golden arrows for alignment. If a cycle appears, select an edge and use the `↑` and `↓` keys to adjust the curvature of the arrow. After a sequence of such operations, one obtains the $\tau$-orbits:
 
 ![image-20260612221253587](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612221253587.png)
 
-我们最终得到了 AR quiver. 请关闭 `tau`, 调整 (被金色箭头挡住的) 水平黑边的弧度. 如果觉得有些边不好看, 可以双击切换深色/浅色. 最后得到
+Finally, turn off `tau` and adjust the curvature of the horizontal black arrows that were hidden behind the golden arrows. If some edges are visually inconvenient, double-click them to switch between dark and light colors. The final AR quiver is then obtained:
 
 ![image-20260612222112774](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612222112774.png)
 
-## 功能介绍
+## Features
 
-### 快捷键
+The generated HTML file is an interactive workspace for exploring the representation theory of the input algebra. It combines the AR quiver, homological data, torsion-theoretic structures, and several highlighting tools in a single browser page.
 
-### 配色规范
+### Navigation and editing
 
-### 介绍 controls 中的所有功能
+- Drag vertices to arrange the AR quiver manually.
+- Drag the canvas to move the view, and use the mouse wheel to zoom.
+- Use `Fit` to refit the current diagram into the viewport.
+- Use `Ctrl + Z` and `Ctrl + Y` to undo and redo layout and coloring operations.
+- Double-click an edge to toggle between dark and light colors.
+- Select curved edges and use the arrow keys to adjust their curvature.
+- Use `Export TeX` to export the current AR-quiver layout as TeX code.
 
-按钮 `Torsionless`, `Reflexive` 与 `GProj` 分别用于显示不可分解且非投射的
+### Labels and local information
 
-- torsionless 模: 投射模的子, 或等价地, 使得 $M \to DDM, \quad m \mapsto [f \mapsto f(m)]$ 为单射的模,
-- reflecxive 模: 使得 $M \to DDM, \quad m \mapsto [f \mapsto f(m)]$ 是同构的模,
-- Gorenstein 投射模: 定义略.
+The controls provide several ways to inspect individual indecomposable modules.
 
-按钮 `GInj` 用于显示不可分解且非内射的 Gorenstein 内射模, 定义略.
+- `Label` displays the internal labels of indecomposable modules, which are useful for comparing the canvas with `yourfile.log`.
+- Hovering over a vertex also reveals its module label and additional stored information.
+- `PDID` displays projective and injective dimensions. The value `-1` denotes infinity.
+- `TopSoc` displays top and socle information when available.
+- The original quiver of the algebra can be opened as a small draggable window. The `Open in q.uiver` button opens the q.uiver URL stored in the first line of the corresponding `txt` file.
 
-`Label` 用于显示不可分解模的编号, 方便对照 `yourfile.log`. 也可以将鼠标拖动到顶点上方以查看编号.
+### Color legend and visual conventions
 
-`Syzygy` 显示投射盖的核. `HomDim` 与 `ExtDim` 分别显示 $\mathrm{Hom}$ 与 $\mathrm{Ext}^1$ 的维数. 建议从 `yourfile.log` 中阅读信息.
+The `Color legend` panel summarizes the visual meaning of the colors used in the page.
 
-`quiver` 用于显示路代数的 quiver 表示, 是一个可以自由拖动的小窗.
+- Projective, injective, and projective-injective modules are indicated by vertex borders.
+- Torsionless, reflexive, Gorenstein projective, and Gorenstein injective modules can be highlighted directly on the AR quiver.
+- Irreducible morphisms, AR translation arrows, syzygy arrows, cosyzygy arrows, Hom-dimension edges, and Ext-dimension edges use distinct colors.
+- Floating labels indicate projective dimension, injective dimension, top, and socle data.
 
-`PDID` 用于显示投射/内射维数. 其中 $-1$ 表示无限.
+### Homological and module-class tools
 
-`Tilting` 用于显示 tilting 模. 我们采用经典定义: 称一个模 $T$ 是 tilting 模, 若其满足 $\textup{T1-T3}$:
+Several buttons highlight important classes of indecomposable modules.
 
-- $\textup{T1}$ $T$ 的投射维数 $\leq 1$,
-- $\textup{T2}$ $\mathrm{Ext}^{\geq 1}(T,T) = 0$,
-- $\textup{T3}$ 存在 $T^0,T^1 \in \mathrm{add}(T)$ 使得有短正合列 $A \rightarrowtail T^0 \twoheadrightarrow T^1$, 此处 $A$ 是路代数.
+- `Torsionless` highlights non-projective indecomposable torsionless modules, i.e. submodules of projective modules, equivalently modules for which the canonical map $M \to DDM$ is injective.
+- `Reflexive` highlights non-projective indecomposable reflexive modules, i.e. modules for which the canonical map $M \to DDM$ is an isomorphism.
+- `GProj` highlights non-projective indecomposable Gorenstein projective modules.
+- `GInj` highlights non-injective indecomposable Gorenstein injective modules.
+- `Syzygy` displays arrows related to kernels of projective covers.
+- `Cosyzygy` displays the corresponding cosyzygy information.
+- `HomDim` and `ExtDim` display edges encoding nonzero dimensions of $\mathrm{Hom}(M,N)$ and $\mathrm{Ext}^1(M,N)$, respectively.
 
-当选中某个 tilting 模 $T$ 时, 
+For detailed numerical data, it is often useful to compare the visualization with the corresponding `yourfile.log` file.
 
-- 灰色顶点表示 $T$ 的不可分解直和项. 实际上, 灰点数量等于 quiver 的顶点数,
-- 红点与灰点表示 $\mathrm{gen}(T) = \operatorname{Ker}\mathrm{Ext}^1(T,-)$, 即 $T$ 诱导的 torsion class (中的不可分解对象),
-- 绿点表示 $\operatorname{Ker}\mathrm{Hom}(T, -)$, 即 $T$ 诱导的 torsion free class (中的不可分解对象).
+### Tilting modules and torsion theories
+
+The page can display classical tilting modules and the torsion-theoretic structures induced by them. We use the standard definition: a module $T$ is tilting if it satisfies the following conditions:
+
+- $\mathrm{pd}\,T \leq 1$;
+- $\mathrm{Ext}^{\geq 1}(T,T)=0$;
+- there exists a short exact sequence $A \rightarrowtail T^0 \twoheadrightarrow T^1$ with $T^0,T^1 \in \mathrm{add}(T)$, where $A$ is the path algebra.
+
+When a tilting module $T$ is selected:
+
+- grey vertices indicate the indecomposable direct summands of $T$;
+- red and grey vertices indicate the torsion class $\mathrm{gen}(T)=\operatorname{Ker}\mathrm{Ext}^1(T,-)$;
+- green vertices indicate the torsion-free class $\operatorname{Ker}\mathrm{Hom}(T,-)$.
 
 ![image-20260612222908600](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612222908600.png)
 
-`TorsionCls` 表示 torsion theory. 选中某个 torsion theory 后红/绿点对应 torsion/torsionfree class. 
+`TorsionCls` lists torsion theories. After selecting one, the torsion class and torsion-free class are shown by red and green highlights.
 
-`CotorsionCls` 表示 cotorsion theory. 选中某个 cotorsion theory 后蓝/红点对应 cotorsion theory 的左/右侧.
+`CotorsionCls` lists cotorsion theories. After selecting one, the left and right classes are shown by blue and red highlights.
 
-- 在 cotorsion theory 中, 部分对象可能同时属于 cotorsion theory 的左/右侧, 我们因此仅对半侧染色.
-- 可以使用 `Ctrl + L` 切至/切回全屏. 
-- 可以双击 `L` 与 `R` 以改变 cotorsion theory 的排序方式.
+- Some objects may belong to both sides of a cotorsion theory; in that case, half-coloring is used.
+- Use `Ctrl + L` to enter or leave full-screen mode.
+- Double-click `L` or `R` to change the sorting order of cotorsion theories.
 
 ![image-20260612224442128](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612224442128.png)
 
-`sTauTilt` 表示 support $\tau$-tilting modules. 称二元组 $(P,M)$ 是 support $\tau$-tilting module, 若
+### Support $\tau$-tilting modules
 
-- $\mathrm{Hom}(M, \tau M) = 0$, 即 $M$ 是 rigid 的,
-- $\mathrm{Hom}(P, M) = 0$, 其中 $P$ 是投射模,
-- $P$ 的不可分解直和项数与 $M$ 的不可分解直和项数和为 $n$, 即路代数的顶点数.
+`sTauTilt` displays support $\tau$-tilting modules. A pair $(P,M)$ is a support $\tau$-tilting module if:
 
-经合适的排序, 我们可以得到所有 cluster-tilting 对象, 此处也就是 maximal rigid 对象.
+- $\mathrm{Hom}(M,\tau M)=0$, so $M$ is rigid;
+- $\mathrm{Hom}(P,M)=0$, where $P$ is projective;
+- the total number of indecomposable direct summands of $P$ and $M$ is $n$, the number of vertices of the path algebra.
 
-`almost sTauTilt` 表示 almost support $\tau$-tilting modules, 介绍略.
+With an appropriate sorting order, the support $\tau$-tilting data can be used to inspect all cluster-tilting objects in this setting, equivalently the maximal rigid objects in the displayed category.
+
+`almost sTauTilt` lists almost support $\tau$-tilting modules.
+
+## Acknowledgement
+
+The author gratefully acknowledges the developers and maintainers of [GAP](https://www.gap-system.org/), [Binder](https://mybinder.org/), and [q.uiver](https://q.uiver.app/) for providing essential tools and infrastructure used by this project. The implementation was inspired in part by A. Konovalov's [try-gap-in-jupyter](https://github.com/gap-system/try-gap-in-jupyter) repository. The author also acknowledges the assistance of the AI model `chatgpt-5.5-thinking` during the development and refinement of the codebase.
