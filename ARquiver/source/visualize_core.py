@@ -294,7 +294,34 @@ def parse_quiver_data(quiver_file):
     for m in re.finditer(r"^P\s*:=\s*(0|\[[^\]]*\])\s*\|\s*M\s*:=\s*(0|\[[^\]]*\])", almost_support_tau_section, flags=re.M | re.S):
         almost_support_tau_data.append({"P": parse_class_expr(m.group(1)), "M": parse_class_expr(m.group(2))})
 
+    def display_class(values):
+        return "0" if not values else ",".join(str(v) for v in values)
+
+    for item in tilting_data:
+        item["labelText"] = f"L=[{display_class(item.get('L', []))}] | F=[{display_class(item.get('F', []))}] | T=[{display_class(item.get('T', []))}] | {item.get('tagText', '')}"
+    for item in torsion_pair_data:
+        item["labelText"] = f"T=[{display_class(item.get('T', []))}] | F=[{display_class(item.get('F', []))}] | {item.get('tagText', '')}"
+    for item in cotorsion_pair_data:
+        item["labelText"] = f"L=[{display_class(item.get('L', []))}] | R=[{display_class(item.get('R', []))}] | {'hereditary' if item.get('hereditary') else 'non-hereditary'}"
+    for item in support_tau_data:
+        item["labelText"] = f"P=[{display_class(item.get('P', []))}] | M=[{display_class(item.get('M', []))}]"
+    for item in almost_support_tau_data:
+        item["labelText"] = f"P=[{display_class(item.get('P', []))}] | M=[{display_class(item.get('M', []))}]"
+
+    torsion_pair_buckets = {}
+    for tilting_filter in ["all", "tilting", "non-tilting"]:
+        for split_filter in ["all", "split", "non-split"]:
+            key = f"{tilting_filter}|{split_filter}"
+            bucket = []
+            for idx, item in enumerate(torsion_pair_data):
+                tilting_ok = tilting_filter == "all" or (tilting_filter == "tilting" and item.get("tilting")) or (tilting_filter == "non-tilting" and not item.get("tilting"))
+                split_ok = split_filter == "all" or (split_filter == "split" and item.get("split")) or (split_filter == "non-split" and not item.get("split"))
+                if tilting_ok and split_ok:
+                    bucket.append(idx)
+            torsion_pair_buckets[key] = bucket
+
     globals()["torsion_pair_data"] = torsion_pair_data
+    globals()["torsion_pair_buckets"] = torsion_pair_buckets
     globals()["cotorsion_pair_data"] = cotorsion_pair_data
     globals()["support_tau_tilting_data"] = support_tau_data
     globals()["almost_support_tau_tilting_data"] = almost_support_tau_data
@@ -576,6 +603,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     ext_edges_js = json.dumps(ext_edges)
     tilting_js = json.dumps(tilting_data or [])
     torsion_pairs_js = json.dumps(globals().get("torsion_pair_data", []))
+    torsion_pair_buckets_js = json.dumps(globals().get("torsion_pair_buckets", {}))
     cotorsion_pairs_js = json.dumps(globals().get("cotorsion_pair_data", []))
     support_tau_js = json.dumps(globals().get("support_tau_tilting_data", []))
     almost_support_tau_js = json.dumps(globals().get("almost_support_tau_tilting_data", []))
@@ -611,6 +639,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const extEdges = {{EXT_EDGES}};
       const tiltingData = {{TILTING_DATA}};
       const torsionPairData = {{TORSION_PAIR_DATA}};
+      const torsionPairBuckets = {{TORSION_PAIR_BUCKETS}};
       const cotorsionPairData = {{COTORSION_PAIR_DATA}};
       const supportTauTiltingData = {{SUPPORT_TAU_TILTING_DATA}};
       const almostSupportTauTiltingData = {{ALMOST_SUPPORT_TAU_TILTING_DATA}};
@@ -3009,8 +3038,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           return `<button type="button" data-sort-key="${col.key}" style="font-size:11px; margin-right:4px; padding:2px 6px; border:1px solid ${active ? '#0f766e' : '#ccc'}; border-radius:4px; background:${active ? '#ccfbf1' : '#fff'}; cursor:pointer;">${col.label}${active ? ` (${modeText})` : ''}</button>`;
         }).join('');
         const items = rows.map((row, idx) => {
-          const body = columns.map(col => `${col.label}=[${displayClassList(row.item[col.key] || [])}]`).join(' | ');
-          const extra = formatExtra ? formatExtra(row.item) : '';
+          const body = row.item.labelText || columns.map(col => `${col.label}=[${displayClassList(row.item[col.key] || [])}]`).join(' | ');
+          const extra = row.item.labelText ? '' : (formatExtra ? formatExtra(row.item) : '');
           return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. ${body}${extra}</button>`;
         }).join('');
         el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
@@ -3056,16 +3085,22 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             if (item && Object.prototype.hasOwnProperty.call(item, 'split')) return !!item.split;
             try { return isSplitPair(item); } catch (err) { return false; }
           };
-          let rows = (torsionPairData || []).map(item => ({
-            item,
-            hasTilting: safeHasTilting(item),
-            split: safeIsSplit(item)
-          }));
-          rows = rows.filter(row => {
-            const tiltingOk = pairListFilters.torsionTilting === 'all' || (pairListFilters.torsionTilting === 'tilting' ? row.hasTilting : !row.hasTilting);
-            const splitOk = pairListFilters.torsionSplit === 'all' || (pairListFilters.torsionSplit === 'split' ? row.split : !row.split);
-            return tiltingOk && splitOk;
-          });
+          const bucketKey = `${pairListFilters.torsionTilting}|${pairListFilters.torsionSplit}`;
+          const bucket = torsionPairBuckets && torsionPairBuckets[bucketKey];
+          let rows = Array.isArray(bucket)
+            ? bucket.map(idx => {
+                const item = torsionPairData[idx];
+                return item ? { item, hasTilting: !!item.tilting, split: !!item.split } : null;
+              }).filter(Boolean)
+            : (torsionPairData || []).map(item => ({
+                item,
+                hasTilting: safeHasTilting(item),
+                split: safeIsSplit(item)
+              })).filter(row => {
+                const tiltingOk = pairListFilters.torsionTilting === 'all' || (pairListFilters.torsionTilting === 'tilting' ? row.hasTilting : !row.hasTilting);
+                const splitOk = pairListFilters.torsionSplit === 'all' || (pairListFilters.torsionSplit === 'split' ? row.split : !row.split);
+                return tiltingOk && splitOk;
+              });
 
           el.innerHTML = '';
           const title = document.createElement('div');
@@ -3123,7 +3158,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             btn.type = 'button';
             btn.dataset.row = String(idx);
             btn.className = 'ar-record-row';
-            btn.textContent = `${idx + 1}. T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${item.tagText || ((row.hasTilting ? 'tilting' : 'non-tilting') + ' | ' + (row.split ? 'split' : 'non-split'))}`;
+            btn.textContent = `${idx + 1}. ${item.labelText || (`T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${item.tagText || ((row.hasTilting ? 'tilting' : 'non-tilting') + ' | ' + (row.split ? 'split' : 'non-split'))}`)}`;
             listBox.appendChild(btn);
           });
           listBox.addEventListener('click', (event) => {
@@ -4318,6 +4353,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     js_injection = js_injection.replace("{{EXT_EDGES}}", ext_edges_js)
     js_injection = js_injection.replace("{{TILTING_DATA}}", tilting_js)
     js_injection = js_injection.replace("{{TORSION_PAIR_DATA}}", torsion_pairs_js)
+    js_injection = js_injection.replace("{{TORSION_PAIR_BUCKETS}}", torsion_pair_buckets_js)
     js_injection = js_injection.replace("{{COTORSION_PAIR_DATA}}", cotorsion_pairs_js)
     js_injection = js_injection.replace("{{SUPPORT_TAU_TILTING_DATA}}", support_tau_js)
     js_injection = js_injection.replace("{{ALMOST_SUPPORT_TAU_TILTING_DATA}}", almost_support_tau_js)
