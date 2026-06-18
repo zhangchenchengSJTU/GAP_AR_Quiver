@@ -2243,9 +2243,17 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const listSpec = btn.getAttribute('data-list');
           const action = btn.getAttribute('data-action');
           if (toggleId) {
-            toggleCheckbox(toggleId);
-            const toggleEl = document.getElementById(toggleId);
-            btn.classList.toggle('ar-control-active', !!(toggleEl && toggleEl.checked));
+            if (toggleId === 'quiverToggle') {
+              const el = document.getElementById(toggleId);
+              const show = !(miniContainer && miniContainer.style.display === 'block');
+              if (el) el.checked = show;
+              toggleMiniQuiver(show);
+              btn.classList.toggle('ar-control-active', show);
+            } else {
+              toggleCheckbox(toggleId);
+              const toggleEl = document.getElementById(toggleId);
+              btn.classList.toggle('ar-control-active', !!(toggleEl && toggleEl.checked));
+            }
           }
           if (!toggleId && !clickId && !listSpec && action && action !== 'calculator') {
             btn.classList.add('ar-control-active');
@@ -3379,24 +3387,16 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
           modal.style.zIndex = '30000';
           modal.style.display = 'none';
-          modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong id="arTikzTitle">Original quiver source</strong><button id="arTikzClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div style="padding:8px 10px;color:#475569;font-size:12px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;">Copy this text into <a href="https://q.uiver.app" target="_blank" rel="noopener noreferrer">q.uiver.app</a>, or open the q.uiver URL in the first line.</div><textarea id="arTikzOutput" style="box-sizing:border-box;width:100%;height:300px;border:0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTikzCopy">Copy</button></div>';
+          modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong id="arTikzTitle">Original quiver source</strong><button id="arTikzClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div style="padding:8px 10px;color:#475569;font-size:12px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;">The first line of this file contains a q.uiver.app URL.</div><textarea id="arTikzOutput" style="box-sizing:border-box;width:100%;height:300px;border:0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTikzOpen">Open in q.uiver</button></div>';
           document.body.appendChild(modal);
           const head = modal.firstElementChild;
           if (head) head.style.cursor = 'move';
-          makeFloatingWindow(modal, head, {
-            minWidth: 320,
-            minHeight: 220,
-            onResize: (panel, width, height) => {
-              const ta = panel.querySelector('#arTikzOutput');
-              if (ta) ta.style.height = Math.max(120, height - 112) + 'px';
-            }
-          });
+          makeDraggable(modal, head);
           modal.querySelector('#arTikzClose').addEventListener('click', () => { modal.style.display = 'none'; });
-          modal.querySelector('#arTikzCopy').addEventListener('click', async () => {
-            const ta = modal.querySelector('#arTikzOutput');
-            ta.focus();
-            ta.select();
-            try { await navigator.clipboard.writeText(ta.value); } catch (e) { document.execCommand('copy'); }
+          modal.querySelector('#arTikzOpen').addEventListener('click', () => {
+            const url = originalQuiverUrl();
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            else alert('No q.uiver.app URL found in ' + (originalQuiverFilename || 'quiver.txt'));
           });
         }
         const title = modal.querySelector('#arTikzTitle');
@@ -3413,11 +3413,92 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         return firstLine.slice(start).trim();
       }
 
+      function parseQuiverAppData() {
+        const url = originalQuiverUrl();
+        const marker = '#q=';
+        const idx = url.indexOf(marker);
+        if (idx < 0) return null;
+        let encoded = url.slice(idx + marker.length).trim();
+        encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
+        while (encoded.length % 4) encoded += '=';
+        try {
+          const raw = JSON.parse(atob(encoded));
+          const count = Number(raw[1] || 0);
+          if (!count || raw.length < 2 + count) return null;
+          const nodes = raw.slice(2, 2 + count).map((row, i) => ({
+            id: i,
+            x: Number(row[0] || 0),
+            y: Number(row[1] || 0),
+            label: String(row[2] == null ? i + 1 : row[2])
+          }));
+          const arrows = raw.slice(2 + count).filter(row => Array.isArray(row) && row.length >= 3).map(row => ({
+            from: Number(row[0]),
+            to: Number(row[1]),
+            label: String(row[2] == null ? '' : row[2]),
+            options: row.find(x => x && typeof x === 'object') || {}
+          }));
+          return { nodes, arrows };
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function renderOriginalQuiverSvg(target) {
+        const data = parseQuiverAppData();
+        if (!target || !data || !data.nodes.length) return false;
+        const scale = 90;
+        const pad = 52;
+        const xs = data.nodes.map(n => n.x * scale);
+        const ys = data.nodes.map(n => n.y * scale);
+        const minX = Math.min.apply(null, xs);
+        const minY = Math.min.apply(null, ys);
+        const maxX = Math.max.apply(null, xs);
+        const maxY = Math.max.apply(null, ys);
+        const width = Math.max(260, maxX - minX + pad * 2);
+        const height = Math.max(160, maxY - minY + pad * 2);
+        const pos = new Map();
+        data.nodes.forEach(n => pos.set(n.id, { x: n.x * scale - minX + pad, y: n.y * scale - minY + pad, label: n.label }));
+        const esc = s => String(s == null ? '' : s).replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+        const edgeSvg = data.arrows.map((a, i) => {
+          const p = pos.get(a.from);
+          const q = pos.get(a.to);
+          if (!p || !q) return '';
+          if (a.from === a.to) {
+            const r = 22;
+            const x = p.x;
+            const y = p.y;
+            return `<path d="M ${x - 10} ${y - 16} C ${x - 48} ${y - 54}, ${x + 48} ${y - 54}, ${x + 10} ${y - 16}" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#arrow)"/><text x="${x}" y="${y - 48}" text-anchor="middle" font-family="monospace" font-size="12">${esc(a.label)}</text>`;
+          }
+          const dx = q.x - p.x;
+          const dy = q.y - p.y;
+          const len = Math.max(1, Math.hypot(dx, dy));
+          const sx = p.x + dx / len * 22;
+          const sy = p.y + dy / len * 22;
+          const tx = q.x - dx / len * 22;
+          const ty = q.y - dy / len * 22;
+          const off = Number(a.options && a.options.offset ? a.options.offset : 0);
+          const nx = -dy / len * off * 7;
+          const ny = dx / len * off * 7;
+          const mx = (sx + tx) / 2 + nx;
+          const my = (sy + ty) / 2 + ny;
+          const path = off ? `M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}` : `M ${sx} ${sy} L ${tx} ${ty}`;
+          return `<path d="${path}" fill="none" stroke="#334155" stroke-width="1.8" marker-end="url(#arrow)"/><text x="${mx}" y="${my - 6}" text-anchor="middle" font-family="monospace" font-size="12" fill="#111827">${esc(a.label)}</text>`;
+        }).join('');
+        const nodeSvg = data.nodes.map(n => {
+          const p = pos.get(n.id);
+          const isRel = /rel/i.test(n.label);
+          if (isRel) return `<rect x="${p.x - 38}" y="${p.y - 15}" width="76" height="30" rx="5" fill="#f8fafc" stroke="#94a3b8"/><text x="${p.x}" y="${p.y + 4}" text-anchor="middle" font-family="monospace" font-size="11">${esc(n.label)}</text>`;
+          return `<circle cx="${p.x}" cy="${p.y}" r="19" fill="white" stroke="#64748b" stroke-width="1.8"/><text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-family="monospace" font-weight="700" font-size="14">${esc(n.label)}</text>`;
+        }).join('');
+        target.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="display:block;background:white;"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/></marker></defs>${edgeSvg}${nodeSvg}</svg>`;
+        return true;
+      }
+
       function ensureMiniQuiver() {
         if (miniContainer) return;
         miniContainer = document.createElement('div');
         miniContainer.id = 'quiverMiniContainer';
-        miniContainer.style.position = 'absolute';
+        miniContainer.style.position = 'fixed';
         miniContainer.style.bottom = '10px';
         miniContainer.style.right = '10px';
         miniContainer.style.width = '360px';
@@ -3425,7 +3506,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         miniContainer.style.border = '1px solid #ccc';
         miniContainer.style.padding = '6px';
         miniContainer.style.borderRadius = '6px';
-        miniContainer.style.zIndex = '998';
+        miniContainer.style.zIndex = '20000';
         miniContainer.style.boxSizing = 'border-box';
         miniContainer.innerHTML = `
           <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><button id="quiverTikzBtn" type="button" style="font-size:11px; padding:2px 6px; cursor:pointer;">see ${originalQuiverFilename || 'quiver.txt'}</button></div>
@@ -3433,34 +3514,15 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           <div id="quiverRel" style="margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;"></div>
         `;
         document.body.appendChild(miniContainer);
-        makeFloatingWindow(miniContainer, miniContainer.querySelector('#quiverMiniHeader'), {
-          minWidth: 240,
-          minHeight: 180,
-          onResize: (panel, width, height) => {
-            const graph = panel.querySelector('#quiverMini');
-            const rel = panel.querySelector('#quiverRel');
-            if (graph) graph.style.height = Math.max(100, height - 52 - (rel ? rel.offsetHeight : 0)) + 'px';
-            if (miniQuiver) miniQuiver.redraw();
-          }
-        });
+        makeDraggable(miniContainer, miniContainer.querySelector('#quiverMiniHeader'));
         const relBox = miniContainer.querySelector('#quiverRel');
         const tikzBtn = miniContainer.querySelector('#quiverTikzBtn');
-        if (tikzBtn) tikzBtn.addEventListener('click', (event) => { event.stopPropagation(); showQuiverTikz(); });
-        relBox.textContent = quiverRel ? `rel := ${quiverRel}` : 'rel := []';
-        const qUrl = originalQuiverUrl();
-        if (qUrl) {
-          const mini = miniContainer.querySelector('#quiverMini');
-          mini.innerHTML = '';
-          const iframe = document.createElement('iframe');
-          iframe.src = qUrl;
-          iframe.title = 'Original quiver from ' + (originalQuiverFilename || 'quiver.txt');
-          iframe.style.width = '100%';
-          iframe.style.height = '100%';
-          iframe.style.border = '0';
-          iframe.style.background = 'white';
-          mini.appendChild(iframe);
-          return;
+        if (tikzBtn) {
+          tikzBtn.addEventListener('mousedown', (event) => { event.stopPropagation(); });
+          tikzBtn.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); showQuiverTikz(); });
         }
+        relBox.textContent = quiverRel ? `rel := ${quiverRel}` : 'rel := []';
+        const mini = miniContainer.querySelector('#quiverMini');
         if (!quiverNodes || quiverNodes.length === 0) {
           miniContainer.querySelector('#quiverMini').textContent = 'No Q data.';
           return;
@@ -3512,6 +3574,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           interaction: { dragNodes: true, zoomView: true, dragView: true },
           edges: { arrows: { to: true }, font: { align: 'horizontal' }, smooth: false }
         });
+        setTimeout(() => {
+          if (miniQuiver) {
+            miniQuiver.redraw();
+            miniQuiver.fit({ animation: false });
+          }
+        }, 0);
       }
 
       function makeDraggable(container, handle) {
