@@ -2467,7 +2467,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             }
             if (updates.length) network.body.data.edges.update(updates);
             network.redraw();
-            updateAllFloatingLabels();
+            if (typeof updateAllFloatingLabels === 'function') updateAllFloatingLabels();
             snapshot();
             return true;
           } catch (err) {
