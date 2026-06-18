@@ -246,6 +246,29 @@ def parse_quiver_data(quiver_file):
         f_key = normalized_class_key(item.get("F", []))
         item["tilting"] = (t_key, f_key) in tilting_pair_keys
         item["split"] = set(t_key).union(f_key) == torsion_module_ids
+        item["tagText"] = f"{'tilting' if item['tilting'] else 'non-tilting'} | {'split' if item['split'] else 'non-split'}"
+
+    def injective_dimension_at_most_one(module_id):
+        try:
+            entry = pdid_map.get(int(module_id), {})
+            value = int(entry.get("id", -1))
+            return 0 <= value <= 1
+        except Exception:
+            return False
+
+    torsion_pair_split_by_key = {
+        (normalized_class_key(item.get("T", [])), normalized_class_key(item.get("F", []))): bool(item.get("split"))
+        for item in torsion_pair_data
+    }
+    for item in tilting_data:
+        t_key = normalized_class_key(item.get("T", []))
+        f_key = normalized_class_key(item.get("F", []))
+        splitting = all(injective_dimension_at_most_one(mid) for mid in f_key)
+        separating = torsion_pair_split_by_key.get((t_key, f_key), set(t_key).union(f_key) == torsion_module_ids)
+        item["splitting"] = splitting
+        item["separating"] = separating
+        item["tags"] = ["splitting" if splitting else "non-splitting", "separating" if separating else "non-separating"]
+        item["tagText"] = " | ".join(item["tags"])
 
     cotorsion_pair_data = []
     cotorsion_section = ""
@@ -3100,7 +3123,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             btn.type = 'button';
             btn.dataset.row = String(idx);
             btn.className = 'ar-record-row';
-            btn.textContent = `${idx + 1}. T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${row.hasTilting ? 'tilting' : 'non-tilting'} | ${row.split ? 'split' : 'non-split'}`;
+            btn.textContent = `${idx + 1}. T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${item.tagText || ((row.hasTilting ? 'tilting' : 'non-tilting') + ' | ' + (row.split ? 'split' : 'non-split'))}`;
             listBox.appendChild(btn);
           });
           listBox.addEventListener('click', (event) => {
@@ -3133,6 +3156,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         };
         const formatExtra = (item) => {
           if (isTorsion) {
+            if (item && Object.prototype.hasOwnProperty.call(item, 'tagText')) return ' | ' + item.tagText;
             const tags = [];
             tags.push(Object.prototype.hasOwnProperty.call(item, 'tilting') ? (item.tilting ? 'tilting' : 'non-tilting') : (findTiltingForTorsionPair(item) ? 'tilting' : 'non-tilting'));
             tags.push(Object.prototype.hasOwnProperty.call(item, 'split') ? (item.split ? 'split' : 'non-split') : (isSplitTorsionPair(item) ? 'split' : 'non-split'));
@@ -3148,6 +3172,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function tiltingExtraText(item) {
+        if (item && Object.prototype.hasOwnProperty.call(item, 'tagText')) return ' | ' + item.tagText;
+        if (item && Array.isArray(item.tags)) return ' | ' + item.tags.join(' | ');
         try {
           return ' | ' + tiltingTags(item).join(' | ');
         } catch (err) {
