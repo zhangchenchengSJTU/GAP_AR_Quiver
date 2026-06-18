@@ -464,6 +464,8 @@ The `splitting` tag records whether the tilting module is splitting, using the c
 
 The `separating` tag records whether the induced torsion pair `(T,F)` is split, i.e. every indecomposable module belongs to `T` or to `F`.
 
+![image-20260619010144106](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260619010144106.png)
+
 #### `Support τ-tilting`
 
 Opens the list of support $\tau$-tilting pairs. A pair $(P,M)$ is support $\tau$-tilting if $P$ is projective, $M$ is $\tau$-rigid, $\operatorname{Hom}(P,M)=0$, and the total number of indecomposable summands of $P$ and $M$ is the number of vertices of the original quiver.
@@ -504,13 +506,26 @@ Available operations:
 
 Multiplicity convention: `3 + 5` means $M_3\oplus M_5$, while `3^2 + 5` means $M_3^{\oplus 2}\oplus M_5$. Empty output is shown as `∅`.
 
+![image-20260619010506325](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260619010506325.png)
+
 #### `Run with GAP`
 
 Inside the calculator, this generates copyable GAP/QPA code reconstructing the quiver, algebra, projectives, injectives, simples, and serialized indecomposable modules when available. The script can also be downloaded as a `.g` file.
 
 #### `Export AR-quiver to TeX`
 
-Exports the current arranged AR-quiver layout as `xymatrix{}` in $\LaTeX$ code. The export uses the current vertex positions.
+Exports the current arranged AR-quiver layout as `xymatrix{}` in $\LaTeX$ code. The export uses the current vertex positions. The following `xymatrix` is available in `Typora`.
+$$
+\scriptsize\xymatrix{
+{} & {\begin{smallmatrix}2 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@/^0.3pc/@{-->}[rrrrrrrrrrrrrrrr] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 3\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 2\end{smallmatrix}} \ar@{-->}[ll] & {} \\
+{\begin{smallmatrix}2 \\ 0 & 2\end{smallmatrix}} \ar[ur] \ar[dr] & {} & {\begin{smallmatrix}2 \\ 0 & 2\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 0 & 1\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 0\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 3\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {} \\
+{} & {\begin{smallmatrix}2 \\ 0 & 3\end{smallmatrix}} \ar[ur] & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}2 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar[dr] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 4\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 2 & 0\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} \\
+{} & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 1 & 0\end{smallmatrix}} \ar[ur] \ar[dr] \ar@/^0.3pc/@{-->}[rrrrrrrrrr] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 3\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 1 & 0\end{smallmatrix}} \ar@{-->}[ll] \\
+{} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar[dr] \ar@/^0.3pc/@{-->}[rrrrrrrrrr] & {} & {\begin{smallmatrix}1 \\ 1 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 3\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 1 & 2\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} \\
+{} & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar@/^0.6pc/@{-->}[rrrr] & {} & {\begin{smallmatrix}2 \\ 1 & 1\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {} & {} & {} & {} & {}
+}
+$$
+
 
 #### `Color legend`
 
