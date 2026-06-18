@@ -1,4 +1,4 @@
-# Drawing AR Quivers of Finite-Dimensional Algebras with GAP
+# Drawing AR-quivers of Finite-Dimensional Algebras with GAP
 
 ## Quick Start
 
@@ -30,7 +30,7 @@ After entering Jupyter Notebook, the browser address should look like `https://h
 - `Dockerfile`: the environment specification, mainly for developers. Users do not need to edit it.
 - `Readme.md`
 - `Readme.pdf`
-- `ARquiver`: the working directory for drawing AR quivers. After entering this folder, you will see:
+- `ARquiver`: the working directory for drawing AR-quivers. After entering this folder, you will see:
   - `source`: the source-code directory. Users usually do not need to inspect it.
   - `run.ipynb`: the notebook used to run the computation and rendering scripts.
   - `example.txt`, `untitled.txt`, and similar files: input files containing quiver data.
@@ -51,7 +51,7 @@ Click `LaTeX` at the bottom of the `q.uiver` page and copy the generated `tikzcd
 
 Create a new `txt` file named `yourfile.txt` inside the `ARquiver` directory, paste the copied source code into it, save the file, and close it.
 
-### Draw the AR quiver
+### Draw the AR-quiver
 
 Open `run.ipynb` and run the following cells in order:
 
@@ -74,47 +74,63 @@ The `ARquiver` directory will then contain:
 - `yourfile.log`: the algebra computation log;
 - `yourfile.html`: the interactive AR-quiver canvas.
 
-### Arrange the AR quiver into a standard form
+### Arrange the AR-quiver into a usual form
 
-Open `yourfile.html` to view the interactive visualization of the AR quiver.
+Open `yourfile.html` to view the interactive visualization of the AR-quiver.
 
-![image-20260618215409128](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618215409128.png)
+![image-20260618220032641](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618220032641.png)
 
 We first describe the basic AR-quiver controls.
 
 - Each ellipse represents an indecomposable module. Its dimension vector is arranged according to the vertex positions in the original `tikzcd` input.
-- Purple vertices are both projective and injective. Red vertices are projective but not injective, while blue vertices are injective but not projective.
-- `Irr`: show or hide irreducible morphisms, drawn as black arrows.
-- `tau`: show or hide the AR translation $\tau = D \mathrm{Tr}$, drawn as golden arrows.
-- `Border`: show or hide vertex borders.
+
+  > [!caution]
+  >
+  > Some ellipses may overlap.
+- Ellipses with purple borders are both projective and injective. Red vertices are projective but not injective, while blue vertices are injective but not projective.
+- `Quivers > AR irreducible arrows`: show or hide irreducible morphisms, drawn as black arrows.
+- `Quivers > Translation quiver τ`: show or hide the AR translation $\tau = D \mathrm{Tr}$, drawn as golden arrows.
+- `View > Borders`: show or hide vertex borders.
 - `Ctrl + Z` undoes an operation, and `Ctrl + Y` redoes it.
 
-The main manual task is to arrange the AR quiver into a readable standard form. Here are some useful guidelines.
+The main manual task is to arrange the AR-quiver into a readable standard form. Here are some useful guidelines.
 
-*Lemma.* The $\tau$-orbits, namely the orbits of the golden arrows, are disjoint. Projective-injective objects do not belong to any $\tau$-orbit. Every other indecomposable module belongs to exactly one $\tau$-orbit. Hence each $\tau$-orbit is one of the following two types:
+> [!tip]
+>
+> The $\tau$-orbits, namely the orbits of the golden arrows, are disjoint. Projective-injective objects do not belong to any $\tau$-orbit. Every other indecomposable module belongs to exactly one $\tau$-orbit. Hence each $\tau$-orbit is one of the following two types:
+>
+> 1. a straight path from an injective object to a projective object;
+> 2. a cycle that contains no projective or injective object.
 
-- a straight path from an injective object to a projective object;
-- a cycle that contains no projective or injective object.
+Following this tip, we first find a projective object with long $\tau$-orbit, e.g., $\substack{2\\ 0 \quad 2}$ . Since vertices may overlap, you can refresh the page until a satisfying display occurs. Turn off `AR irreducible arrows`, then place the arrow $\substack{2\\ 0 \quad 2} \ \ \leftarrow \ \substack{2\\ 0 \quad 2}$ horizontally in an empty region. 
 
-Following this lemma, we first arrange the projective object $\substack{2\\ 2 \quad 0}$. Turn off `Irr`, then place the arrow $\substack{2\\ 2 \quad 0} \ \ \leftarrow \ \substack{2\\ 2 \quad 2}$ horizontally in an empty region. Long-press the golden arrow to align the next arrow. This gives:
+> [!tip]
+>
+> **Long-press the golden arrow** to align the next arrow (while making sure that there are no black arrows hidden behind).
 
-![image-20260612220603319](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612220603319.png)
+This gives:
 
-Next, turn on `Irr` and look for the almost split short exact sequence $\substack{2\\ 2 \quad 0} \ \ \rightarrowtail \bigoplus M_i  \twoheadrightarrow \ \substack{2\\ 2 \quad 2}$.
+![image-20260618221201601](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618221201601.png)
 
-![image-20260612220820836](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612220820836.png)
+Next, turn on `Irr` and look for the almost split short exact sequence $\substack{2\\ 0 \quad 2} \ \ \rightarrowtail \bigoplus M_i  \twoheadrightarrow \ \substack{2\\ 0 \quad 2}$.
 
-Then turn off `Irr` again and long-press the golden arrows for alignment. If a cycle appears, select an edge and use the `↑` and `↓` keys to adjust the curvature of the arrow. After a sequence of such operations, one obtains the $\tau$-orbits:
+<img src="https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618221401009.png" alt="image-20260618221401009" style="zoom:50%;" />
 
-![image-20260612221253587](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612221253587.png)
+Then turn off `AR irreducible arrows` again and long-press the golden arrows for alignment. If a cycle appears, select an edge and use the `↑` and `↓` keys to adjust the curvature of the arrow. After a sequence of such operations, one obtains the $\tau$-orbits:
 
-Finally, turn off `tau` and adjust the curvature of the horizontal black arrows that were hidden behind the golden arrows. If some edges are visually inconvenient, double-click them to switch between dark and light colors. The final AR quiver is then obtained:
+![image-20260618221717802](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618221717802.png)
 
-![image-20260612222112774](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612222112774.png)
+Finally, turn off `AR irreducible arrows` and adjust the curvature of the horizontal black arrows that were hidden behind the golden arrows. If some edges are visually inconvenient, double-click them to switch between dark and light colours. The final AR-quiver is then obtained:
+
+![image-20260618222714203](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618222714203.png)
+
+> [!Tip]
+>
+> Press `Ctrl + L` for full screen and enjoy this quiver.
 
 ## Features
 
-The generated `filename.html` file is an interactive workspace for studying the Auslander--Reiten quiver and related homological data of the algebra defined by `filename.txt`. The page consists of a main canvas, a top navigation bar, and a sidebar opened by `Controls`. This introduction follows the order of the interface: first the canvas and top navigation, then each sidebar section from top to bottom.
+The generated `filename.html` file is an interactive workspace for studying the AR-quiver and related homological data of the algebra defined by `filename.txt`. The page consists of a main canvas, a top navigation bar, and a sidebar opened by `Controls`. This introduction follows the order of the interface: first the canvas and top navigation, then each sidebar section from top to bottom.
 
 ### Basic canvas interaction
 
@@ -125,7 +141,7 @@ Basic operations:
 - Drag a vertex to change the layout.
 - Drag the background to pan the view.
 - Use the mouse wheel to zoom.
-- Hover over a vertex to see only its internal node number, for example `14`.
+- Hover over a vertex to see only its internal node number.
 - Double-click an edge to toggle between dark and light display colors.
 - Select an edge and press `↑` or `↓` to adjust its curvature.
 
@@ -148,7 +164,7 @@ These buttons duplicate the keyboard shortcuts.
 - `Ctrl+Z` undoes recent layout or coloring operations.
 - `Ctrl+Y` redoes an operation that was undone.
 
-They are intended for manual arrangement of the AR quiver, especially when aligning $\tau$-orbits.
+They are intended for manual arrangement of the AR-quiver, especially when aligning $\tau$-orbits.
 
 #### `Clear colors`
 
@@ -165,6 +181,10 @@ This replaces each dimension vector by the internal node number. This is the bes
 #### `show custom label`
 
 This displays user-defined labels when available. If no custom label has been assigned, the vertex falls back to the dimension-vector label.
+
+> [!Tip]
+>
+> Double click a vertex to **customise its label**. The input support simple unicodes. For instance, `N^2` displays like `N²` .
 
 #### `Ctrl+L hide/show UI`
 
@@ -214,11 +234,11 @@ Injective modules found (Node IDs):  [...]
 
 ### Sidebar: `Quivers`
 
-This section overlays auxiliary quivers on top of the AR quiver.
+This section overlays auxiliary quivers on top of the AR-quiver.
 
 #### `AR irreducible arrows`
 
-Shows or hides the black irreducible morphisms of the AR quiver. These are the arrows in
+Shows or hides the black irreducible morphisms of the AR-quiver. These are the arrows in
 
 ```text
 digraph Quiver { ... }
@@ -228,13 +248,7 @@ If multiple identical arrows occur, the display may collapse them visually while
 
 #### `Translation quiver τ`
 
-Shows the AR translation quiver. A golden arrow
-
-\[
-M \longrightarrow N
-\]
-
-means $N=\tau M$. This is useful for arranging the AR quiver into $\tau$-orbits. The data source is
+Shows the AR translation quiver. A golden arrow $M \longrightarrow N$ means $N=\tau M$. This is useful for arranging the AR-quiver into $\tau$-orbits. The data source is
 
 ```text
 digraph TranslationQuiver { ... }
@@ -242,13 +256,7 @@ digraph TranslationQuiver { ... }
 
 #### `Syzygy quiver`
 
-Shows the syzygy quiver. A pink arrow
-
-\[
-X \longrightarrow Y
-\]
-
-means that $Y$ is an indecomposable direct summand of the kernel of a projective cover of $X$, i.e. $Y$ is a summand of $\Omega X$. The data source is
+Shows the syzygy quiver. A pink arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of the kernel of a projective cover of $X$, i.e. $Y \in \mathrm{smd}(\Omega X)$. The data source is
 
 ```text
 digraph SyzygySummand { ... }
@@ -258,13 +266,7 @@ The calculator uses this quiver to compute $\Omega^n(X)$ by iteration.
 
 #### `Cosyzygy quiver`
 
-Shows the cosyzygy quiver. A green arrow
-
-\[
-X \longrightarrow Y
-\]
-
-means that $Y$ is an indecomposable direct summand of the cokernel of an injective envelope of $X$, i.e. $Y$ is a summand of $\Sigma X$. The data source is
+Shows the cosyzygy quiver. A green arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of the cokernel of an injective envelope of $X$, i.e. $Y \in \mathrm{smd}(\Sigma X)$. The data source is
 
 ```text
 digraph CosyzygySummand { ... }
@@ -274,13 +276,7 @@ The calculator uses this quiver to compute $\Sigma^n(X)$.
 
 #### `Radical quiver`
 
-Shows the radical quiver. A cyan arrow
-
-\[
-X \longrightarrow Y
-\]
-
-means that $Y$ is an indecomposable direct summand of $\operatorname{Rad}(X)$. Repeated arrows encode multiplicities. The data source is
+Shows the radical quiver. A cyan arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $\operatorname{Rad}(X)$, i.e., $Y \in \mathrm{smd}(\mathrm{Rad}(X))$. Repeated arrows encode multiplicities. The data source is
 
 ```text
 digraph RadicalSummand { ... }
@@ -290,13 +286,7 @@ The calculator uses this quiver to compute $\operatorname{Rad}^n(X)$.
 
 #### `Coradical quiver`
 
-Shows the coradical quiver. A purple arrow
-
-\[
-X \longrightarrow Y
-\]
-
-means that $Y$ is an indecomposable direct summand of $X/\operatorname{Soc}(X)$. Repeated arrows encode multiplicities. The data source is
+Shows the coradical quiver. A purple arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $X/\operatorname{Soc}(X)$, i.e., $Y \in \mathrm{smd}(X/\mathrm{Sox}(X))$. Repeated arrows encode multiplicities. The data source is
 
 ```text
 digraph CoradicalSummand { ... }
@@ -306,13 +296,7 @@ The calculator uses this quiver to compute $\operatorname{Corad}^n(X)$.
 
 #### `Hom dimension quiver`
 
-Shows nonzero Hom dimensions. A brown arrow
-
-\[
-M \longrightarrow N
-\]
-
-with label `k` means $\dim\operatorname{Hom}(M,N)=k$. The source is
+Shows nonzero Hom dimensions. A brown arrow $M \longrightarrow N$ with label `k` (unlabelled cases means `k=1`) means $\dim\operatorname{Hom}(M,N)=k$. The source is
 
 ```text
 digraph HomDim { ... }
@@ -320,19 +304,13 @@ digraph HomDim { ... }
 
 #### `Ext dimension quiver`
 
-Shows nonzero $\operatorname{Ext}^1$ dimensions. A red arrow
-
-\[
-M \longrightarrow N
-\]
-
-with label `k` means $\dim\operatorname{Ext}^1(M,N)=k$. The source is
+Shows nonzero $\operatorname{Ext}^1$ dimensions. A red arrow $M \longrightarrow N$ with label `k` (unlabelled cases means `k=1`) means $\dim\operatorname{Ext}^1(M,N)=k$. The source is
 
 ```text
 digraph ExtDim { ... }
 ```
 
-Together with the syzygy quiver, this data is used by the calculator to evaluate higher Ext dimensions.
+Together with the syzygy quiver, this data is used by the calculator to evaluate higher $\mathrm{Ext}^{\geq 1}$ dimensions.
 
 #### `Original quiver Q`
 
@@ -343,15 +321,23 @@ digraph Q { ... }
 rel := ...;
 ```
 
-The `see filename.txt` button opens the original input text. The `Open in q.uiver` button opens the q.uiver URL stored in the first line of the input file.
+The `see filename.txt` button opens the original input text. The `Open in q.uiver` button opens the https://q.uiver.app stored in the first line of the input file.
 
 ### Sidebar: `Modules`
 
 These buttons highlight special classes of indecomposable modules. They do not alter the graph.
 
+> [!Note]
+>
+> Let $M \oplus N$ be either one of the following kind of the modules, then so are $M$ and $N$. Hence the following property is enough to shown for indecomposable modules.
+
 #### `Torsionless`
 
-Highlights non-projective torsionless modules. A module is torsionless if it embeds into a projective module, equivalently if the canonical map $M\to DDM$ is injective. The display color is cyan. The source is
+Highlights **non-projective** torsionless modules. A module is torsionless if it embeds into a projective module, equivalently if the canonical map
+$$
+M\to DDM, \quad m \mapsto [f \mapsto f(m)]
+$$
+is injective. The display colour is cyan. The source is
 
 ```text
 Torsionless modules found (Node IDs): [...]
@@ -359,7 +345,11 @@ Torsionless modules found (Node IDs): [...]
 
 #### `Reflexive`
 
-Highlights non-projective reflexive modules. A module is reflexive if the canonical map $M\to DDM$ is an isomorphism. The display color is purple. The source is
+Highlights **non-projective** reflexive modules. A module is reflexive if the canonical map 
+$$
+M\to DDM, \quad m \mapsto [f \mapsto f(m)]
+$$
+ is an isomorphism. The display colour is purple. The source is
 
 ```text
 Reflexive modules found (Node IDs): [...]
@@ -367,7 +357,7 @@ Reflexive modules found (Node IDs): [...]
 
 #### `Gorenstein projective`
 
-Highlights non-projective Gorenstein projective modules in green. The source is
+Highlights **non-projective** Gorenstein projective modules in green. The source is
 
 ```text
 Gorenstein projective modules found (Node IDs): [...]
@@ -375,7 +365,7 @@ Gorenstein projective modules found (Node IDs): [...]
 
 #### `Gorenstein injective`
 
-Highlights non-injective Gorenstein injective modules in red. The source is
+Highlights **non-injective** Gorenstein injective modules in red. The source is
 
 ```text
 Gorenstein injective modules found (Node IDs): [...]
@@ -388,7 +378,7 @@ Gorenstein injective modules found (Node IDs): [...]
 Opens a list of torsion pairs. Each row has the form
 
 ```text
-T := [...] | F := [...]
+T := [...] | F := [...] | tilting/non-tilting
 ```
 
 Display convention:
@@ -399,9 +389,9 @@ Display convention:
 Mathematically, `T` is closed under quotients and extensions, while `F` is closed under submodules and extensions. For a tilting module $L$, the induced torsion pair satisfies
 
 \[
-T=\operatorname{gen}(L)=\operatorname{Ker}\operatorname{Ext}^1(L,-),
+\mathcal T=\operatorname{gen}(L)=\operatorname{Ker}\operatorname{Ext}^1(L,-),
 \qquad
-F=\operatorname{Ker}\operatorname{Hom}(L,-).
+\mathcal F=\operatorname{Ker}\operatorname{Hom}(L,-).
 \]
 
 The list is sorted by the stored class data. The source is
@@ -410,6 +400,16 @@ The list is sorted by the stored class data. The source is
 # --- TorsionPairTable --- #
 T := [...] | F := [...]
 ```
+
+The `tilting` flag records whether the torsion pair arises from a tilting module.
+
+> [!Caution]
+>
+> Different tilting modules may induce the same torsion pairs.
+
+The `split` flag records whether the torsion pair splits. A torsion pair $(\mathcal T, \mathcal F)$ splits if and only if $\mathcal T \cup \mathcal F$ consists of all indecomposable modules.
+
+![image-20260618231225010](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618231225010.png)
 
 #### `Cotorsion classes`
 
@@ -423,22 +423,22 @@ Display convention:
 
 - blue vertices show the left class `L`;
 - red vertices show the right class `R`;
-- if a module belongs to both sides, half-coloring is used.
+- if a module belongs to both sides, half-colouring is used.
 
-The `Hereditary` flag records whether the cotorsion pair is hereditary in the computed data. The list is sorted by the stored left and right classes. The source is
+The `hereditary` flag records whether the cotorsion pair is hereditary. A cotorsion pair $(\mathcal L, \mathcal R)$ is hereditary if and only if $\mathrm{Ext}^{\geq 1}(\mathcal{L},\mathcal{R}) = 0$. The list is sorted by the stored left and right classes. The source is
 
 ```text
 # --- CotorsionPairTable --- #
 L := [...] | R := [...] | Hereditary := ...
 ```
 
-![image-20260612224442128](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612224442128.png)
+![image-20260618231301708](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618231301708.png)
 
 ### Sidebar: `Tilting`
 
 #### `Tilting modules`
 
-Opens the list of classical tilting modules. A module $T$ is tilting if
+Opens the list of classical tilting modules. A module $T$ is (classical $1$-)tilting if
 
 - $\operatorname{pd}T\leq 1$;
 - $\operatorname{Ext}^{\geq 1}(T,T)=0$;
@@ -460,7 +460,7 @@ T := [...]
 
 where `L` is the tilting module, `T` is the torsion class, and `F` is the torsion-free class.
 
-![image-20260612222908600](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612222908600.png)
+
 
 #### `Support τ-tilting`
 
@@ -506,7 +506,7 @@ Multiplicity convention: `3 + 5` means $M_3\oplus M_5$, while `3^2 + 5` means $M
 
 Inside the calculator, this generates copyable GAP/QPA code reconstructing the quiver, algebra, projectives, injectives, simples, and serialized indecomposable modules when available. The script can also be downloaded as a `.g` file.
 
-#### `Export AR quiver to TeX`
+#### `Export AR-quiver to TeX`
 
 Exports the current arranged AR-quiver layout as TeX code. The export uses the current vertex positions.
 

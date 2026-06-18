@@ -2026,7 +2026,18 @@ end;;
 
 
 CompactListString := function(obj)
-    return ReplacedString(String(obj), ", ", ",");
+    local parts, x;
+    if not IsList(obj) then
+        return String(obj);
+    fi;
+    if Length(obj) = 0 then
+        return "[]";
+    fi;
+    parts := [];
+    for x in obj do
+        Add(parts, String(x));
+    od;
+    return Concatenation("[", JoinStringsWithSeparator(parts, ","), "]");
 end;;
 
 ExtEdgesFromMatrix := function(ext_dim)

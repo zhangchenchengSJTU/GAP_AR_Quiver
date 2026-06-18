@@ -188,9 +188,9 @@ def parse_quiver_data(quiver_file):
         blocks.append(delimiter + text_chunk)
     for block in blocks:
         if not block.strip(): continue
-        l_match = re.search(r"^L := \[(.*?)\]", block, re.M)
-        f_match = re.search(r"^F := \[(.*?)\]", block, re.M)
-        t_match = re.search(r"^T := \[(.*?)\]", block, re.M)
+        l_match = re.search(r"^L\s*:=\s*\[(.*?)\]", block, re.M)
+        f_match = re.search(r"^F\s*:=\s*\[(.*?)\]", block, re.M)
+        t_match = re.search(r"^T\s*:=\s*\[(.*?)\]", block, re.M)
         
         if l_match and f_match and t_match:
             has_split = "Split" in block
@@ -207,7 +207,7 @@ def parse_quiver_data(quiver_file):
     torsion_match = re.search(r"# --- TorsionPairTable --- #[\s\S]*?(?=# --- CotorsionPairTable --- #|PDID :=|$)", content)
     if torsion_match:
         torsion_section = torsion_match.group(0)
-    for m in re.finditer(r"^T :=\s*(0|\[[^\]]*\])\s*\|\s*F :=\s*(0|\[[^\]]*\])", torsion_section, flags=re.M | re.S):
+    for m in re.finditer(r"^T\s*:=\s*(0|\[[^\]]*\])\s*\|\s*F\s*:=\s*(0|\[[^\]]*\])", torsion_section, flags=re.M | re.S):
         torsion_pair_data.append({
             "T": parse_class_expr(m.group(1)),
             "F": parse_class_expr(m.group(2)),
@@ -231,7 +231,7 @@ def parse_quiver_data(quiver_file):
     cotorsion_match = re.search(r"# --- CotorsionPairTable --- #[\s\S]*?(?=PDID :=|$)", content)
     if cotorsion_match:
         cotorsion_section = cotorsion_match.group(0)
-    for m in re.finditer(r"^L :=\s*(0|\[[^\]]*\])\s*\|\s*R :=\s*(0|\[[^\]]*\])\s*\|\s*Hereditary\s*:\s*=\s*(true|false)", cotorsion_section, flags=re.M | re.S | re.I):
+    for m in re.finditer(r"^L\s*:=\s*(0|\[[^\]]*\])\s*\|\s*R\s*:=\s*(0|\[[^\]]*\])\s*\|\s*Hereditary\s*:\s*=\s*(true|false)", cotorsion_section, flags=re.M | re.S | re.I):
         cotorsion_pair_data.append({
             "L": parse_class_expr(m.group(1)),
             "R": parse_class_expr(m.group(2)),
@@ -241,13 +241,13 @@ def parse_quiver_data(quiver_file):
     support_tau_data = []
     support_tau_match = re.search(r"# --- SupportTauTiltingTable --- #[\s\S]*?(?=# --- AlmostSupportTauTiltingTable --- #|PDID :=|$)", content)
     support_tau_section = support_tau_match.group(0) if support_tau_match else ""
-    for m in re.finditer(r"^P :=\s*(0|\[[^\]]*\])\s*\|\s*M :=\s*(0|\[[^\]]*\])", support_tau_section, flags=re.M | re.S):
+    for m in re.finditer(r"^P\s*:=\s*(0|\[[^\]]*\])\s*\|\s*M\s*:=\s*(0|\[[^\]]*\])", support_tau_section, flags=re.M | re.S):
         support_tau_data.append({"P": parse_class_expr(m.group(1)), "M": parse_class_expr(m.group(2))})
 
     almost_support_tau_data = []
     almost_support_tau_match = re.search(r"# --- AlmostSupportTauTiltingTable --- #[\s\S]*?(?=PDID :=|$)", content)
     almost_support_tau_section = almost_support_tau_match.group(0) if almost_support_tau_match else ""
-    for m in re.finditer(r"^P :=\s*(0|\[[^\]]*\])\s*\|\s*M :=\s*(0|\[[^\]]*\])", almost_support_tau_section, flags=re.M | re.S):
+    for m in re.finditer(r"^P\s*:=\s*(0|\[[^\]]*\])\s*\|\s*M\s*:=\s*(0|\[[^\]]*\])", almost_support_tau_section, flags=re.M | re.S):
         almost_support_tau_data.append({"P": parse_class_expr(m.group(1)), "M": parse_class_expr(m.group(2))})
 
     globals()["torsion_pair_data"] = torsion_pair_data
@@ -1258,8 +1258,20 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           drawerBody.appendChild(listEl);
           listEl.style.display = 'block';
           drawer.style.display = 'block';
+          if (listId === 'tiltingList' && typeof renderTiltingList === 'function') {
+            renderTiltingList();
+          }
           if (listId === 'torsionPairList' && typeof renderTorsionClassListLikeCotorsion === 'function') {
             renderTorsionClassListLikeCotorsion(listId);
+          }
+          if (listId === 'cotorsionPairList' && typeof renderPairList === 'function') {
+            renderPairList('cotorsionPairList', cotorsionPairData, 'L', 'R', 'Cotorsion pairs', item => `<td style="border:1px solid #ddd; padding:3px;">${item.hereditary ? 'hereditary' : 'non-hereditary'}</td>`, { kind: 'cotorsion' });
+          }
+          if (listId === 'supportTauList' && typeof renderSupportTauList === 'function') {
+            renderSupportTauList('supportTauList', supportTauTiltingData, 'Support tau-tilting modules');
+          }
+          if (listId === 'almostSupportTauList' && typeof renderSupportTauList === 'function') {
+            renderSupportTauList('almostSupportTauList', almostSupportTauTiltingData, 'Almost support tau-tilting modules');
           }
           resizeDrawerContent();
           typesetMath(drawerBody);
@@ -2774,9 +2786,41 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         pairListFilters[key] = value;
       }
 
-      function isSplitPair(item) {
+      function isSplitTorsionPair(item) {
         const all = new Set(calcAllIds());
-        const union = new Set([...(item.T || []), ...(item.F || []), ...(item.L || []), ...(item.R || [])].map(Number).filter(Number.isFinite));
+        const union = new Set([...(item.T || []), ...(item.F || [])].map(Number).filter(Number.isFinite));
+        if (union.size !== all.size) return false;
+        for (const id of all) if (!union.has(id)) return false;
+        return true;
+      }
+
+      function tiltingIsSeparating(item) {
+        return isSplitTorsionPair(item || {});
+      }
+
+      function injectiveDimensionAtMostOne(id) {
+        const key = Number(id);
+        if (!Number.isFinite(key)) return false;
+        const entry = pdidMap && (pdidMap[key] || pdidMap[String(key)]);
+        if (!entry) return false;
+        const value = Number(entry.id);
+        return Number.isFinite(value) && value >= 0 && value <= 1;
+      }
+
+      function tiltingIsSplit(item) {
+        return (item && item.F ? item.F : []).map(Number).filter(Number.isFinite).every(injectiveDimensionAtMostOne);
+      }
+
+      function tiltingTags(item) {
+        return [tiltingIsSplit(item) ? 'split' : 'non-split', tiltingIsSeparating(item) ? 'separating' : 'non-separating'];
+      }
+
+      function isSplitPair(item) {
+        if (item && (Object.prototype.hasOwnProperty.call(item, 'T') || Object.prototype.hasOwnProperty.call(item, 'F'))) {
+          return isSplitTorsionPair(item);
+        }
+        const all = new Set(calcAllIds());
+        const union = new Set([...(item.L || []), ...(item.R || [])].map(Number).filter(Number.isFinite));
         if (union.size !== all.size) return false;
         for (const id of all) if (!union.has(id)) return false;
         return true;
@@ -2994,7 +3038,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             btn.type = 'button';
             btn.dataset.row = String(idx);
             btn.className = 'ar-record-row';
-            btn.textContent = `${idx + 1}. T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${safeHasTilting(item) ? 'tilting' : 'non-tilting'}`;
+            btn.textContent = `${idx + 1}. T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${safeHasTilting(item) ? 'tilting' : 'non-tilting'} | ${safeIsSplit(item) ? 'split' : 'non-split'}`;
             btn.addEventListener('click', () => {
               el.querySelectorAll('button[data-row]').forEach(b => b.classList.remove('tilting-btn-active'));
               btn.classList.add('tilting-btn-active');
@@ -3023,7 +3067,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         };
         const formatExtra = (item) => {
           if (isTorsion) {
-            return findTiltingForTorsionPair(item) ? ' | tilting' : ' | non-tilting';
+            const tags = [];
+            tags.push(findTiltingForTorsionPair(item) ? 'tilting' : 'non-tilting');
+            tags.push(isSplitTorsionPair(item) ? 'split' : 'non-split');
+            return ' | ' + tags.join(' | ');
           }
           if (extraRenderer) return ` | ${item.hereditary ? 'hereditary' : 'non-hereditary'}`;
           return '';
@@ -3044,7 +3091,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           applyTiltingHighlight(item);
           const idx = tiltingData.indexOf(item);
           setActiveTilting(idx);
-        });
+        }, (item) => ' | ' + tiltingTags(item).join(' | '));
       }
 
       function setActiveTilting(idx) {
@@ -4302,7 +4349,9 @@ def _inject_tilting_graph_js(html: str) -> str:
 
         const T = (item.T || []).join(', ');
 
-        detail.innerHTML = `L${idx + 1}: [${L}]<br>F: [${F}]<br>T: [${T}]`;
+        const tags = (typeof tiltingTags === 'function') ? tiltingTags(item).join(', ') : '';
+
+        detail.innerHTML = `L${idx + 1}: [${L}]<br>F: [${F}]<br>T: [${T}]<br>${tags}`;
 
       }
 
@@ -4965,7 +5014,8 @@ def _inject_tilting_graph_override(html: str) -> str:
           const L = (item.L || []).join(', ');
           const F = (item.F || []).join(', ');
           const T = (item.T || []).join(', ');
-          detail.innerHTML = `L: [${L}]<br>F: [${F}]<br>T: [${T}]`;
+          const tags = (typeof tiltingTags === 'function') ? tiltingTags(item).join(', ') : '';
+          detail.innerHTML = `L: [${L}]<br>F: [${F}]<br>T: [${T}]<br>${tags}`;
         }
 
         function selectSingle(idx) {
@@ -5309,11 +5359,13 @@ def _inject_tilting_window_like_quiver(html: str) -> str:
           
           listBtn.forEach((btn, i) => {
               if(!data[i]) return;
-              const isSplit = !!data[i].split;
+              const item = data[i];
+              const isSplit = (typeof tiltingIsSplit === 'function') ? tiltingIsSplit(item) : !!item.split;
+              const isSeparating = (typeof tiltingIsSeparating === 'function') ? tiltingIsSeparating(item) : !!item.split;
               const isSelected = (i == idx);
               
-              const finalBg = isSplit ? '#ffcccc' : '#ccf2ff';
-              const finalBorder = isSplit ? '#ff0000' : '#00ccff';
+              const finalBg = isSplit ? '#ffcccc' : (isSeparating ? '#e9d5ff' : '#ccf2ff');
+              const finalBorder = isSplit ? '#ff0000' : (isSeparating ? '#7e22ce' : '#00ccff');
 
               btn.style.setProperty('background-color', finalBg, 'important');
               btn.style.setProperty('border', '1px solid ' + finalBorder, 'important');

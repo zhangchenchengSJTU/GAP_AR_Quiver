@@ -1,0 +1,18 @@
+---
+description: Preserve generated HTML list rendering and parser integrity for AR quiver UI
+alwaysApply: false
+---
+
+# AR quiver HTML rendering integrity
+
+When changing `ARquiver/source/visualize_core.py`, pay special attention to generated HTML list rendering and log parsing.
+
+- Sidebar buttons with `data-list` use the drawer path `showListInDrawer(...)`. If a list is rendered dynamically, this path must call the corresponding renderer after moving the list element into the drawer. Examples:
+  - `tiltingList` must call `renderTiltingList()`.
+  - `torsionPairList` must call `renderTorsionClassListLikeCotorsion(...)`.
+  - `cotorsionPairList` must call `renderPairList(...)`.
+  - `supportTauList` and `almostSupportTauList` must call `renderSupportTauList(...)`.
+- Do not rely only on checkbox `change` handlers for rendering. The sidebar drawer path and checkbox path are separate UI paths and both must be kept working.
+- GAP may wrap long list output with backslash-newline. Python parsers for log tables must tolerate flexible spacing such as `F:=`, `F :=`, and line continuations.
+- After changing generated JavaScript, regenerate at least one HTML file and run `node --check` on all generated inline scripts.
+- For data tables, verify counts at three levels when possible: log count, Python parsed count, and rendered HTML data count.
