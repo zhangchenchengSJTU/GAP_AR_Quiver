@@ -2667,7 +2667,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
           if (action === 'manual') {
-            const manualUrl = new URL('readme.pdf', window.location.href).href.replace(/\\/ARquiver\\/[^/]*$/, '/readme.pdf');
+            const manualUrl = new URL('readme.html', window.location.href).href.replace(/\\/ARquiver\\/[^/]*$/, '/readme.html');
             window.open(manualUrl, '_blank', 'noopener,noreferrer');
           }
           if (action === 'export-tex') showTexExport(exportCurrentARQuiverToXyMatrix());

@@ -28,8 +28,8 @@ Manual launch: open [Binder](https://mybinder.org/) and choose the `GitHub` opti
 After entering Jupyter Notebook, the browser address should look like `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/treee`. In the root directory, you should see the following items:
 
 - `Dockerfile`: the environment specification, mainly for developers. Users do not need to edit it.
-- `Readme.md`
-- `Readme.pdf`
+- `readme.md`
+- `readme.html`
 - `ARquiver`: the working directory for drawing AR-quivers. After entering this folder, you will see:
   - `source`: the source-code directory. Users usually do not need to inspect it.
   - `run.ipynb`: the notebook used to run the computation and rendering scripts.
@@ -526,6 +526,51 @@ $$
 }
 $$
 
+
+#### `Display code`
+
+The display code records only the current visual calibration of an already generated HTML page:
+
+- node positions;
+- AR-arrow and $\tau$-arrow curve offsets.
+
+It does not record or recreate the quiver, module data, labels, torsion classes, tilting data, or any other mathematical data. It should therefore be used only between HTML files with the same underlying graph.
+
+The current short-code format is
+
+```text
+ARQ2.<node-section>.<curve-section>
+```
+
+The character alphabet is
+
+```text
+0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_
+```
+
+Each character represents an integer by subtracting the central offset `32`; hence one character stores a signed value from `-32` to `31`.
+
+For nodes, the first node in increasing node-id order is used as the anchor. The anchor itself is not written into the code. Every later node is represented by two characters:
+
+```text
+horizontal grid offset, vertical grid offset
+```
+
+Offsets are measured in units of the canvas snap grid. Thus if the grid size is `100`, the pair `(3,-2)` means the node is placed at
+
+```text
+anchor + (3 * 100, -2 * 100).
+```
+
+For curves, only non-straight edges are written. Each curved edge uses three characters:
+
+```text
+edge index, edge index, curve step
+```
+
+The first two characters encode the edge index in base `64`. The third character encodes the signed curve step. A positive step means `curvedCW`, and a negative step means `curvedCCW`. The step size is `0.1`, so a step of `3` means `roundness = 0.3`.
+
+When a display code is imported, existing edges are first reset to straight, and then the listed curve offsets are applied. If the pasted text contains surrounding backticks, whitespace, or explanatory text, the importer attempts to extract the first valid `ARQ2...` code automatically.
 
 #### `Color legend`
 
