@@ -2309,7 +2309,79 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           return slash + '[' + String.fromCharCode(10) + slash + 'xymatrix{' + String.fromCharCode(10) + body + String.fromCharCode(10) + '}' + String.fromCharCode(10) + slash + ']';
         }
 
-        function showTexExport(tex) {
+        function exportCurrentARQuiverToTikZ() {
+          const slash = texBackslash();
+          const nodeIds = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+          const positions = network.getPositions(nodeIds);
+          const visibleNodeIds = nodeIds.filter(id => positions[id]);
+          if (!visibleNodeIds.length) {
+            alert('No nodes to export.');
+            return '';
+          }
+          const xs = visibleNodeIds.map(id => positions[id].x);
+          const ys = visibleNodeIds.map(id => positions[id].y);
+          const minX = Math.min.apply(null, xs);
+          const minY = Math.min.apply(null, ys);
+          const coord = (value) => {
+            const text = (Math.round(value * 100) / 100).toFixed(2).replace(/\\.00$/, '').replace(/(\\.\\d)0$/, '$1');
+            return text === '-0' ? '0' : text;
+          };
+          const nodeName = (id) => 'M' + String(id).replace(/[^A-Za-z0-9]/g, '_');
+          const lines = [];
+          lines.push('% Requires: ' + slash + 'usepackage{tikz,amsmath}');
+          lines.push(slash + '[');
+          lines.push(slash + 'begin{tikzpicture}[>=stealth, every node/.style={inner sep=2pt}]');
+          visibleNodeIds.forEach(id => {
+            const node = network.body.data.nodes.get(id);
+            const x = (positions[id].x - minX) / gridSize;
+            const y = -(positions[id].y - minY) / gridSize;
+            const label = nodeExportLabel(id, node && node.label ? node.label : id);
+            lines.push('  ' + slash + 'node (' + nodeName(id) + ') at (' + coord(x) + ',' + coord(y) + ') {$' + label + '$};');
+          });
+          network.body.data.edges.get().filter(isVisibleEdgeForExport).forEach(edge => {
+            const from = Number(edge.from);
+            const to = Number(edge.to);
+            if (!positions[from] || !positions[to]) return;
+            const opts = ['->'];
+            if (isTranslationEdge(edge) || String(edge.id || '').startsWith('tr_')) opts.push('dashed');
+            let path = '--';
+            if (from === to) {
+              path = 'to[loop above]';
+            } else if (edge.smooth && typeof edge.smooth === 'object' && edge.smooth.enabled) {
+              const roundness = Math.abs(Number(edge.smooth.roundness || 0));
+              if (roundness > 0.005) {
+                const angle = Math.max(8, Math.min(80, Math.round(roundness * 60)));
+                const bend = (edge.smooth.type || 'curvedCW') === 'curvedCCW' ? 'bend left=' : 'bend right=';
+                path = 'to[' + bend + angle + ']';
+              }
+            }
+            if (path === '--') lines.push('  ' + slash + 'draw[' + opts.join(',') + '] (' + nodeName(from) + ') -- (' + nodeName(to) + ');');
+            else lines.push('  ' + slash + 'draw[' + opts.join(',') + '] (' + nodeName(from) + ') ' + path + ' (' + nodeName(to) + ');');
+          });
+          lines.push(slash + 'end{tikzpicture}');
+          lines.push(slash + ']');
+          return lines.join(String.fromCharCode(10));
+        }
+
+        let texExportMode = 'xy';
+
+        function setTexExportMode(mode) {
+          texExportMode = mode === 'tikz' ? 'tikz' : 'xy';
+          const modal = document.getElementById('arTexExportModal');
+          if (!modal) return;
+          const output = texExportMode === 'tikz' ? exportCurrentARQuiverToTikZ() : exportCurrentARQuiverToXyMatrix();
+          const ta = modal.querySelector('#arTexOutput');
+          if (ta) ta.value = output;
+          const title = modal.querySelector('#arTexExportTitle');
+          if (title) title.textContent = texExportMode === 'tikz' ? 'Export AR quiver to TeX / TikZ' : 'Export AR quiver to TeX / xymatrix';
+          modal.querySelectorAll('button[data-tex-mode]').forEach(btn => {
+            const active = btn.getAttribute('data-tex-mode') === texExportMode;
+            btn.style.background = active ? '#dbeafe' : '';
+            btn.style.fontWeight = active ? '700' : '';
+          });
+        }
+
+        function showTexExport(mode) {
           let modal = document.getElementById('arTexExportModal');
           if (!modal) {
             modal = document.createElement('div');
@@ -2328,9 +2400,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
             modal.style.zIndex = '30000';
             modal.style.display = 'none';
-            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Export AR quiver to TeX / xymatrix</strong><button id="arTexClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arTexOutput" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTexCopy">Copy</button><button id="arTexDownload">Download .tex</button></div>';
+            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong id="arTexExportTitle">Export AR quiver to TeX / xymatrix</strong><button id="arTexClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div style="display:flex;gap:8px;padding:8px 10px;border-bottom:1px solid #e5e7eb;background:#fff;"><button data-tex-mode="xy">xymatrix</button><button data-tex-mode="tikz">TikZ</button></div><textarea id="arTexOutput" style="box-sizing:border-box;width:100%;height:360px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTexCopy">Copy</button><button id="arTexDownload">Download .tex</button></div>';
             document.body.appendChild(modal);
             modal.querySelector('#arTexClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelectorAll('button[data-tex-mode]').forEach(btn => {
+              btn.addEventListener('click', () => setTexExportMode(btn.getAttribute('data-tex-mode')));
+            });
             modal.querySelector('#arTexCopy').addEventListener('click', () => {
               const ta = modal.querySelector('#arTexOutput');
               ta.focus();
@@ -2343,14 +2418,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
-              a.download = 'ar-quiver-xymatrix.tex';
+              a.download = texExportMode === 'tikz' ? 'ar-quiver-tikz.tex' : 'ar-quiver-xymatrix.tex';
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
               URL.revokeObjectURL(url);
             });
           }
-          modal.querySelector('#arTexOutput').value = tex;
+          setTexExportMode(mode);
           modal.style.display = 'block';
         }
 
@@ -2670,7 +2745,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const manualUrl = new URL('readme.html', window.location.href).href.replace(/\\/ARquiver\\/[^/]*$/, '/readme.html');
             window.open(manualUrl, '_blank', 'noopener,noreferrer');
           }
-          if (action === 'export-tex') showTexExport(exportCurrentARQuiverToXyMatrix());
+          if (action === 'export-tex') showTexExport('xy');
           if (action === 'display-code') showDisplayCodeModal();
           if (action === 'legend') showColorLegend();
         }

@@ -3,6 +3,7 @@ ARquiver/.venv-binder/
 ARquiver/.venv-binder36/
 ARquiver/.benchmark_runs/
 ARquiver/source/__pycache__/
+ARquiver/source/_tex_/
 ARquiver/yourfile.log
 ARquiver/untitled.log
 ARquiver/yourfile.html
