@@ -614,38 +614,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         document.head.appendChild(style);
       })();
 
-      (function ensureMathJax() {
-        if (window.MathJax || document.getElementById('mathjax-script')) return;
-        window.MathJax = { tex: { inlineMath: [['$', '$']] }, svg: { fontCache: 'global' } };
-        const script = document.createElement('script');
-        script.id = 'mathjax-script';
-        script.async = true;
-        script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
-        document.head.appendChild(script);
-      })();
-
-      function typesetMath(element) {
-        if (window.MathJax && window.MathJax.typesetPromise) {
-          window.MathJax.typesetPromise(element ? [element] : undefined).catch(() => {});
-          return;
-        }
-        if (element) {
-          element.__mathjaxRetries = (element.__mathjaxRetries || 0) + 1;
-          if (element.__mathjaxRetries <= 20) {
-            setTimeout(() => typesetMath(element), 250);
-          }
-        }
-      }
-
       function renderInlineMath(element, tex) {
         if (!element) return;
-        element.textContent = '$' + tex + '$';
+        element.textContent = String(tex || '');
         element.classList.add('ar-math-label');
-        typesetMath(element);
       }
 
       function parseEdgeColor(choice) {
-        const c = (choice || 'black').toLowerCase().replace(/\s+/g, '');
+        const c = (choice || 'black').toLowerCase().replace(/\\s+/g, '');
         if (c === 'gold' || c === 'g') {
           return { color: 'gold', width: 3 };
         }
@@ -1274,7 +1250,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             renderSupportTauList('almostSupportTauList', almostSupportTauTiltingData, 'Almost support tau-tilting modules');
           }
           resizeDrawerContent();
-          if (containsTeX(drawerBody.textContent || '')) typesetMath(drawerBody);
           return true;
         }
 
@@ -1663,7 +1638,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const raw = String(text || '').trim();
           if (!raw) return [];
           if (raw.toLowerCase() === 'all' || raw === '*') return all;
-          return Array.from(new Set((raw.match(/-?\d+/g) || []).map(Number).filter(x => all.includes(x)))).sort((a, b) => a - b);
+          return Array.from(new Set((raw.match(/-?\\d+/g) || []).map(Number).filter(x => all.includes(x)))).sort((a, b) => a - b);
         }
         function calcFormatSet(ids) {
           const arr = Array.from(new Set((ids || []).map(Number).filter(Number.isFinite))).sort((a, b) => a - b);
@@ -1828,7 +1803,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           return 'a' + index;
         }
         function calcSourceStem() {
-          const name = (window.location.pathname.split('/').pop() || 'untitled.html').replace(/\.(html|log|txt)$/i, '');
+          const name = (window.location.pathname.split('/').pop() || 'untitled.html').replace(/\\.(html|log|txt)$/i, '');
           return name || 'untitled';
         }
         function calcGapScript() {
@@ -2196,7 +2171,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (!edge || !edge.smooth || typeof edge.smooth !== 'object' || !edge.smooth.enabled) return '';
           const roundness = Number(edge.smooth.roundness || 0);
           if (!Number.isFinite(roundness) || roundness <= 0.005) return '';
-          const amount = Math.max(0.25, Math.min(5, roundness * 3)).toFixed(2).replace(/\.00$/, '').replace(/0$/, '');
+          const amount = Math.max(0.25, Math.min(5, roundness * 3)).toFixed(2).replace(/\\.00$/, '').replace(/0$/, '');
           const type = edge.smooth.type || 'curvedCW';
           return type === 'curvedCCW' ? '@/_' + amount + 'pc/' : '@/^' + amount + 'pc/';
         }
@@ -2457,7 +2432,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
           if (action === 'manual') {
-            const manualUrl = new URL('readme.pdf', window.location.href).href.replace(/\/ARquiver\/[^/]*$/, '/readme.pdf');
+            const manualUrl = new URL('readme.pdf', window.location.href).href.replace(/\\/ARquiver\\/[^/]*$/, '/readme.pdf');
             window.open(manualUrl, '_blank', 'noopener,noreferrer');
           }
           if (action === 'export-tex') showTexExport(exportCurrentARQuiverToXyMatrix());
@@ -2501,14 +2476,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 
         function latexToCanvasLabel(tex) {
           let out = String(tex == null ? '' : tex).trim();
-          out = out.replace(/^\$+|\$+$/g, '');
+          out = out.replace(/^\\$+|\\$+$/g, '');
           out = stripTexCommandWithBraces(out, 'text');
           out = stripTexCommandWithBraces(out, 'mathrm');
           out = stripTexCommandWithBraces(out, 'operatorname');
-          out = out.replace(/_\{([^}]*)\}/g, (_, body) => texScript(body, 'sub'));
-          out = out.replace(/\^\{([^}]*)\}/g, (_, body) => texScript(body, 'sup'));
-          out = out.replace(/_([A-Za-z0-9+\-=])/g, (_, body) => texScript(body, 'sub'));
-          out = out.replace(/\^([A-Za-z0-9+\-=])/g, (_, body) => texScript(body, 'sup'));
+          out = out.replace(/_\\{([^}]*)\\}/g, (_, body) => texScript(body, 'sub'));
+          out = out.replace(/\\^\\{([^}]*)\\}/g, (_, body) => texScript(body, 'sup'));
+          out = out.replace(/_([A-Za-z0-9+=-])/g, (_, body) => texScript(body, 'sub'));
+          out = out.replace(/\\^([A-Za-z0-9+=-])/g, (_, body) => texScript(body, 'sup'));
           out = translateTexToken(out);
           out = out.split(String.fromCharCode(92)).join('');
           return out;
@@ -2796,13 +2771,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         return (!arr || arr.length === 0) ? '0' : arr.join(',');
       }
 
-      function containsTeX(text) {
-        const s = String(text || '');
-        const bs = String.fromCharCode(92);
-        if (s.includes(bs + '(') || s.includes(bs + '[') || s.includes('$')) return true;
-        return s.split(bs).slice(1).some(part => /^[A-Za-z]+/.test(part));
-      }
-
       const listStates = new Map();
       const pairListFilters = {
         torsionTilting: 'all',
@@ -3002,21 +2970,23 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. ${body}${extra}</button>`;
         }).join('');
         el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
-        if (containsTeX(title) || containsTeX(items)) typesetMath(el);
-        el.querySelectorAll('button[data-sort-key]').forEach(btn => btn.addEventListener('click', () => {
-          const key = btn.getAttribute('data-sort-key');
-          if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
-          else { state.sortKey = key; state.sortMode = 'lex'; }
-          state.selectedIndex = 0;
-          renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
-        }));
-        el.querySelectorAll('button[data-row]').forEach(btn => {
-          btn.addEventListener('click', () => activateButtonListRow(containerId, Number(btn.getAttribute('data-row'))));
-          btn.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowDown') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex + 1); }
-            if (event.key === 'ArrowUp') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex - 1); }
-          });
-        });
+        el.onclick = (event) => {
+          const sortBtn = event.target.closest('button[data-sort-key]');
+          if (sortBtn && el.contains(sortBtn)) {
+            const key = sortBtn.getAttribute('data-sort-key');
+            if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
+            else { state.sortKey = key; state.sortMode = 'lex'; }
+            state.selectedIndex = 0;
+            renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
+            return;
+          }
+          const rowBtn = event.target.closest('button[data-row]');
+          if (rowBtn && el.contains(rowBtn)) activateButtonListRow(containerId, Number(rowBtn.getAttribute('data-row')));
+        };
+        el.onkeydown = (event) => {
+          if (event.key === 'ArrowDown') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex + 1); }
+          if (event.key === 'ArrowUp') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex - 1); }
+        };
       }
 
       function renderSupportTauList(containerId, data, title) {
@@ -3040,12 +3010,14 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const safeIsSplit = (item) => {
             try { return isSplitPair(item); } catch (err) { return false; }
           };
-          let rows = (torsionPairData || []).slice();
-          rows = rows.filter(item => {
-            const hasTilting = safeHasTilting(item);
-            const split = safeIsSplit(item);
-            const tiltingOk = pairListFilters.torsionTilting === 'all' || (pairListFilters.torsionTilting === 'tilting' ? hasTilting : !hasTilting);
-            const splitOk = pairListFilters.torsionSplit === 'all' || (pairListFilters.torsionSplit === 'split' ? split : !split);
+          let rows = (torsionPairData || []).map(item => ({
+            item,
+            hasTilting: safeHasTilting(item),
+            split: safeIsSplit(item)
+          }));
+          rows = rows.filter(row => {
+            const tiltingOk = pairListFilters.torsionTilting === 'all' || (pairListFilters.torsionTilting === 'tilting' ? row.hasTilting : !row.hasTilting);
+            const splitOk = pairListFilters.torsionSplit === 'all' || (pairListFilters.torsionSplit === 'split' ? row.split : !row.split);
             return tiltingOk && splitOk;
           });
 
@@ -3091,26 +3063,31 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           }
 
           rows.sort((a, b) => {
-            const la = (a.T || []).length;
-            const lb = (b.T || []).length;
+            const la = (a.item.T || []).length;
+            const lb = (b.item.T || []).length;
             if (la !== lb) return la - lb;
-            return safeList(a.T).localeCompare(safeList(b.T), undefined, { numeric: true });
+            return safeList(a.item.T).localeCompare(safeList(b.item.T), undefined, { numeric: true });
           });
 
           const listBox = document.createElement('div');
           listBox.setAttribute('role', 'listbox');
-          rows.forEach((item, idx) => {
+          rows.forEach((row, idx) => {
+            const item = row.item;
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.dataset.row = String(idx);
             btn.className = 'ar-record-row';
-            btn.textContent = `${idx + 1}. T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${safeHasTilting(item) ? 'tilting' : 'non-tilting'} | ${safeIsSplit(item) ? 'split' : 'non-split'}`;
-            btn.addEventListener('click', () => {
-              el.querySelectorAll('button[data-row]').forEach(b => b.classList.remove('tilting-btn-active'));
-              btn.classList.add('tilting-btn-active');
-              applyTorsionPairHighlight(item);
-            });
+            btn.textContent = `${idx + 1}. T=[${safeList(item.T || [])}] | F=[${safeList(item.F || [])}] | ${row.hasTilting ? 'tilting' : 'non-tilting'} | ${row.split ? 'split' : 'non-split'}`;
             listBox.appendChild(btn);
+          });
+          listBox.addEventListener('click', (event) => {
+            const btn = event.target.closest('button[data-row]');
+            if (!btn || !listBox.contains(btn)) return;
+            const row = rows[Number(btn.dataset.row)];
+            if (!row) return;
+            el.querySelectorAll('button[data-row]').forEach(b => b.classList.remove('tilting-btn-active'));
+            btn.classList.add('tilting-btn-active');
+            applyTorsionPairHighlight(row.item);
           });
           el.appendChild(listBox);
           if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
@@ -3597,7 +3574,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         for (const row of rows) {
           let cells = [];
           for (const ch of row) {
-            if (/\d/.test(ch)) {
+            if (/\\d/.test(ch)) {
               const idx = parseInt(ch);
               if (idx === vertexId) {
                 cells.push('*');
@@ -3635,7 +3612,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           s.split(';').forEach((row, r) => {
             let c = 0;
             for (let i = 0; i < row.length; i += 1) {
-              if (/\d/.test(row[i])) pos[Number(row[i])] = [r, c];
+              if (/\\d/.test(row[i])) pos[Number(row[i])] = [r, c];
               c += 1;
             }
           });
@@ -3848,7 +3825,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           rows.forEach((row, rowIdx) => {
             let colIdx = 0;
             for (let i = 0; i < row.length; i++) {
-              if (/\d/.test(row[i])) {
+              if (/\\d/.test(row[i])) {
                 const nid = parseInt(row[i]);
                 layoutPositions[nid] = { x: colIdx * 100, y: rowIdx * 100 };
                 colIdx++;
