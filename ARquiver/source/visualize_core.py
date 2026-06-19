@@ -888,6 +888,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         });
       })();
       (function addRightButtons() {
+        ['arControlPanel','arTopMenu','arFolderPanel','arListDrawer','calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegend','arQuiverTikzModal','quiverMiniContainer'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el && el.parentNode) el.parentNode.removeChild(el);
+        });
         const container = document.createElement('div');
         container.id = 'arControlPanel';
         container.style.position = 'absolute';
@@ -2773,7 +2777,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         }
 
         function downloadStandaloneHtml() {
-          const doc = '<!DOCTYPE html>' + String.fromCharCode(10) + document.documentElement.outerHTML;
+          const clone = document.documentElement.cloneNode(true);
+          ['arControlPanel','arTopMenu','arFolderPanel','arListDrawer','calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegend','arQuiverTikzModal','quiverMiniContainer'].forEach(id => {
+            const el = clone.querySelector('#' + id);
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+          });
+          const doc = '<!DOCTYPE html>' + String.fromCharCode(10) + clone.outerHTML;
           const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
