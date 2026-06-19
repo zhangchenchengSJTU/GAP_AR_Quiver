@@ -256,7 +256,7 @@ digraph TranslationQuiver { ... }
 
 #### `Syzygy quiver`
 
-Shows the syzygy quiver. A pink arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of the kernel of a projective cover of $X$, i.e. $Y \in \mathrm{smd}(\Omega X)$. The data source is
+Shows the syzygy quiver. A pink arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of the kernel of a projective cover of $X$, i.e. $Y \in \mathrm{Smd}(\Omega X)$. The data source is
 
 ```text
 digraph SyzygySummand { ... }
@@ -266,7 +266,7 @@ The calculator uses this quiver to compute $\Omega^n(X)$ by iteration.
 
 #### `Cosyzygy quiver`
 
-Shows the cosyzygy quiver. A green arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of the cokernel of an injective envelope of $X$, i.e. $Y \in \mathrm{smd}(\Sigma X)$. The data source is
+Shows the cosyzygy quiver. A green arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of the cokernel of an injective envelope of $X$, i.e. $Y \in \mathrm{Smd}(\Sigma X)$. The data source is
 
 ```text
 digraph CosyzygySummand { ... }
@@ -276,7 +276,7 @@ The calculator uses this quiver to compute $\Sigma^n(X)$.
 
 #### `Radical quiver`
 
-Shows the radical quiver. A cyan arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $\operatorname{Rad}(X)$, i.e., $Y \in \mathrm{smd}(\mathrm{Rad}(X))$. Repeated arrows encode multiplicities. The data source is
+Shows the radical quiver. A cyan arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $\operatorname{Rad}(X)$, i.e., $Y \in \mathrm{Smd}(\mathrm{Rad}(X))$. Repeated arrows encode multiplicities. The data source is
 
 ```text
 digraph RadicalSummand { ... }
@@ -286,7 +286,7 @@ The calculator uses this quiver to compute $\operatorname{Rad}^n(X)$.
 
 #### `Coradical quiver`
 
-Shows the coradical quiver. A purple arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $X/\operatorname{Soc}(X)$, i.e., $Y \in \mathrm{smd}(X/\mathrm{Sox}(X))$. Repeated arrows encode multiplicities. The data source is
+Shows the coradical quiver. A purple arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $X/\operatorname{Soc}(X)$, i.e., $Y \in \mathrm{Smd}(X/\mathrm{Sox}(X))$. Repeated arrows encode multiplicities. The data source is
 
 ```text
 digraph CoradicalSummand { ... }
@@ -510,31 +510,36 @@ Multiplicity convention: `3 + 5` means $M_3\oplus M_5$, while `3^2 + 5` means $M
 
 #### `Run with GAP`
 
-Inside the calculator, this generates copyable GAP/QPA code reconstructing the quiver, algebra, projectives, injectives, simples, and serialized indecomposable modules when available. The script can also be downloaded as a `.g` file.
+Inside the calculator, this generates copyable `GAP` and `QPA` code reconstructing the quiver, algebra, projectives, injectives, simples, and serialised indecomposable modules when available. The script can also be downloaded as a `.g` file.
 
 #### `Export AR-quiver to TeX`
 
-Exports the current arranged AR-quiver layout as copyable TeX code. The export dialog has two modes:
+Exports the current arranged AR-quiver layout as copyable $\TeX$ code. The export dialog has two modes:
 
 - `xymatrix`: the original matrix-style export, useful for quick Typora/xy-pic output.
-- `TikZ`: a `tikzpicture` export preserving the current vertex positions, dashed $\tau$-arrows, and curved arrows via `bend left` / `bend right`.
+- `tikz`: a `tikzpicture` export preserving the current vertex positions, dashed $\tau$-arrows, and curved arrows via `bend left` / `bend right`.
 
-For TikZ output, include
+For `tikz` output, include
 
 ```tex
 \usepackage{tikz,amsmath}
 ```
 
-in the LaTeX preamble. TikZ is recommended when the picture contains curved dashed arrows, since `xymatrix` has limited support for that combination.
+in the $\LaTeX$ preamble. 
+
+> [!caution]
+>
+> `tikZ` is recommended when the picture contains **curved dashed arrows**, since `xymatrix` has limited support for that combination.
 
 #### `Display code`
 
 > [!TIP]
-> Use `Display code` to copy and paste the current arrangement of an already generated HTML quiver. It records the node positions and arrow-curve offsets, so the same layout can be restored later or transferred to another HTML file with the same underlying graph. It does not store the mathematical data of the quiver.
+>
+> Use `Display code` to copy and paste the current arrangement of an already generated `html` quiver. It records the node positions and arrow-curve offsets, so the same layout can be restored later or transferred to another `html` file with the same underlying graph. It does not store the mathematical data of the quiver.
 
 #### `Color legend`
 
-Opens a draggable legend explaining all visual conventions: vertex borders, module-class highlights, AR arrows, $\tau$-arrows, syzygy, cosyzygy, radical, coradical, Hom/Ext arrows, torsion/cotorsion colours, tilting colours, support $\tau$-tilting colours, calculator colours, and floating labels.
+Opens a draggable legend explaining all visual conventions: vertex borders, module-class highlights, AR arrows, $\tau$-arrows, syzygy, cosyzygy, radical, coradical, $\mathrm{Hom}$ and $\mathrm{Ext}^1$ arrows, torsion/cotorsion colours, tilting colours, support $\tau$-tilting colours, calculator colours, and floating labels.
 
 ## Acknowledgement
 
