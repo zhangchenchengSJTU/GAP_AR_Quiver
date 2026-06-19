@@ -16,11 +16,8 @@ Automatic launch: click [![Binder](https://raw.githubusercontent.com/czhang27182
 Manual launch: open [Binder](https://mybinder.org/) and choose the `GitHub` option. Complete only the following steps.
 
 1. Make sure that the `GitHub repository name or URL` field is set to `GitHub`. Paste `https://github.com/zhangchenchengSJTU/GAP_AR_Quiver` into the box on the right.
-2. Click `launch` directly. 
+2. Click `launch` directly. You can also set `Git ref (branch, tag, or commit)` field to `test` to try the latest testing version.
 
-   > [!Note]
-   >
-   > You can also set `Git ref (branch, tag, or commit)` field to `test` to try the latest testing version.
 3. Wait until the environment is ready. Binder will then redirect you to the Jupyter Notebook page.
 
 ### Enter Jupyter Notebook
