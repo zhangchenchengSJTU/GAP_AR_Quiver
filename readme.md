@@ -33,7 +33,7 @@ After entering Jupyter Notebook, the browser address should look like `https://h
 - `ARquiver`: the working directory for drawing AR-quivers. After entering this folder, you will see:
   - `source`: the source-code directory. Users usually do not need to inspect it.
   - `run.ipynb`: the notebook used to run the computation and rendering scripts.
-  - `example.txt`, `untitled.txt`, and similar files: input files containing quiver data.
+  - `example.txt`, `yourfi.txt`, and similar files: input files containing quiver data.
 
 ### Draw the path algebra
 
