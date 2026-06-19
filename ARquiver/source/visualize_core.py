@@ -1743,31 +1743,92 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           });
           return out;
         }
-        function calcIteratedImage(edges, input, steps) {
-          let cur = (input || []).map(Number).filter(Number.isFinite);
-          for (let i = 0; i < steps; i += 1) {
-            cur = calcImageWithMultiplicity(edges, cur);
+        function calcRelationFromEdges(edges) {
+          const rel = new Map();
+          (edges || []).forEach(e => {
+            const from = Number(e[0]);
+            const to = Number(e[1]);
+            if (!Number.isFinite(from) || !Number.isFinite(to)) return;
+            if (!rel.has(from)) rel.set(from, new Map());
+            const row = rel.get(from);
+            row.set(to, (row.get(to) || 0n) + 1n);
+          });
+          return rel;
+        }
+        function calcApplyRelationToVector(vec, rel) {
+          const out = new Map();
+          vec.forEach((count, from) => {
+            const row = rel.get(from);
+            if (!row) return;
+            row.forEach((mult, to) => out.set(to, (out.get(to) || 0n) + count * mult));
+          });
+          return out;
+        }
+        function calcComposeRelations(left, right) {
+          const out = new Map();
+          left.forEach((row, from) => {
+            row.forEach((leftMult, mid) => {
+              const rightRow = right.get(mid);
+              if (!rightRow) return;
+              if (!out.has(from)) out.set(from, new Map());
+              const outRow = out.get(from);
+              rightRow.forEach((rightMult, to) => outRow.set(to, (outRow.get(to) || 0n) + leftMult * rightMult));
+            });
+          });
+          return out;
+        }
+        function calcVectorToIdList(vec) {
+          const out = [];
+          vec.forEach((count, id) => {
+            if (count > 0n) out.push(id);
+          });
+          return out.sort((a, b) => a - b);
+        }
+        function calcIteratedImageMap(edges, input, steps) {
+          let n = Number(steps);
+          if (!Number.isInteger(n) || n < 0) throw new Error('n must be a nonnegative integer.');
+          let vec = new Map();
+          (input || []).map(Number).filter(Number.isFinite).forEach(id => vec.set(id, (vec.get(id) || 0n) + 1n));
+          let rel = calcRelationFromEdges(edges);
+          while (n > 0) {
+            if (n % 2 === 1) vec = calcApplyRelationToVector(vec, rel);
+            n = Math.floor(n / 2);
+            if (n > 0) rel = calcComposeRelations(rel, rel);
+            if (vec.size === 0) break;
           }
-          return cur;
+          return vec;
+        }
+        function calcIteratedImage(edges, input, steps) {
+          return calcVectorToIdList(calcIteratedImageMap(edges, input, steps));
         }
         function calcIteratedSyzygy(input, steps) {
           return calcIteratedImage(syzygyEdges, input, steps);
         }
         function calcFormatMultiset(ids) {
           const counts = new Map();
-          (ids || []).map(Number).filter(Number.isFinite).forEach(id => counts.set(id, (counts.get(id) || 0) + 1));
-          const parts = Array.from(counts.keys()).sort((a, b) => a - b).map(id => counts.get(id) > 1 ? `${id}^${counts.get(id)}` : String(id));
+          if (ids instanceof Map) {
+            ids.forEach((count, id) => {
+              const big = typeof count === 'bigint' ? count : BigInt(count || 0);
+              if (big > 0n) counts.set(Number(id), big);
+            });
+          } else {
+            (ids || []).map(Number).filter(Number.isFinite).forEach(id => counts.set(id, (counts.get(id) || 0n) + 1n));
+          }
+          const parts = Array.from(counts.keys()).sort((a, b) => a - b).map(id => counts.get(id) > 1n ? `${id}^${counts.get(id).toString()}` : String(id));
           return parts.length ? parts.join(' + ') : '∅';
         }
         function calcExtKDimValue(k, a, b) {
-          if (k === 0) return calcDimValue(homEdges, a, b);
-          if (k === 1) return calcDimValue(extEdges, a, b);
-          return calcIteratedSyzygy([a], k - 1).reduce((sum, s) => sum + calcDimValue(extEdges, s, b), 0);
+          if (k === 0) return BigInt(calcDimValue(homEdges, a, b));
+          if (k === 1) return BigInt(calcDimValue(extEdges, a, b));
+          const syz = calcIteratedImageMap(syzygyEdges, [a], k - 1);
+          let total = 0n;
+          syz.forEach((count, s) => { total += count * BigInt(calcDimValue(extEdges, s, b)); });
+          return total;
         }
         function calcExtKDimSum(k, left, right) {
-          let total = 0;
+          let total = 0n;
           left.forEach(a => right.forEach(b => { total += calcExtKDimValue(k, a, b); }));
-          return String(total);
+          return total.toString();
         }
         function calcParseK() {
           const value = Number(document.getElementById('calcK').value || '0');
@@ -1776,11 +1837,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         }
         function calcRightExtKPerp(k, input) {
           const all = calcAllIds();
-          return all.filter(x => input.every(a => calcExtKDimValue(k, a, x) === 0));
+          return all.filter(x => input.every(a => calcExtKDimValue(k, a, x) === 0n));
         }
         function calcLeftExtKPerp(k, input) {
           const all = calcAllIds();
-          return all.filter(x => input.every(b => calcExtKDimValue(k, x, b) === 0));
+          return all.filter(x => input.every(b => calcExtKDimValue(k, x, b) === 0n));
         }
         function calcRightPerp(edges, input) {
           const all = calcAllIds();
@@ -1826,26 +1887,30 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               const k = calcParseK();
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
               highlightA = [a];
-              highlightOutput = calcIteratedImage(syzygyEdges, [a], k);
-              output = calcFormatMultiset(highlightOutput);
+              const result = calcIteratedImageMap(syzygyEdges, [a], k);
+              highlightOutput = calcVectorToIdList(result);
+              output = calcFormatMultiset(result);
             } else if (op === 'Cosyzygy') {
               const k = calcParseK();
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
               highlightA = [a];
-              highlightOutput = calcIteratedImage(cosyzygyEdges, [a], k);
-              output = calcFormatMultiset(highlightOutput);
+              const result = calcIteratedImageMap(cosyzygyEdges, [a], k);
+              highlightOutput = calcVectorToIdList(result);
+              output = calcFormatMultiset(result);
             } else if (op === 'Radical') {
               const k = calcParseK();
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
               highlightA = [a];
-              highlightOutput = calcIteratedImage(radicalEdges, [a], k);
-              output = calcFormatMultiset(highlightOutput);
+              const result = calcIteratedImageMap(radicalEdges, [a], k);
+              highlightOutput = calcVectorToIdList(result);
+              output = calcFormatMultiset(result);
             } else if (op === 'Coradical') {
               const k = calcParseK();
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
               highlightA = [a];
-              highlightOutput = calcIteratedImage(coradicalEdges, [a], k);
-              output = calcFormatMultiset(highlightOutput);
+              const result = calcIteratedImageMap(coradicalEdges, [a], k);
+              highlightOutput = calcVectorToIdList(result);
+              output = calcFormatMultiset(result);
             } else if (op === 'ExtKperp') {
               const k = calcParseK();
               const A = calcParseSet(document.getElementById('calcA').value);
@@ -2059,10 +2124,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               if (op === 'ExtK') hint.textContent = 'Computes Sum dim Ext^k(A_i, B_j); k=0 is Hom, k=1 is Ext^1, k>=2 uses syzygy and Ext^1 data.';
               else if (op === 'ExtKperp') hint.textContent = 'Input A only; returns modules X with Ext^k(A_i, X)=0 for all A_i.';
               else if (op === 'perpExtK') hint.textContent = 'Input B only; returns modules X with Ext^k(X, B_j)=0 for all B_j.';
-              else if (op === 'Syzygy') hint.textContent = 'Input exactly one indecomposable module label in A; returns Ω^n(A), computed by iterating the syzygy quiver. Multiplicities are shown as powers.';
-              else if (op === 'Cosyzygy') hint.textContent = 'Input exactly one indecomposable module label in A; returns Σ^n(A), computed by iterating the cosyzygy quiver. Multiplicities are shown as powers.';
-              else if (op === 'Radical') hint.textContent = 'Input exactly one indecomposable module label in A; returns Rad^n(A), computed by iterating the radical quiver. Multiplicities are shown as powers.';
-              else if (op === 'Coradical') hint.textContent = 'Input exactly one indecomposable module label in A; returns Corad^n(A), computed by iterating the coradical quiver. Multiplicities are shown as powers.';
+              else if (op === 'Syzygy') hint.textContent = 'Input exactly one indecomposable module label in A; returns Ω^n(A), computed by fast powering the syzygy quiver. Multiplicities are shown as powers.';
+              else if (op === 'Cosyzygy') hint.textContent = 'Input exactly one indecomposable module label in A; returns Σ^n(A), computed by fast powering the cosyzygy quiver. Multiplicities are shown as powers.';
+              else if (op === 'Radical') hint.textContent = 'Input exactly one indecomposable module label in A; returns Rad^n(A), computed by fast powering the radical quiver. Multiplicities are shown as powers.';
+              else if (op === 'Coradical') hint.textContent = 'Input exactly one indecomposable module label in A; returns Corad^n(A), computed by fast powering the coradical quiver. Multiplicities are shown as powers.';
               else hint.textContent = 'Inputs/outputs use node label numbers.';
             };
             calculatorPanel.querySelector('#calcOp').addEventListener('change', () => {
@@ -2143,6 +2208,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             <details><summary>Tools</summary><div class="ar-folder-body">
               <button data-action="calculator">Calculator</button>
               <button data-action="manual">Manual</button>
+              <button data-action="download-html">Download standalone HTML</button>
               <button data-action="export-tex">Export AR quiver to TeX</button>
               <button data-action="display-code">Display code</button>
               <button data-action="legend">Color legend</button>
@@ -2698,6 +2764,28 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.display = 'block';
         }
 
+        function rootRelativeUrl(filename) {
+          const href = window.location.href;
+          const marker = '/ARquiver/';
+          const idx = href.indexOf(marker);
+          if (idx >= 0) return href.slice(0, idx + 1) + filename;
+          return new URL(filename, href).href;
+        }
+
+        function downloadStandaloneHtml() {
+          const doc = '<!DOCTYPE html>' + String.fromCharCode(10) + document.documentElement.outerHTML;
+          const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const name = (window.location.pathname.split('/').pop() || 'ar-quiver.html').replace(/[^A-Za-z0-9_.-]/g, '_');
+          a.href = url;
+          a.download = name || 'ar-quiver.html';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+
         function handleMenuAction(event) {
           const btn = event.target.closest('button');
           if (!btn) return;
@@ -2742,9 +2830,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
           if (action === 'manual') {
-            const manualUrl = new URL('readme.html', window.location.href).href.replace(/\\/ARquiver\\/[^/]*$/, '/readme.html');
-            window.open(manualUrl, '_blank', 'noopener,noreferrer');
+            window.open(rootRelativeUrl('readme.html'), '_blank', 'noopener,noreferrer');
           }
+          if (action === 'download-html') downloadStandaloneHtml();
           if (action === 'export-tex') showTexExport('xy');
           if (action === 'display-code') showDisplayCodeModal();
           if (action === 'legend') showColorLegend();
@@ -4059,11 +4147,12 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function originalQuiverUrl() {
-        const firstLine = String(originalQuiverText || '').split(String.fromCharCode(10))[0].replace(String.fromCharCode(13), '') || '';
+        const text = String(originalQuiverText || '').replace(/\\r/g, '');
         const marker = 'https://q.uiver.app/';
-        const start = firstLine.indexOf(marker);
+        const start = text.indexOf(marker);
         if (start < 0) return '';
-        return firstLine.slice(start).trim();
+        const rest = text.slice(start);
+        return (rest.split(/\\s/)[0] || '').trim();
       }
 
       function parseQuiverAppData() {
