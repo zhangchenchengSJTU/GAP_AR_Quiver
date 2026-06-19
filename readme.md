@@ -276,27 +276,27 @@ The calculator uses this quiver to compute $\Sigma^n(X)$.
 
 #### `Radical quiver`
 
-Shows the radical quiver. A cyan arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $\operatorname{Rad}(X)$, i.e., $Y \in \mathrm{Smd}(\mathrm{Rad}(X))$. Repeated arrows encode multiplicities. The data source is
+Shows the radical quiver. A cyan arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $\mathrm{Rad}(X)$, i.e., $Y \in \mathrm{Smd}(\mathrm{Rad}(X))$. Repeated arrows encode multiplicities. The data source is
 
 ```text
 digraph RadicalSummand { ... }
 ```
 
-The calculator uses this quiver to compute $\operatorname{Rad}^n(X)$.
+The calculator uses this quiver to compute $\mathrm{Rad}^n(X)$.
 
 #### `Coradical quiver`
 
-Shows the coradical quiver. A purple arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $X/\operatorname{Soc}(X)$, i.e., $Y \in \mathrm{Smd}(X/\mathrm{Sox}(X))$. Repeated arrows encode multiplicities. The data source is
+Shows the coradical quiver. A purple arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $X/\mathrm{Soc}(X)$, i.e., $Y \in \mathrm{Smd}(X/\mathrm{Sox}(X))$. Repeated arrows encode multiplicities. The data source is
 
 ```text
 digraph CoradicalSummand { ... }
 ```
 
-The calculator uses this quiver to compute $\operatorname{Corad}^n(X)$.
+The calculator uses this quiver to compute $\mathrm{Corad}^n(X)$.
 
 #### `Hom dimension quiver`
 
-Shows nonzero Hom dimensions. A brown arrow $M \longrightarrow N$ with label `k` (unlabelled cases means `k=1`) means $\dim\operatorname{Hom}(M,N)=k$. The source is
+Shows nonzero Hom dimensions. A brown arrow $M \longrightarrow N$ with label `k` (unlabelled cases means `k=1`) means $\dim\mathrm{Hom}(M,N)=k$. The source is
 
 ```text
 digraph HomDim { ... }
@@ -304,7 +304,7 @@ digraph HomDim { ... }
 
 #### `Ext dimension quiver`
 
-Shows nonzero $\operatorname{Ext}^1$ dimensions. A red arrow $M \longrightarrow N$ with label `k` (unlabelled cases means `k=1`) means $\dim\operatorname{Ext}^1(M,N)=k$. The source is
+Shows nonzero $\mathrm{Ext}^1$ dimensions. A red arrow $M \longrightarrow N$ with label `k` (unlabelled cases means `k=1`) means $\dim\mathrm{Ext}^1(M,N)=k$. The source is
 
 ```text
 digraph ExtDim { ... }
@@ -389,9 +389,9 @@ Display convention:
 Mathematically, `T` is closed under quotients and extensions, while `F` is closed under submodules and extensions. For a tilting module $L$, the induced torsion pair satisfies
 
 \[
-\mathcal T=\operatorname{gen}(L)=\operatorname{Ker}\operatorname{Ext}^1(L,-),
+\mathcal T=\mathrm{gen}(L)=\mathrm{Ker}\mathrm{Ext}^1(L,-),
 \qquad
-\mathcal F=\operatorname{Ker}\operatorname{Hom}(L,-).
+\mathcal F=\mathrm{Ker}\mathrm{Hom}(L,-).
 \]
 
 The list is sorted by the stored class data. The source is
@@ -440,9 +440,9 @@ L := [...] | R := [...] | Hereditary := ...
 
 Opens the list of classical tilting modules. A module $T$ is (classical $1$-)tilting if
 
-- $\operatorname{pd}T\leq 1$;
-- $\operatorname{Ext}^{\geq 1}(T,T)=0$;
-- there is a short exact sequence $A\rightarrowtail T^0\twoheadrightarrow T^1$ with $T^0,T^1\in\operatorname{add}(T)$.
+- $\mathrm{pd}T\leq 1$;
+- $\mathrm{Ext}^{\geq 1}(T,T)=0$;
+- there is a short exact sequence $A\rightarrowtail T^0\twoheadrightarrow T^1$ with $T^0,T^1\in\mathrm{add}(T)$.
 
 Display convention:
 
@@ -468,7 +468,7 @@ The `separating` tag records whether the induced torsion pair `(T,F)` is split, 
 
 #### `Support τ-tilting`
 
-Opens the list of support $\tau$-tilting pairs. A pair $(P,M)$ is support $\tau$-tilting if $P$ is projective, $M$ is $\tau$-rigid, $\operatorname{Hom}(P,M)=0$, and the total number of indecomposable summands of $P$ and $M$ is the number of vertices of the original quiver.
+Opens the list of support $\tau$-tilting pairs. A pair $(P,M)$ is support $\tau$-tilting if $P$ is projective, $M$ is $\tau$-rigid, $\mathrm{Hom}(P,M)=0$, and the total number of indecomposable summands of $P$ and $M$ is the number of vertices of the original quiver.
 
 The source is
 
@@ -496,9 +496,9 @@ The calculator performs operations using the data already stored in the HTML. In
 
 Available operations:
 
-- `dim Ext^k(A,B)`: computes total $\dim\operatorname{Ext}^k(A_i,B_j)$ over all selected labels.
-- `ker Ext^k(A,-)`: returns all $X$ with $\operatorname{Ext}^k(A_i,X)=0$ for every selected $A_i$.
-- `ker Ext^k(-,B)`: returns all $X$ with $\operatorname{Ext}^k(X,B_j)=0$ for every selected $B_j$.
+- `dim Ext^k(A,B)`: computes total $\dim\mathrm{Ext}^k(A_i,B_j)$ over all selected labels.
+- `ker Ext^k(A,-)`: returns all $X$ with $\mathrm{Ext}^k(A_i,X)=0$ for every selected $A_i$.
+- `ker Ext^k(-,B)`: returns all $X$ with $\mathrm{Ext}^k(X,B_j)=0$ for every selected $B_j$.
 - `Ω^n(A)`: iterates the syzygy quiver.
 - `Σ^n(A)`: iterates the cosyzygy quiver.
 - `Rad^n(A)`: iterates the radical quiver.
@@ -519,9 +519,15 @@ Exports the current arranged AR-quiver layout as copyable $\TeX$ code. The expor
 - `xymatrix`: the original matrix-style export, useful for quick Typora/xy-pic output.
 - `tikz`: a `tikzpicture` export preserving the current vertex positions, dashed $\tau$-arrows, and curved arrows via `bend left` / `bend right`.
 
+For `xymatix` output, include
+
+```latex
+\usepackage[all]{xy}
+```
+
 For `tikz` output, include
 
-```tex
+```latex
 \usepackage{tikz,amsmath}
 ```
 
@@ -543,5 +549,5 @@ Opens a draggable legend explaining all visual conventions: vertex borders, modu
 
 ## Acknowledgement
 
-The author gratefully acknowledges the developers and maintainers of [GAP](https://www.gap-system.org/), [Binder](https://mybinder.org/), and [quiver](https://q.uiver.app/) for providing essential tools and infrastructure used by this project. The implementation was inspired in part by A. Konovalov's [try-gap-in-jupyter](https://github.com/gap-system/try-gap-in-jupyter) repository. The author also acknowledges the assistance of the AI model `chatgpt-5.5-thinking` during the development and refinement of the codebase.
+The author gratefully acknowledges the developers and maintainers of [GAP](https://www.gap-system.org/), [Binder](https://mybinder.org/), and [quiver](https://q.uiver.app/) for providing essential tools and infrastructure used by this project. The implementation was inspired in part by A. Konovalov's [try-gap-in-jupyter](https://github.com/gap-system/try-gap-in-jupyter) repository. The author also acknowledges the assistance of the AI model `chatgpt-5.5-thinking` during the development and refinement of the codebase, and [typora](https://typora.io/) for generating `readme.html`.
 
