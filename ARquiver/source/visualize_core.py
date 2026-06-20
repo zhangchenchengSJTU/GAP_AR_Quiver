@@ -2498,10 +2498,10 @@ end;;
         }
         function usefulGapCode(kind) {
           if (kind === 'generate') return calcGapScript();
-          if (kind === 'gen') return calcGapScript() + String.fromCharCode(10) + genGapCodeSnippet();
-          if (kind === 'cogen') return calcGapScript() + String.fromCharCode(10) + cogenGapCodeSnippet();
-          if (kind === 'extclosure') return calcGapScript() + String.fromCharCode(10) + extensionClosureGapCodeSnippet();
-          if (kind === 'extbasis') return calcGapScript() + String.fromCharCode(10) + extBasisGapCodeSnippet();
+          if (kind === 'gen') return genGapCodeSnippet();
+          if (kind === 'cogen') return cogenGapCodeSnippet();
+          if (kind === 'extclosure') return extensionClosureGapCodeSnippet();
+          if (kind === 'extbasis') return extBasisGapCodeSnippet();
           return calcGapScript();
         }
         function hideUsefulGapCode() {
@@ -2545,8 +2545,15 @@ end;;
           panel.setAttribute('data-gap-kind', kind);
           const script = usefulGapCode(kind);
           const names = { generate: 'generate_this_quiver', gen: 'find_gen', cogen: 'find_cogen', extclosure: 'extension_closure', extbasis: 'ext_basis_sequences' };
+          const captions = {
+            generate: 'Generated GAP/QPA setup code for Q, kQ, A, M[i], P[i], I[i], S[i].',
+            gen: 'Algorithm snippet. Run "Generate this quiver" first so that A and M are defined.',
+            cogen: 'Algorithm snippet. Run "Generate this quiver" first so that A and M are defined.',
+            extclosure: 'Algorithm snippet. Run "Generate this quiver" first so that A and M are defined.',
+            extbasis: 'Algorithm snippet. Run "Generate this quiver" first so that A and M are defined.'
+          };
           const body = panel.querySelector('#arGapCodeBody');
-          appendGapCodeBox(body, script, source + '_' + (names[kind] || 'gap_code') + '.g', 'Click copy or edit the GAP code below.');
+          appendGapCodeBox(body, script, source + '_' + (names[kind] || 'gap_code') + '.g', captions[kind] || 'Click copy or edit the GAP code below.');
           if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
         }
         function appendGapCodeBox(out, script, filename, caption) {
