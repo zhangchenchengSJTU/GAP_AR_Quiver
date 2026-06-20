@@ -2766,58 +2766,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.display = 'block';
         }
 
-        function cleanRuntimeCloneForSave() {
-          const clone = document.documentElement.cloneNode(true);
-          ['arControlPanel','arTopMenu','arFolderPanel','arListDrawer','calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegend','arQuiverTikzModal','quiverMiniContainer'].forEach(id => {
-            const el = clone.querySelector('#' + id);
-            if (el && el.parentNode) el.parentNode.removeChild(el);
-          });
-          return clone;
-        }
-
-        function saveStandaloneHtmlFromShortcut() {
-          const doc = '<!DOCTYPE html>' + String.fromCharCode(10) + cleanRuntimeCloneForSave().outerHTML;
-          const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          const name = (window.location.pathname.split('/').pop() || 'ar-quiver.html').replace(/[^A-Za-z0-9_.-]/g, '_');
-          a.href = url;
-          a.download = name || 'ar-quiver.html';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }
-
-        document.addEventListener('keydown', (event) => {
-          if ((event.ctrlKey || event.metaKey) && String(event.key || '').toLowerCase() === 's') {
-            event.preventDefault();
-            saveStandaloneHtmlFromShortcut();
-          }
-        }, true);
-
-        function showFramedSaveNotice() {
-          if (window.self === window.top) return;
-          const notice = document.createElement('div');
-          notice.id = 'arFramedSaveNotice';
-          notice.style.position = 'fixed';
-          notice.style.right = '12px';
-          notice.style.bottom = '12px';
-          notice.style.maxWidth = '360px';
-          notice.style.zIndex = '40000';
-          notice.style.padding = '10px 12px';
-          notice.style.border = '1px solid #f59e0b';
-          notice.style.borderRadius = '8px';
-          notice.style.background = '#fffbeb';
-          notice.style.color = '#92400e';
-          notice.style.font = '12px system-ui,-apple-system,Segoe UI,sans-serif';
-          notice.style.boxShadow = '0 8px 24px rgba(15,23,42,0.18)';
-          notice.textContent = 'Tip: this page is inside a Binder/Jupyter frame. Browser Save Page may save only the outer frame. Use Ctrl+S here, or open the frame HTML itself before saving.';
-          document.body.appendChild(notice);
-          setTimeout(() => { if (notice.parentNode) notice.parentNode.removeChild(notice); }, 12000);
-        }
-        showFramedSaveNotice();
-
         function handleMenuAction(event) {
           const btn = event.target.closest('button');
           if (!btn) return;
