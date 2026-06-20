@@ -2307,7 +2307,7 @@ MiddleTermLabelsForPair := function(verts, sub_idx, quot_idx)
     if IsFinite(K) then
         coeffTuples := Tuples(Elements(K), Length(basisMaps));
     else
-        Print("Warning: base field is not finite; using only Ext basis representatives for pair ", sub_idx, " -> E -> ", quot_idx, ".\n");
+        Print("Warning: base field is not finite; using only Ext basis representatives for pair ", sub_idx, " -> E -> ", quot_idx, ". ");
         coeffTuples := [];;
         for i in [1..Length(basisMaps)] do
             tuple := List([1..Length(basisMaps)], j -> Zero(K));
@@ -2486,9 +2486,9 @@ end;;
 PrintExtBasisSequencesForClasses := function(sub_class, quotient_class)
     local seqs, i;
     seqs := ExtBasisSequencesForClasses(sub_class, quotient_class);
-    Print("dim Ext^1(⊕", quotient_class, ", ⊕", sub_class, ") = ", Length(seqs), "\n");
+    Print("dim Ext^1(⊕", quotient_class, ", ⊕", sub_class, ") = ", Length(seqs), "; ");
     for i in [1..Length(seqs)] do
-        Print(i, ": 0 -> ⊕", sub_class, " -> E -> ⊕", quotient_class, " -> 0,  E indec labels = ", seqs[i].middle_labels, "\n");
+        Print(i, ": 0 -> ⊕", sub_class, " -> E -> ⊕", quotient_class, " -> 0,  E indec labels = ", seqs[i].middle_labels, "; ");
     od;
     return seqs;
 end;;
@@ -2503,6 +2503,25 @@ end;;
           if (kind === 'extclosure') return extensionClosureGapCodeSnippet();
           if (kind === 'extbasis') return extBasisGapCodeSnippet();
           return calcGapScript();
+        }
+        function usefulGapCommand(kind) {
+          if (kind === 'gen') return 'GenOf([1]);';
+          if (kind === 'cogen') return 'CogenOf([1]);';
+          if (kind === 'extclosure') return ['table := ComputeExtMiddleTermTable(M);;', 'ExtensionClosureFromTable([1], table);'].join(String.fromCharCode(10));
+          if (kind === 'extbasis') return 'PrintExtBasisSequencesForClasses([1], [2]);';
+          return '# Run the setup code above.';
+        }
+        function usefulGapParts(kind) {
+          if (kind === 'generate') {
+            return [
+              { title: 'Part 1: generate the quiver path algebra', code: calcGapScript(), suffix: 'generate_this_quiver' }
+            ];
+          }
+          return [
+            { title: 'Part 1: generate the quiver path algebra', code: calcGapScript(), suffix: 'generate_this_quiver' },
+            { title: 'Part 2: run the key code in GAP', code: usefulGapCode(kind), suffix: (kind || 'algorithm') + '_key_code' },
+            { title: 'Part 3: run command', code: usefulGapCommand(kind), suffix: (kind || 'algorithm') + '_command' }
+          ];
         }
         function hideUsefulGapCode() {
           const panel = document.getElementById('arGapCodePanel');
@@ -2543,21 +2562,29 @@ end;;
           }
           panel.style.display = 'block';
           panel.setAttribute('data-gap-kind', kind);
-          const script = usefulGapCode(kind);
+          const parts = usefulGapParts(kind);
           const names = { generate: 'generate_this_quiver', gen: 'find_gen', cogen: 'find_cogen', extclosure: 'extension_closure', extbasis: 'ext_basis_sequences' };
-          const captions = {
-            generate: 'Generated GAP/QPA setup code for Q, kQ, A, M[i], P[i], I[i], S[i].',
-            gen: 'Algorithm snippet. Run "Generate this quiver" first so that A and M are defined.',
-            cogen: 'Algorithm snippet. Run "Generate this quiver" first so that A and M are defined.',
-            extclosure: 'Algorithm snippet. Run "Generate this quiver" first so that A and M are defined.',
-            extbasis: 'Algorithm snippet. Run "Generate this quiver" first so that A and M are defined.'
-          };
           const body = panel.querySelector('#arGapCodeBody');
-          appendGapCodeBox(body, script, source + '_' + (names[kind] || 'gap_code') + '.g', captions[kind] || 'Click copy or edit the GAP code below.');
+          appendGapCodeParts(body, parts, source, names[kind] || 'gap_code');
           if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
         }
-        function appendGapCodeBox(out, script, filename, caption) {
+        function appendGapCodeParts(out, parts, source, baseName) {
           out.innerHTML = '';
+          (parts || []).forEach((part, idx) => {
+            const wrap = document.createElement('div');
+            wrap.style.marginBottom = '12px';
+            const title = document.createElement('div');
+            title.textContent = part.title || ('Part ' + (idx + 1));
+            title.style.fontWeight = '700';
+            title.style.marginBottom = '4px';
+            title.style.color = '#0f172a';
+            wrap.appendChild(title);
+            const filename = source + '_' + (part.suffix || baseName || ('part_' + (idx + 1))) + '.g';
+            appendGapCodeBox(wrap, part.code || '', filename, '');
+            out.appendChild(wrap);
+          });
+        }
+        function appendGapCodeBox(out, script, filename, caption) {
           const textarea = document.createElement('textarea');
           textarea.value = script;
           textarea.style.width = '100%';
