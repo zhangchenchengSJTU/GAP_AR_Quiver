@@ -1104,7 +1104,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         });
         document.getElementById('irrToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
-          toggleEdges((edge) => isBlackEdge(edge), checked);
+          toggleEdges((edge) => isIrreducibleEdge(edge), checked);
         });
         document.getElementById('trToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
@@ -2412,6 +2412,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             if (!positions[from] || !positions[to]) return;
             const opts = ['->'];
             if (isTranslationEdge(edge) || String(edge.id || '').startsWith('tr_')) opts.push('dashed');
+            if (isDimmedEdge(edge)) opts.push('gray');
             let path = '--';
             if (from === to) {
               path = 'to[loop above]';
@@ -2557,16 +2558,18 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             nodePart += encodeDisplaySigned((p.x - anchor.x) / gridSize) + encodeDisplaySigned((p.y - anchor.y) / gridSize);
           });
           let curvePart = '';
+          let dimPart = '';
           network.body.data.edges.get().forEach((edge, index) => {
             const step = curveStepFromSmooth(edge.smooth);
             if (step) curvePart += encodeDisplayUnsigned2(index) + encodeDisplaySigned(step);
+            if (isDimmableAREdge(edge) && isDimmedEdge(edge)) dimPart += encodeDisplayUnsigned2(index);
           });
-          return 'ARQ2.' + nodePart + '.' + curvePart;
+          return 'ARQ3.' + nodePart + '.' + curvePart + '.' + dimPart;
         }
 
         function normalizeDisplayCodeInput(text) {
           const raw = String(text || '').trim();
-          const direct = raw.match(/ARQ2\\.[0-9A-Za-z\\-_]*\\.[0-9A-Za-z\\-_]*/);
+          const direct = raw.match(/ARQ[23]\\.[0-9A-Za-z\\-_]*\\.[0-9A-Za-z\\-_]*(?:\\.[0-9A-Za-z\\-_]*)?/);
           if (direct) return direct[0];
           return raw.replace(/[`\\s]/g, '');
         }
@@ -2574,14 +2577,18 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         function applyDisplayCodeText(text) {
           const raw = normalizeDisplayCodeInput(text);
           try {
-            if (!raw.startsWith('ARQ2.')) throw new Error('Display code must start with ARQ2.');
+            const version = raw.startsWith('ARQ3.') ? 3 : (raw.startsWith('ARQ2.') ? 2 : 0);
+            if (!version) throw new Error('Display code must start with ARQ2 or ARQ3.');
             const parts = raw.slice(5).split('.');
-            if (parts.length !== 2) throw new Error('Display code must have node and curve sections.');
+            if (version === 2 && parts.length !== 2) throw new Error('ARQ2 display code must have node and curve sections.');
+            if (version === 3 && parts.length !== 3) throw new Error('ARQ3 display code must have node, curve, and dimmed-arrow sections.');
             const nodePart = parts[0];
             const curvePart = parts[1];
+            const dimPart = version === 3 ? parts[2] : '';
             const ids = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
             if (nodePart.length % 2 !== 0) throw new Error('Node section length mismatch.');
             if (curvePart.length % 3 !== 0) throw new Error('Curve section length mismatch.');
+            if (dimPart.length % 2 !== 0) throw new Error('Dimmed-arrow section length mismatch.');
             const positions = network.getPositions(ids);
             const anchor = ids.length ? positions[ids[0]] : null;
             if (anchor) {
@@ -2607,6 +2614,22 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               const smooth = smoothFromCurveStep(step);
               edgeCurveMemory.set(String(edge.id), smooth);
               updates.push({ id: edge.id, smooth });
+            }
+            edges.forEach(edge => {
+              if (!isDimmableAREdge(edge) || edge.id === undefined || edge.id === null) return;
+              if (String(edge.id || '').startsWith('tr_') || isGoldenEdge(edge)) {
+                updates.push({ id: edge.id, color: { color: 'gold' } });
+              } else {
+                updates.push({ id: edge.id, color: { color: '#000000' } });
+              }
+            });
+            for (let i = 0; i < dimPart.length; i += 2) {
+              const index = decodeDisplayUnsigned2(dimPart, i);
+              if (index < 0 || index >= edges.length) continue;
+              const edge = edges[index];
+              if (!isDimmableAREdge(edge) || edge.id === undefined || edge.id === null) continue;
+              const dimmedColor = (String(edge.id || '').startsWith('tr_') || isGoldenEdge(edge)) ? '#ffe9a6' : '#cccccc';
+              updates.push({ id: edge.id, color: { color: dimmedColor } });
             }
             if (updates.length) network.body.data.edges.update(updates);
             network.redraw();
@@ -2638,7 +2661,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
             modal.style.zIndex = '30000';
             modal.style.display = 'none';
-            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: compact node positions and arrow curves</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .txt</button></div>';
+            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: compact node positions, arrow curves, and dimmed arrows</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .txt</button></div>';
             document.body.appendChild(modal);
             modal.querySelector('#arDisplayCodeClose').addEventListener('click', () => { modal.style.display = 'none'; });
             modal.querySelector('#arDisplayCodeRefresh').addEventListener('click', () => { modal.querySelector('#arDisplayCodeText').value = exportDisplayCodeText(); });
@@ -2865,10 +2888,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         }
 
         function nodeCircleLabel(id) {
-          const base = baseNodeStyles.get(id) || baseNodeStyles.get(Number(id));
+          const base = baseNodeStyles.get(id) || baseNodeStyles.get(String(id)) || baseNodeStyles.get(Number(id));
           if (nodeLabelMode === 'label') return String(id);
           if (nodeLabelMode === 'custom') {
-            const custom = customTexLabels.get(id) || customTexLabels.get(Number(id));
+            const custom = customTexLabels.get(id) || customTexLabels.get(String(id)) || customTexLabels.get(Number(id));
             return custom ? latexToCanvasLabel(custom) : (base ? base.label : String(id));
           }
           return base ? base.label : String(id);
@@ -2886,6 +2909,29 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           nodeLabelButtons.forEach((button, key) => button.classList.toggle('ar-top-active', key === nodeLabelMode));
           network.redraw();
         }
+
+        function refreshCustomNodeLabelMode(focusedNodeId) {
+          applyNodeLabelMode('dimension');
+          setTimeout(() => {
+            nodeLabelMode = 'custom';
+            const updates = network.body.data.nodes.get().map(n => ({
+              id: n.id,
+              label: nodeCircleLabel(n.id),
+              title: String(n.id)
+            }));
+            if (updates.length) network.body.data.nodes.update(updates);
+            if (focusedNodeId !== undefined && focusedNodeId !== null) {
+              network.body.data.nodes.update({
+                id: focusedNodeId,
+                label: nodeCircleLabel(focusedNodeId),
+                title: String(focusedNodeId)
+              });
+            }
+            nodeLabelButtons.forEach((button, key) => button.classList.toggle('ar-top-active', key === nodeLabelMode));
+            network.redraw();
+          }, 20);
+        }
+        window.refreshCustomNodeLabelMode = refreshCustomNodeLabelMode;
 
         function createMenuBar() {
           addMenuStyles();
@@ -4460,9 +4506,24 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         return goldenEdgeSet.has(`${edge.from}->${edge.to}`);
       }
 
+      function isDimmedEdge(edge) {
+        const c = getEdgeColor(edge);
+        return c === '#cccccc' || c === 'lightgray' || c === 'lightgrey' || c === '#ffe9a6';
+      }
+
       function isBlackEdge(edge) {
         const c = getEdgeColor(edge);
-        return c === '#000000' || c === 'black';
+        return c === '#000000' || c === 'black' || c === '#cccccc' || c === 'lightgray' || c === 'lightgrey';
+      }
+
+      function isIrreducibleEdge(edge) {
+        if (!edge) return false;
+        const id = edge.id === undefined || edge.id === null ? '' : String(edge.id);
+        return !/^(tr|syz|cosyz|rad|corad|hom|ext)_/.test(id);
+      }
+
+      function isDimmableAREdge(edge) {
+        return isIrreducibleEdge(edge) || String(edge.id || '').startsWith('tr_') || isGoldenEdge(edge);
       }
 
       function isTranslationEdge(edge) {
@@ -4623,55 +4684,67 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 
       network.on('doubleClick', function(p) {
         if (p.nodes.length > 0) {
-          const n_id = Number(p.nodes[0]);
-          const current = customTexLabels.get(n_id) || '';
-          const wasShowingCustomLabel = nodeLabelMode === 'custom';
-          network.setOptions({ interaction: { dragNodes: false } });
-          network.unselectAll();
-          const input = prompt('Custom TeX label for node ' + n_id, current);
-          const releaseNodeAfterPrompt = () => {
+          const nodeId = p.nodes[0];
+          const n_id = Number(nodeId);
+          const labelKey = Number.isFinite(n_id) ? n_id : nodeId;
+          const current = customTexLabels.get(labelKey) || customTexLabels.get(String(nodeId)) || '';
+          const releaseNodeInteractionState = () => {
             network.unselectAll();
-            if (network.body && network.body.nodes && network.body.nodes[n_id]) {
-              network.body.nodes[n_id].selected = false;
+            if (network.body && network.body.nodes && network.body.nodes[nodeId]) {
+              network.body.nodes[nodeId].selected = false;
+            }
+            if (network.selectionHandler && typeof network.selectionHandler.unselectAll === 'function') {
+              network.selectionHandler.unselectAll();
+            }
+            if (network.interactionHandler) {
+              network.interactionHandler.dragging = false;
+              network.interactionHandler.drag = {};
+            }
+            if (network.canvas && network.canvas.frame && typeof network.canvas.frame.blur === 'function') {
+              network.canvas.frame.blur();
             }
             network.setOptions({ interaction: { dragNodes: true } });
             network.redraw();
           };
-          if (input === null) {
-            releaseNodeAfterPrompt();
-            setTimeout(releaseNodeAfterPrompt, 0);
-            setTimeout(releaseNodeAfterPrompt, 80);
-            return;
-          }
-          const value = input.trim();
-          if (value) customTexLabels.set(n_id, value);
-          else customTexLabels.delete(n_id);
-          const refreshByClickingLabelButtons = () => {
-            const labelButton = nodeLabelButtons.get('label');
-            const customButton = nodeLabelButtons.get('custom');
-            if (labelButton && customButton) {
-              labelButton.click();
-              setTimeout(() => customButton.click(), 0);
-            } else {
-              applyNodeLabelMode('label');
-              applyNodeLabelMode('custom');
+          network.setOptions({ interaction: { dragNodes: false } });
+          releaseNodeInteractionState();
+          setTimeout(() => {
+            const input = prompt('Custom TeX label for node ' + String(nodeId), current);
+            if (input === null) {
+              releaseNodeInteractionState();
+              setTimeout(releaseNodeInteractionState, 0);
+              setTimeout(releaseNodeInteractionState, 80);
+              return;
             }
-          };
-          refreshByClickingLabelButtons();
-          releaseNodeAfterPrompt();
-          setTimeout(releaseNodeAfterPrompt, 0);
-          setTimeout(releaseNodeAfterPrompt, 80);
+            const value = input.trim();
+            if (value) {
+              customTexLabels.set(labelKey, value);
+              customTexLabels.set(String(nodeId), value);
+            } else {
+              customTexLabels.delete(labelKey);
+              customTexLabels.delete(String(nodeId));
+            }
+            releaseNodeInteractionState();
+            if (typeof window.refreshCustomNodeLabelMode === 'function') {
+              window.refreshCustomNodeLabelMode(nodeId);
+            } else {
+              console.error('refreshCustomNodeLabelMode is not available');
+            }
+            setTimeout(releaseNodeInteractionState, 0);
+            setTimeout(releaseNodeInteractionState, 80);
+          }, 0);
           return;
         }
         if (p.edges.length > 0) {
           const edge_id = p.edges[0];
           const edge = network.body.data.edges.get(edge_id);
+          if (!edge || !isDimmableAREdge(edge)) return;
           const blackColor = '#000000';
           const lightGray = '#cccccc';
           const goldColor = '#ffd700';
           const lightGold = '#ffe9a6';
           const currentColor = getEdgeColor(edge);
-          const isGold = isGoldenEdge(edge) || currentColor === goldColor || currentColor === lightGold || currentColor === 'gold';
+          const isGold = String(edge.id || '').startsWith('tr_') || isGoldenEdge(edge) || currentColor === goldColor || currentColor === lightGold || currentColor === 'gold';
           let newColor = currentColor;
           if (isGold) {
             newColor = (currentColor === lightGold) ? goldColor : lightGold;

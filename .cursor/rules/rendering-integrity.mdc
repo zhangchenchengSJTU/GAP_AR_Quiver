@@ -16,4 +16,9 @@ When changing `ARquiver/source/visualize_core.py`, pay special attention to gene
 - Dynamic list renderers should fail visibly, not silently. For important lists such as `tiltingList`, wrap the renderer in `try/catch` and provide a simple fallback list or in-drawer error message if the sortable/rich renderer fails.
 - GAP may wrap long list output with backslash-newline. Python parsers for log tables must tolerate flexible spacing such as `F:=`, `F :=`, and line continuations.
 - After changing generated JavaScript, regenerate at least one HTML file and run `node --check` on all generated inline scripts.
+- For any change affecting generated HTML behavior, verify in an actual opened HTML page, not by static inspection alone. In this WSL workspace, a reliable verification workflow is:
+  1. Start a static server from the workspace root: `python3 -m http.server 8765 --bind 0.0.0.0`.
+  2. Open `http://127.0.0.1:8765/ARquiver/example.html` in a real browser. If the Cursor browser cannot reach WSL loopback, use headless Chrome with DevTools Protocol, e.g. `google-chrome --headless=new --no-sandbox --disable-gpu --user-data-dir=/tmp/ar_chrome_profile --remote-allow-origins='*' --remote-debugging-address=127.0.0.1 --remote-debugging-port=9334 http://127.0.0.1:8765/ARquiver/example.html`.
+  3. Use CDP `Runtime.evaluate` or browser interactions to exercise the UI path under test and inspect actual page state.
+  4. Report the observed page result, not only the expected result.
 - For data tables, verify counts at three levels when possible: log count, Python parsed count, and rendered HTML data count.
