@@ -118,6 +118,19 @@ def parse_quiver_data(quiver_file):
     ext_content = None
     if ext_match:
         ext_content = "digraph ExtDim {" + ext_match.group(1) + "}"
+    extension_middle_table = {}
+    ext_table_match = re.search(r"# --- ExtensionMiddleTermTable --- #[\s\S]*?ExtensionMiddleTermTable\s*:=\s*\[([\s\S]*?)\];;", content)
+    if ext_table_match:
+        table_text = ext_table_match.group(1)
+        for rec_match in re.finditer(r"rec\(sub\s*:=\s*(\d+),\s*quot\s*:=\s*(\d+),\s*mids\s*:=\s*(\[[\s\S]*?\])\)", table_text):
+            try:
+                sub = int(rec_match.group(1))
+                quot = int(rec_match.group(2))
+                mids = ast.literal_eval(rec_match.group(3))
+                extension_middle_table[f"{sub}|{quot}"] = [[int(x) for x in row] for row in mids]
+            except Exception:
+                continue
+    globals()["extension_middle_table"] = extension_middle_table
     rel_match = re.search(r"rel := ([^;\n]+);", content)
     rel_content = rel_match.group(1).strip() if rel_match else None
     module_data_gap = ""
@@ -296,6 +309,17 @@ def parse_quiver_data(quiver_file):
 
     def display_class(values):
         return "0" if not values else ",".join(str(v) for v in values)
+
+    def class_is_extension_closed(values):
+        vals = set(int(v) for v in (values or []))
+        ext_table = globals().get("extension_middle_table", {}) or {}
+        for sub in vals:
+            for quot in vals:
+                mids = ext_table.get(f"{sub}|{quot}", [[sub, quot]])
+                for mid in mids:
+                    if any(int(x) not in vals for x in (mid or [])):
+                        return False
+        return True
 
     for item in tilting_data:
         item["labelText"] = f"L=[{display_class(item.get('L', []))}] | F=[{display_class(item.get('F', []))}] | T=[{display_class(item.get('T', []))}] | {item.get('tagText', '')}"
@@ -601,6 +625,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     module_data_gap_js = json.dumps(globals().get("module_data_gap", ""))
     hom_edges_js = json.dumps(hom_edges)
     ext_edges_js = json.dumps(ext_edges)
+    extension_middle_table_js = json.dumps(globals().get("extension_middle_table", {}))
     tilting_js = json.dumps(tilting_data or [])
     torsion_pairs_js = json.dumps(globals().get("torsion_pair_data", []))
     torsion_pair_buckets_js = json.dumps(globals().get("torsion_pair_buckets", {}))
@@ -637,6 +662,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const indecomposableModuleDataGap = {{MODULE_DATA_GAP}};
       const homEdges = {{HOM_EDGES}};
       const extEdges = {{EXT_EDGES}};
+      const extensionMiddleTermTable = {{EXT_MIDDLE_TABLE}};
       const tiltingData = {{TILTING_DATA}};
       const torsionPairData = {{TORSION_PAIR_DATA}};
       const torsionPairBuckets = {{TORSION_PAIR_BUCKETS}};
@@ -1895,6 +1921,35 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           }
           return values[0];
         }
+        function calcMiddleTerms(sub, quot) {
+          return extensionMiddleTermTable[String(Number(sub)) + '|' + String(Number(quot))] || [[Number(sub), Number(quot)]];
+        }
+        function calcExtensionClosure(input) {
+          const closure = new Set((input || []).map(Number).filter(Number.isFinite));
+          let changed = true;
+          while (changed) {
+            changed = false;
+            const arr = Array.from(closure);
+            arr.forEach(sub => {
+              arr.forEach(quot => {
+                calcMiddleTerms(sub, quot).forEach(mid => {
+                  (mid || []).forEach(x => {
+                    const id = Number(x);
+                    if (Number.isFinite(id) && !closure.has(id)) {
+                      closure.add(id);
+                      changed = true;
+                    }
+                  });
+                });
+              });
+            });
+          }
+          return Array.from(closure).sort((a, b) => a - b);
+        }
+        function calcFormatMiddleTerms(mids) {
+          const lines = (mids || []).map(mid => calcFormatMultiset(mid));
+          return lines.length ? lines.join(String.fromCharCode(10)) : '∅';
+        }
         function calcRunOperation() {
           const op = document.getElementById('calcOp').value;
           let output = '';
@@ -1909,6 +1964,19 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               highlightA = A;
               highlightB = B;
               output = calcExtKDimSum(k, A, B);
+            } else if (op === 'ExtClosure') {
+              const A = calcParseSet(document.getElementById('calcA').value);
+              highlightA = A;
+              highlightOutput = calcExtensionClosure(A);
+              output = calcFormatSet(highlightOutput);
+            } else if (op === 'ExtMiddleTerms') {
+              const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
+              const b = calcSingleIndecomposable(document.getElementById('calcB').value, 'B');
+              highlightA = [a];
+              highlightB = [b];
+              const mids = calcMiddleTerms(a, b);
+              highlightOutput = Array.from(new Set(mids.flat().map(Number).filter(Number.isFinite))).sort((x, y) => x - y);
+              output = calcFormatMiddleTerms(mids);
             } else if (op === 'Syzygy') {
               const k = calcParseK();
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
@@ -2419,13 +2487,41 @@ ExtensionClosureFromTable := function(X, table)
     return closure;
 end;;
 
+IsExtensionClosedClassFromTable := function(X, table)
+    return ExtensionClosureFromTable(X, table) = Set(X);
+end;;
+
+AllExtensionClosedClassesFromTable := function(table)
+    local n, allClasses, mask, X, i;
+    n := Length(table);;
+    allClasses := [];;
+    if n > 24 then
+        Error("Refusing to enumerate 2^n classes for n > 24. Use ExtensionClosureFromTable on selected seeds instead.");
+    fi;
+    for mask in [0..2^n - 1] do
+        X := [];;
+        for i in [1..n] do
+            if RemInt(QuoInt(mask, 2^(i - 1)), 2) = 1 then
+                Add(X, i);
+            fi;
+        od;
+        if IsExtensionClosedClassFromTable(X, table) then
+            Add(allClasses, X);
+        fi;
+    od;
+    SortBy(allClasses, C -> [Length(C), C]);;
+    return allClasses;
+end;;
+
 ExtensionClosureOf := function(X)
     return ExtensionClosureFromTable(X, ComputeExtMiddleTermTable(M));
 end;;
 
-# Example:
+# Examples:
 # table := ComputeExtMiddleTermTable(M);;
-# ExtensionClosureFromTable([1], table);`;
+# ExtensionClosureFromTable([1], table);
+# IsExtensionClosedClassFromTable([1,2,5], table);
+# all_ext_closed := AllExtensionClosedClassesFromTable(table);;`;
         }
         function extBasisGapCodeSnippet() {
           return String.raw`# Ext^1 basis for two classes of indecomposable modules.
@@ -2564,7 +2660,7 @@ end;;
         function usefulGapCommand(kind) {
           if (kind === 'gen') return 'GenOf([1]);';
           if (kind === 'cogen') return 'CogenOf([1]);';
-          if (kind === 'extclosure') return ['table := ComputeExtMiddleTermTable(M);;', 'ExtensionClosureFromTable([1], table);'].join(String.fromCharCode(10));
+          if (kind === 'extclosure') return ['table := ComputeExtMiddleTermTable(M);;', 'ExtensionClosureFromTable([1], table);', 'IsExtensionClosedClassFromTable([1], table);'].join(String.fromCharCode(10));
           if (kind === 'extbasis') return 'PrintExtBasisSequencesForClasses([1], [2]);';
           return '# Run the setup code above.';
         }
@@ -2722,7 +2818,7 @@ end;;
                 <span>Calculator</span><button id="calcClose" style="border:0; background:transparent; font-size:18px; cursor:pointer;">×</button>
               </div>
               <div style="padding:10px; display:grid; gap:8px;">
-                <label>Function <select id="calcOp" style="width:100%;"><option value="ExtK">dim Ext^k(A,B)</option><option value="ExtKperp">ker Ext^k(A,-)</option><option value="perpExtK">ker Ext^k(-,B)</option><option value="Syzygy">Ω^n(A)</option><option value="Cosyzygy">Σ^n(A)</option><option value="Radical">Rad^n(A)</option><option value="Coradical">Corad^n(A)</option></select></label>
+                <label>Function <select id="calcOp" style="width:100%;"><option value="ExtK">dim Ext^k(A,B)</option><option value="ExtClosure">extension closure(A)</option><option value="ExtMiddleTerms">middle terms A→?→B</option><option value="ExtKperp">ker Ext^k(A,-)</option><option value="perpExtK">ker Ext^k(-,B)</option><option value="Syzygy">Ω^n(A)</option><option value="Cosyzygy">Σ^n(A)</option><option value="Radical">Rad^n(A)</option><option value="Coradical">Corad^n(A)</option></select></label>
                 <label id="calcKLabel">k / n <input id="calcK" style="width:100%; box-sizing:border-box;" value="0" /></label>
                 <label id="calcALabel">A labels <span title="calculator color for A" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#bfdbfe;"></span><input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
                 <label id="calcBLabel">B labels <span title="calculator color for B" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#fde68a;"></span><input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
@@ -2752,13 +2848,15 @@ end;;
               const bLabel = calculatorPanel.querySelector('#calcBLabel');
               const kLabel = calculatorPanel.querySelector('#calcKLabel');
               const hint = calculatorPanel.querySelector('#calcHint');
-              const usesA = ['ExtK','ExtKperp','Syzygy','Cosyzygy','Radical','Coradical'].includes(op);
-              const usesB = ['ExtK','perpExtK'].includes(op);
+              const usesA = ['ExtK','ExtClosure','ExtMiddleTerms','ExtKperp','Syzygy','Cosyzygy','Radical','Coradical'].includes(op);
+              const usesB = ['ExtK','ExtMiddleTerms','perpExtK'].includes(op);
               const usesK = ['ExtK','ExtKperp','perpExtK','Syzygy','Cosyzygy','Radical','Coradical'].includes(op);
               aLabel.style.display = usesA ? 'block' : 'none';
               bLabel.style.display = usesB ? 'block' : 'none';
               kLabel.style.display = usesK ? 'block' : 'none';
               if (op === 'ExtK') hint.textContent = 'Computes Sum dim Ext^k(A_i, B_j); k=0 is Hom, k=1 is Ext^1, k>=2 uses syzygy and Ext^1 data.';
+              else if (op === 'ExtClosure') hint.textContent = 'Input a class in A; returns its extension closure using the precomputed extension middle-term table.';
+              else if (op === 'ExtMiddleTerms') hint.textContent = 'Input exactly one indecomposable in A and one in B; returns all logged middle terms of 0→A→E→B→0, one per line.';
               else if (op === 'ExtKperp') hint.textContent = 'Input A only; returns modules X with Ext^k(A_i, X)=0 for all A_i.';
               else if (op === 'perpExtK') hint.textContent = 'Input B only; returns modules X with Ext^k(X, B_j)=0 for all B_j.';
               else if (op === 'Syzygy') hint.textContent = 'Input exactly one indecomposable module label in A; returns Ω^n(A), computed by fast powering the syzygy quiver. Multiplicities are shown as powers.';
@@ -3797,17 +3895,6 @@ end;;
         const nextSet = new Set();
         addSplitFill(item.L || [], 'top', arColors.cotorsionL, nextSet);
         addSplitFill(item.R || [], 'bottom', arColors.cotorsionR, nextSet);
-        pairHighlighted = nextSet;
-        network.unselectAll();
-        network.redraw();
-      }
-
-      function applySupportTauHighlight(item) {
-        resetTiltingStyles();
-        resetPairStyles();
-        const nextSet = new Set();
-        applyFullFill(item.P || [], arColors.supportP, nextSet);
-        applyFullFill(item.M || [], arColors.supportM, nextSet);
         pairHighlighted = nextSet;
         network.unselectAll();
         network.redraw();
@@ -5432,6 +5519,7 @@ end;;
     js_injection = js_injection.replace("{{MODULE_DATA_GAP}}", module_data_gap_js)
     js_injection = js_injection.replace("{{HOM_EDGES}}", hom_edges_js)
     js_injection = js_injection.replace("{{EXT_EDGES}}", ext_edges_js)
+    js_injection = js_injection.replace("{{EXT_MIDDLE_TABLE}}", extension_middle_table_js)
     js_injection = js_injection.replace("{{TILTING_DATA}}", tilting_js)
     js_injection = js_injection.replace("{{TORSION_PAIR_DATA}}", torsion_pairs_js)
     js_injection = js_injection.replace("{{TORSION_PAIR_BUCKETS}}", torsion_pair_buckets_js)

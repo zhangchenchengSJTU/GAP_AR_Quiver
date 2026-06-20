@@ -296,6 +296,42 @@ digraph ExtDim { ... }
 
 Combined with the syzygy quiver, this data is used by the calculator to evaluate $\mathrm{Ext}^{\geq 1}$ dimensions.
 
+#### Extension middle-term table
+
+The computation log also contains an extension middle-term table:
+
+```text
+# --- ExtensionMiddleTermTable --- #
+ExtensionMiddleTermTable := [
+  [rec(sub := i, quot := j, mids := [[...], ...]), ...],
+  ...
+];;
+```
+
+The entry with `sub := i` and `quot := j` records known middle terms of short exact sequences
+
+$$
+0\to M_i\to E\to M_j\to 0.
+$$
+
+Each row of `mids` is the list of indecomposable summands of one possible middle term. For example, `mids := [[2,3], [1,12]]` means that the known middle terms include both $M_2\oplus M_3$ and $M_1\oplus M_{12}$.
+
+By default this table is a fast **known-middle-term** table, not a full enumeration of all extension classes. It includes:
+
+- split extensions;
+- the fact that pairs with $\dim\mathrm{Ext}^1(M_j,M_i)=0$ have only the split middle term;
+- non-split sequences coming from radical/top, socle/coradical, projective covers/syzygies, and injective envelopes/cosyzygies;
+- middle terms inferred from AR translation meshes and dimension-compatible commutative squares in the AR-quiver;
+- additional middle terms obtained by iteratively composing such pushout/pullback squares, using the fact that a composite of pushout/pullback squares is again a pushout/pullback square. This iteration is guarded by `max_extension_square_composition_iterations` and `max_extension_square_composition_rectangles` to avoid blow-up on large examples.
+
+To request the slower full pushout-based table, set the GAP variable
+
+```gap
+compute_full_extension_table := true;;
+```
+
+before running the computation. Over an infinite field, the full mode still uses the split extension plus basis representatives produced by `ExtOverAlgebra`; over a finite field it can enumerate finite linear combinations.
+
 #### `Original quiver Q`
 
 Opens a draggable window displaying the original quiver and its relations. Data source:
@@ -388,6 +424,14 @@ The `tilting` flag records whether the torsion pair arises from a tilting module
 
 The `split` flag records whether the torsion pair $(\mathcal{T}, \mathcal{F})$ splits, i.e., $\mathcal{T} \cup \mathcal{F}$ exhausts all indecomposable modules.
 
+`Controls > GAP codes > Extension closure` provides copyable GAP code for computing extension closures from a middle-term table. This is kept out of the generated HTML sidebar list because enumerating all extension-closed classes can be exponentially large. The GAP snippet includes:
+
+- `ExtensionClosureFromTable(X, table)`;
+- `IsExtensionClosedClassFromTable(X, table)`;
+- `AllExtensionClosedClassesFromTable(table)` for small enough examples.
+
+The HTML still stores `ExtensionMiddleTermTable`, so the calculator can compute the closure of a selected class on demand without rendering the full list.
+
 ![image-20260620154603999](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620154603999.png)
 
 #### `Cotorsion classes`
@@ -454,6 +498,8 @@ Performs operations on data stored in the HTML file. Inputs and outputs use node
 Available operations:
 
 - `dim Ext^k(A,B)`: computes $\sum_{i,j}\dim\mathrm{Ext}^k(A_i,B_j)$ over all selected labels.
+- `extension closure(A)`: computes the smallest class containing the selected labels and closed under the known middle terms in `ExtensionMiddleTermTable`.
+- `middle terms A→?→B`: requires one indecomposable label in `A` and one in `B`, and lists the known middle terms of short exact sequences $0\to A\to E\to B\to0$, one middle term per line.
 - `ker Ext^k(A,-)`: returns all $X$ with $\mathrm{Ext}^k(A_i,X)=0$ for every selected $A_i$.
 - `ker Ext^k(-,B)`: returns all $X$ with $\mathrm{Ext}^k(X,B_j)=0$ for every selected $B_j$.
 - `Ω^n(A)`: iterates the syzygy quiver $n$ times.
