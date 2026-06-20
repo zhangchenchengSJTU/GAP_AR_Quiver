@@ -1442,6 +1442,28 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             }
             #arFolderPanel button:hover { background: #eff6ff; }
             #arFolderPanel button.ar-control-active { background:#dbeafe; color:#1d4ed8; font-weight:700; box-shadow: inset 3px 0 0 #2563eb; }
+            #arGapCodePanel .ar-panel-head {
+              display:flex;
+              align-items:center;
+              justify-content:space-between;
+              padding:8px 10px;
+              border-bottom:1px solid #e5e7eb;
+              background:#f8fafc;
+              border-radius:9px 9px 0 0;
+              font-weight:650;
+              cursor:move;
+            }
+            .ar-soft-close {
+              border:1px solid #cbd5e1;
+              background:#ffffff;
+              color:#334155;
+              border-radius:999px;
+              padding:3px 10px;
+              font:inherit;
+              font-size:12px;
+              cursor:pointer;
+            }
+            .ar-soft-close:hover { background:#eff6ff; color:#1d4ed8; border-color:#93c5fd; }
             .ar-math-label { font-family: serif; }
             #arListDrawer {
               position: fixed;
@@ -2009,6 +2031,526 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const script = calcGapScript();
           const filename = source + '_run_with_gap.g';
           out.innerHTML = '';
+          appendGapCodeBox(out, script, filename, 'Generated GAP/QPA code for Q, kQ, A, M[i], P[i], I[i], S[i].');
+        }
+        function genGapCodeSnippet() {
+          const nl = String.fromCharCode(10);
+          return [
+            '# Exact gen(X) computation for the indecomposables M[1],...,M[n].',
+            '# First run the generated-quiver code so that A and M are defined.',
+            '# Usage: GenOf([1,2,5]);',
+            '',
+            'TraceInclusionDimension := function(trace_inc)',
+            '    if trace_inc = fail then return 0; fi;',
+            '    return Dimension(Source(trace_inc));',
+            'end;;',
+            '',
+            'ComputeTraceInclusionTable := function(verts)',
+            '    local trace_inc, trace_dim, i, j, traceCall;',
+            '    trace_inc := [];; trace_dim := [];;',
+            '    for i in [1..Length(verts)] do',
+            '        trace_inc[i] := [];; trace_dim[i] := [];;',
+            '        for j in [1..Length(verts)] do',
+            '            traceCall := CALL_WITH_CATCH(TraceOfModule, [verts[i], verts[j]]);',
+            '            if traceCall[1] = true then',
+            '                trace_inc[i][j] := traceCall[2];',
+            '                trace_dim[i][j] := TraceInclusionDimension(traceCall[2]);',
+            '            else',
+            '                trace_inc[i][j] := fail;',
+            '                trace_dim[i][j] := 0;',
+            '            fi;',
+            '        od;',
+            '    od;',
+            '    return rec(inc := trace_inc, dim := trace_dim);',
+            'end;;',
+            '',
+            'TraceFullGenerates := function(verts, trace_table, src_idx, target_idx)',
+            '    return trace_table.dim[src_idx][target_idx] = Dimension(verts[target_idx]);',
+            'end;;',
+            '',
+            'QuotientClosureFromTrace := function(verts, trace_table, source_set)',
+            '    local closure, changed, src_idx, target_idx;',
+            '    closure := ShallowCopy(source_set);; Sort(closure);;',
+            '    changed := true;;',
+            '    while changed do',
+            '        changed := false;;',
+            '        for src_idx in ShallowCopy(closure) do',
+            '            for target_idx in [1..Length(verts)] do',
+            '                if not (target_idx in closure) and TraceFullGenerates(verts, trace_table, src_idx, target_idx) then',
+            '                    AddSet(closure, target_idx);;',
+            '                    changed := true;;',
+            '                fi;',
+            '            od;',
+            '        od;',
+            '    od;',
+            '    return closure;',
+            'end;;',
+            '',
+            'MinimalTraceSources := function(verts, trace_table, source_set)',
+            '    local minimal, src_idx, other_idx, redundant;',
+            '    minimal := [];;',
+            '    for src_idx in source_set do',
+            '        redundant := false;;',
+            '        for other_idx in source_set do',
+            '            if other_idx <> src_idx and TraceFullGenerates(verts, trace_table, other_idx, src_idx) then',
+            '                redundant := true;; break;',
+            '            fi;',
+            '        od;',
+            '        if not redundant then AddSet(minimal, src_idx); fi;',
+            '    od;',
+            '    return minimal;',
+            'end;;',
+            '',
+            'IsGeneratedBySetFromTrace := function(verts, trace_table, source_set, target_idx)',
+            '    local M0, target_dim, src_idx, reduced_sources, nonzero_traces, total_trace_dim, sum_inc, sumCall, inc;',
+            '    M0 := verts[target_idx];;',
+            '    target_dim := Dimension(M0);;',
+            '    if target_dim = 0 then return true; fi;',
+            '    if Length(source_set) = 0 then return false; fi;',
+            '    reduced_sources := MinimalTraceSources(verts, trace_table, source_set);;',
+            '    nonzero_traces := [];; total_trace_dim := 0;;',
+            '    for src_idx in reduced_sources do',
+            '        if trace_table.dim[src_idx][target_idx] = target_dim then return true; fi;',
+            '        if trace_table.dim[src_idx][target_idx] > 0 and trace_table.inc[src_idx][target_idx] <> fail then',
+            '            total_trace_dim := total_trace_dim + trace_table.dim[src_idx][target_idx];;',
+            '            Add(nonzero_traces, trace_table.inc[src_idx][target_idx]);;',
+            '        fi;',
+            '    od;',
+            '    if total_trace_dim < target_dim or Length(nonzero_traces) = 0 then return false; fi;',
+            '    sum_inc := nonzero_traces[1];;',
+            '    if Dimension(Source(sum_inc)) = target_dim then return true; fi;',
+            '    if Length(nonzero_traces) >= 2 then',
+            '        for src_idx in [2..Length(nonzero_traces)] do',
+            '            inc := nonzero_traces[src_idx];;',
+            '            sumCall := CALL_WITH_CATCH(SumOfSubmodules, [sum_inc, inc]);',
+            '            if sumCall[1] = true then',
+            '                sum_inc := sumCall[2][1];;',
+            '                if Dimension(Source(sum_inc)) = target_dim then return true; fi;',
+            '            fi;',
+            '        od;',
+            '    fi;',
+            '    return Dimension(Source(sum_inc)) = target_dim;',
+            'end;;',
+            '',
+            'GenClosureFromTrace := function(verts, trace_table, source_set)',
+            '    local closure, quotient_closed, idx;',
+            '    quotient_closed := QuotientClosureFromTrace(verts, trace_table, source_set);;',
+            '    closure := ShallowCopy(quotient_closed);;',
+            '    for idx in [1..Length(verts)] do',
+            '        if not (idx in closure) and IsGeneratedBySetFromTrace(verts, trace_table, quotient_closed, idx) then',
+            '            Add(closure, idx);;',
+            '        fi;',
+            '    od;',
+            '    closure := QuotientClosureFromTrace(verts, trace_table, closure);;',
+            '    Sort(closure);;',
+            '    return closure;',
+            'end;;',
+            '',
+            'trace_table_for_gen := ComputeTraceInclusionTable(M);;',
+            'GenOf := function(X)',
+            '    return GenClosureFromTrace(M, trace_table_for_gen, X);',
+            'end;;',
+            '',
+            '# Example:',
+            'GenOf([1]);'
+          ].join(nl);
+        }
+        function cogenGapCodeSnippet() {
+          const nl = String.fromCharCode(10);
+          return [
+            '# Cogen(X) helper skeleton.',
+            '# First run the generated-quiver code so that A and M are defined.',
+            '# In many QPA setups this can be computed by applying the gen(-) code to dual modules.',
+            '# Adjust the dual functor name if your QPA installation uses a different one.',
+            '',
+            '# 1. Paste/run the find gen(-) code first.',
+            '# 2. Define a dual list, for example one of the following may work depending on QPA version:',
+            '# DM := List(M, D);;',
+            '# DM := List(M, DualOfModule);;',
+            '# DM := List(M, DualModule);;',
+            '',
+            '# Then compute gen on the dual side and translate indices back:',
+            '# trace_table_for_cogen := ComputeTraceInclusionTable(DM);;',
+            '# CogenOf := function(X)',
+            '#     return GenClosureFromTrace(DM, trace_table_for_cogen, X);',
+            '# end;;',
+            '# CogenOf([1]);'
+          ].join(nl);
+        }
+        function extensionClosureGapCodeSnippet() {
+          return String.raw`# Extension closure of a class of modules by an Ext^1 middle-term table.
+# First run the generated-quiver code so that A and M are defined.
+# Usage:
+#   table := ComputeExtMiddleTermTable(M);;
+#   ExtensionClosureFromTable([1,2,5], table);
+#
+# Convention:
+#   table[sub][quot] stores middle terms of short exact sequences
+#       0 -> M[sub] -> E -> M[quot] -> 0.
+#   Each middle term is stored by the labels of its indecomposable summands.
+#
+# Over a finite field this enumerates all Ext^1 classes and is exact.
+# Over an infinite field such as Rationals, Ext^1 has infinitely many linear
+# combinations; this snippet computes the split extension plus the chosen
+# ExtOverAlgebra basis representatives. Use finite fields for a complete table.
+
+ModuleLabelInList := function(verts, N)
+    local i;
+    for i in [1..Length(verts)] do
+        if IsomorphicModules(N, verts[i]) then return i; fi;
+    od;
+    return fail;
+end;;
+
+SnippetFindNontrivialIdempotent := function(N)
+    local HomNN, nn, m, n, i, j, f, e, imgDim;
+    if Dimension(N) = 0 then return false; fi;
+    HomNN := HomOverAlgebra(N, N);
+    nn := Length(HomNN);
+    if nn <= 1 then return false; fi;
+    m := Maximum(DimensionVector(N));
+    if m <= 0 then return false; fi;
+    n := Int(Ceil(Log2(1.0 * m)));
+    for i in [1..nn] do
+        f := HomNN[i];
+        e := f;
+        for j in [1..n] do
+            e := e * e;
+        od;
+        imgDim := Dimension(Image(e));
+        if imgDim <> 0 and imgDim <> Dimension(N) then
+            return e;
+        fi;
+    od;
+    return false;
+end;;
+
+SnippetDecomposeToProjections := function(N)
+    local e, id, eK, U, K, pU, pK, projsU, projsK, projs, p;
+    if Dimension(N) = 0 then return [];; fi;
+    e := SnippetFindNontrivialIdempotent(N);
+    if e = false then return [IdentityMapping(N)]; fi;
+    id := IdentityMapping(N);
+    eK := id - e;
+    U := Image(e);
+    K := Image(eK);
+    pU := ImageProjection(e);
+    pK := ImageProjection(eK);
+    projsU := SnippetDecomposeToProjections(U);
+    projsK := SnippetDecomposeToProjections(K);
+    projs := [];;
+    for p in projsU do Add(projs, pU * p); od;
+    for p in projsK do Add(projs, pK * p); od;
+    return projs;
+end;;
+
+IndecomposableLabelsOfModule := function(verts, N)
+    local projections, labels, pr, piece, label;
+    if Dimension(N) = 0 then return [];; fi;
+    projections := SnippetDecomposeToProjections(N);
+    labels := [];;
+    for pr in projections do
+        piece := Range(pr);
+        label := ModuleLabelInList(verts, piece);
+        if label = fail then
+            Error("Could not identify an indecomposable summand in M.");
+        fi;
+        Add(labels, label);
+    od;
+    Sort(labels);;
+    return labels;
+end;;
+
+DirectSumForClass := function(verts, class)
+    if Length(class) = 0 then
+        Error("DirectSumForClass needs a non-empty class.");
+    fi;
+    if Length(class) = 1 then
+        return verts[class[1]];
+    fi;
+    return DirectSumOfQPAModules(List(class, i -> verts[i]));
+end;;
+
+LinearCombinationOfMaps := function(zero_map, basis_maps, coeffs)
+    local h, i;
+    h := zero_map;
+    for i in [1..Length(basis_maps)] do
+        if coeffs[i] <> Zero(LeftActingDomain(Source(zero_map))) then
+            h := h + coeffs[i] * basis_maps[i];
+        fi;
+    od;
+    return h;
+end;;
+
+MiddleLabelsFromExtClass := function(verts, sub_module, quot_module, class_map)
+    local extData, syzInc, po, inc, middle;
+    extData := ExtOverAlgebra(quot_module, sub_module);
+    syzInc := extData[1];
+    po := PushOut(syzInc, class_map);
+    if po = fail then Error("PushOut failed while constructing the extension."); fi;
+    inc := po[1];
+    middle := Range(inc);
+    return IndecomposableLabelsOfModule(verts, middle);
+end;;
+
+MiddleTermLabelsForPair := function(verts, sub_idx, quot_idx)
+    local K, sub_module, quot_module, extData, syzInc, basisMaps, zeroMap, coeffTuples, tuple, labels, allLabels, h, i;
+    K := LeftActingDomain(verts[1]);
+    sub_module := verts[sub_idx];
+    quot_module := verts[quot_idx];
+    extData := ExtOverAlgebra(quot_module, sub_module);
+    syzInc := extData[1];
+    basisMaps := extData[2];
+    allLabels := [ [sub_idx, quot_idx] ];;
+    if Length(basisMaps) = 0 then return allLabels; fi;
+    zeroMap := ZeroMapping(Source(syzInc), sub_module);
+    if IsFinite(K) then
+        coeffTuples := Tuples(Elements(K), Length(basisMaps));
+    else
+        Print("Warning: base field is not finite; using only Ext basis representatives for pair ", sub_idx, " -> E -> ", quot_idx, ".\n");
+        coeffTuples := [];;
+        for i in [1..Length(basisMaps)] do
+            tuple := List([1..Length(basisMaps)], j -> Zero(K));
+            tuple[i] := One(K);
+            Add(coeffTuples, tuple);
+        od;
+    fi;
+    for tuple in coeffTuples do
+        if ForAll(tuple, c -> c = Zero(K)) then
+            continue;
+        fi;
+        h := LinearCombinationOfMaps(zeroMap, basisMaps, tuple);
+        labels := MiddleLabelsFromExtClass(verts, sub_module, quot_module, h);
+        AddSet(allLabels, labels);
+    od;
+    return allLabels;
+end;;
+
+ComputeExtMiddleTermTable := function(verts)
+    local table, sub_idx, quot_idx;
+    table := [];;
+    for sub_idx in [1..Length(verts)] do
+        table[sub_idx] := [];;
+        for quot_idx in [1..Length(verts)] do
+            table[sub_idx][quot_idx] := MiddleTermLabelsForPair(verts, sub_idx, quot_idx);
+        od;
+    od;
+    return table;
+end;;
+
+ExtensionClosureFromTable := function(X, table)
+    local closure, changed, sub_idx, quot_idx, middleLists, labels, label;
+    closure := ShallowCopy(X);; Sort(closure);;
+    changed := true;;
+    while changed do
+        changed := false;;
+        for sub_idx in ShallowCopy(closure) do
+            for quot_idx in ShallowCopy(closure) do
+                middleLists := table[sub_idx][quot_idx];
+                for labels in middleLists do
+                    for label in labels do
+                        if not (label in closure) then
+                            AddSet(closure, label);;
+                            changed := true;;
+                        fi;
+                    od;
+                od;
+            od;
+        od;
+    od;
+    Sort(closure);;
+    return closure;
+end;;
+
+ExtensionClosureOf := function(X)
+    return ExtensionClosureFromTable(X, ComputeExtMiddleTermTable(M));
+end;;
+
+# Example:
+# table := ComputeExtMiddleTermTable(M);;
+# ExtensionClosureFromTable([1], table);`;
+        }
+        function extBasisGapCodeSnippet() {
+          return String.raw`# Ext^1 basis for two classes of indecomposable modules.
+# First run the generated-quiver code so that A and M are defined.
+# Usage:
+#   ExtBasisSequencesForClasses([1,2], [3,4]);
+#   PrintExtBasisSequencesForClasses([1,2], [3,4]);
+#
+# Convention:
+#   ExtBasisSequencesForClasses(sub_class, quotient_class)
+# computes basis representatives of
+#   Ext^1( direct_sum(quotient_class), direct_sum(sub_class) ),
+# equivalently short exact sequences
+#   0 -> direct_sum(sub_class) -> E -> direct_sum(quotient_class) -> 0.
+
+ModuleLabelInList := function(verts, N)
+    local i;
+    for i in [1..Length(verts)] do
+        if IsomorphicModules(N, verts[i]) then return i; fi;
+    od;
+    return fail;
+end;;
+
+SnippetFindNontrivialIdempotent := function(N)
+    local HomNN, nn, m, n, i, j, f, e, imgDim;
+    if Dimension(N) = 0 then return false; fi;
+    HomNN := HomOverAlgebra(N, N);
+    nn := Length(HomNN);
+    if nn <= 1 then return false; fi;
+    m := Maximum(DimensionVector(N));
+    if m <= 0 then return false; fi;
+    n := Int(Ceil(Log2(1.0 * m)));
+    for i in [1..nn] do
+        f := HomNN[i];
+        e := f;
+        for j in [1..n] do e := e * e; od;
+        imgDim := Dimension(Image(e));
+        if imgDim <> 0 and imgDim <> Dimension(N) then return e; fi;
+    od;
+    return false;
+end;;
+
+SnippetDecomposeToProjections := function(N)
+    local e, id, eK, U, K, pU, pK, projsU, projsK, projs, p;
+    if Dimension(N) = 0 then return [];; fi;
+    e := SnippetFindNontrivialIdempotent(N);
+    if e = false then return [IdentityMapping(N)]; fi;
+    id := IdentityMapping(N);
+    eK := id - e;
+    U := Image(e);
+    K := Image(eK);
+    pU := ImageProjection(e);
+    pK := ImageProjection(eK);
+    projsU := SnippetDecomposeToProjections(U);
+    projsK := SnippetDecomposeToProjections(K);
+    projs := [];;
+    for p in projsU do Add(projs, pU * p); od;
+    for p in projsK do Add(projs, pK * p); od;
+    return projs;
+end;;
+
+IndecomposableLabelsOfModule := function(verts, N)
+    local projections, labels, pr, piece, label;
+    if Dimension(N) = 0 then return [];; fi;
+    projections := SnippetDecomposeToProjections(N);
+    labels := [];;
+    for pr in projections do
+        piece := Range(pr);
+        label := ModuleLabelInList(verts, piece);
+        if label = fail then Error("Could not identify an indecomposable summand in M."); fi;
+        Add(labels, label);
+    od;
+    Sort(labels);;
+    return labels;
+end;;
+
+DirectSumForClass := function(verts, class)
+    if Length(class) = 0 then
+        Error("DirectSumForClass needs a non-empty class.");
+    fi;
+    if Length(class) = 1 then
+        return verts[class[1]];
+    fi;
+    return DirectSumOfQPAModules(List(class, i -> verts[i]));
+end;;
+
+ExtBasisSequencesForClasses := function(sub_class, quotient_class)
+    local sub_module, quotient_module, extData, syzInc, basisMaps, seqs, h, po, inc, middle, q;
+    sub_module := DirectSumForClass(M, sub_class);
+    quotient_module := DirectSumForClass(M, quotient_class);
+    extData := ExtOverAlgebra(quotient_module, sub_module);
+    syzInc := extData[1];
+    basisMaps := extData[2];
+    seqs := [];;
+    for h in basisMaps do
+        po := PushOut(syzInc, h);
+        if po = fail then Error("PushOut failed while constructing an Ext representative."); fi;
+        inc := po[1];
+        middle := Range(inc);
+        q := CoKernelProjection(inc);
+        Add(seqs, rec(
+            sub_class := sub_class,
+            quotient_class := quotient_class,
+            submodule := sub_module,
+            quotient := quotient_module,
+            inclusion := inc,
+            middle := middle,
+            middle_labels := IndecomposableLabelsOfModule(M, middle),
+            quotient_projection := q
+        ));
+    od;
+    return seqs;
+end;;
+
+PrintExtBasisSequencesForClasses := function(sub_class, quotient_class)
+    local seqs, i;
+    seqs := ExtBasisSequencesForClasses(sub_class, quotient_class);
+    Print("dim Ext^1(⊕", quotient_class, ", ⊕", sub_class, ") = ", Length(seqs), "\n");
+    for i in [1..Length(seqs)] do
+        Print(i, ": 0 -> ⊕", sub_class, " -> E -> ⊕", quotient_class, " -> 0,  E indec labels = ", seqs[i].middle_labels, "\n");
+    od;
+    return seqs;
+end;;
+
+# Example:
+# PrintExtBasisSequencesForClasses([1], [2]);`;
+        }
+        function usefulGapCode(kind) {
+          if (kind === 'generate') return calcGapScript();
+          if (kind === 'gen') return calcGapScript() + String.fromCharCode(10) + genGapCodeSnippet();
+          if (kind === 'cogen') return calcGapScript() + String.fromCharCode(10) + cogenGapCodeSnippet();
+          if (kind === 'extclosure') return calcGapScript() + String.fromCharCode(10) + extensionClosureGapCodeSnippet();
+          if (kind === 'extbasis') return calcGapScript() + String.fromCharCode(10) + extBasisGapCodeSnippet();
+          return calcGapScript();
+        }
+        function hideUsefulGapCode() {
+          const panel = document.getElementById('arGapCodePanel');
+          if (panel) {
+            panel.style.display = 'none';
+            panel.removeAttribute('data-gap-kind');
+          }
+          if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
+        }
+        function showUsefulGapCode(kind) {
+          const source = calcSourceStem();
+          let panel = document.getElementById('arGapCodePanel');
+          if (panel && panel.style.display !== 'none' && panel.getAttribute('data-gap-kind') === kind) {
+            hideUsefulGapCode();
+            return;
+          }
+          if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'arGapCodePanel';
+            panel.style.position = 'fixed';
+            panel.style.right = '22px';
+            panel.style.top = '88px';
+            panel.style.width = '520px';
+            panel.style.maxWidth = 'calc(100vw - 44px)';
+            panel.style.background = 'rgba(255,255,255,0.98)';
+            panel.style.border = '1px solid #cbd5e1';
+            panel.style.borderRadius = '10px';
+            panel.style.boxShadow = '0 12px 32px rgba(15,23,42,0.24)';
+            panel.style.zIndex = '20004';
+            panel.style.fontFamily = 'system-ui,-apple-system,Segoe UI,sans-serif';
+            panel.style.fontSize = '13px';
+            panel.innerHTML = '<div class="ar-panel-head"><span>Useful GAP code</span><button class="ar-soft-close" data-gap-close="1" title="Close GAP code panel">Close</button></div><div id="arGapCodeBody" style="padding:10px;"></div>';
+            document.body.appendChild(panel);
+            makeFloatingWindow(panel, panel.querySelector('.ar-panel-head'), { minWidth: 360, minHeight: 260 });
+            panel.addEventListener('click', (e) => {
+              if (e.target && e.target.getAttribute('data-gap-close')) hideUsefulGapCode();
+            });
+          }
+          panel.style.display = 'block';
+          panel.setAttribute('data-gap-kind', kind);
+          const script = usefulGapCode(kind);
+          const names = { generate: 'generate_this_quiver', gen: 'find_gen', cogen: 'find_cogen', extclosure: 'extension_closure', extbasis: 'ext_basis_sequences' };
+          const body = panel.querySelector('#arGapCodeBody');
+          appendGapCodeBox(body, script, source + '_' + (names[kind] || 'gap_code') + '.g', 'Click copy or edit the GAP code below.');
+          if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
+        }
+        function appendGapCodeBox(out, script, filename, caption) {
+          out.innerHTML = '';
           const textarea = document.createElement('textarea');
           textarea.value = script;
           textarea.style.width = '100%';
@@ -2048,7 +2590,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           });
           buttons.appendChild(copyBtn);
           buttons.appendChild(downloadBtn);
-          out.appendChild(document.createTextNode('Generated GAP/QPA code for Q, kQ, A, M[i], P[i], I[i], S[i].'));
+          out.appendChild(document.createTextNode(caption || 'Generated GAP/QPA code.'));
           out.appendChild(document.createElement('br'));
           out.appendChild(buttons);
           out.appendChild(textarea);
@@ -2168,6 +2710,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const id = btn.getAttribute('data-click');
             btn.classList.toggle('ar-control-active', activeModuleClasses.has(id));
           });
+          const gapPanel = document.getElementById('arGapCodePanel');
+          const activeGapKind = gapPanel && gapPanel.style.display !== 'none' ? gapPanel.getAttribute('data-gap-kind') : null;
+          folderPanel.querySelectorAll('button[data-gap-code]').forEach(btn => {
+            btn.classList.toggle('ar-control-active', !!activeGapKind && btn.getAttribute('data-gap-code') === activeGapKind);
+          });
         }
 
         function createFolderPanel() {
@@ -2208,6 +2755,13 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <button data-list="tiltingToggle|tiltingList|Tilting modules">Tilting modules</button>
               <button data-list="supportTauToggle|supportTauList|Support τ-tilting modules">Support τ-tilting</button>
               <button data-list="almostSupportTauToggle|almostSupportTauList|Almost support τ-tilting modules">Almost support τ-tilting</button>
+            </div></details>
+            <details><summary>GAP codes</summary><div class="ar-folder-body">
+              <button data-gap-code="generate">Generate this quiver</button>
+              <button data-gap-code="gen">Find gen(-)</button>
+              <button data-gap-code="cogen">Find cogen(-)</button>
+              <button data-gap-code="extclosure">Extension closure</button>
+              <button data-gap-code="extbasis">Ext basis sequences</button>
             </div></details>
             <details><summary>Tools</summary><div class="ar-folder-body">
               <button data-action="calculator">Calculator</button>
@@ -2795,7 +3349,13 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const toggleId = btn.getAttribute('data-toggle');
           const clickId = btn.getAttribute('data-click');
           const listSpec = btn.getAttribute('data-list');
+          const gapCodeKind = btn.getAttribute('data-gap-code');
           const action = btn.getAttribute('data-action');
+          if (gapCodeKind) {
+            showUsefulGapCode(gapCodeKind);
+            refreshFolderControlStates();
+            return;
+          }
           if (toggleId) {
             if (toggleId === 'quiverToggle') {
               const el = document.getElementById(toggleId);

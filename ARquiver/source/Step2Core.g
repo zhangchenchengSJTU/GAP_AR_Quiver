@@ -90,12 +90,51 @@ FindNontrivialIdempotent := function(M)
 end;
 
 
+# Return primitive idempotent endomorphisms using QPA's finite-field decomposition routine when available.
+QPADecompositionIdempotents := function(M)
+    local basis, endo, genmaps, genmats, idemmats, idemmaps, x;
+
+    if Dimension(M) = 0 then
+        return [];
+    fi;
+    if not IsFinite(LeftActingDomain(M)) then
+        return fail;
+    fi;
+
+    basis := CanonicalBasis(M);
+    endo := EndOverAlgebra(M);
+    genmaps := BasisVectors(Basis(endo));
+    if Length(genmaps) <= 1 then
+        return fail;
+    fi;
+    genmats := List(genmaps, function(x) return TransposedMat(x); end);
+    idemmats := IdempotentsForDecomposition(AlgebraWithOne(LeftActingDomain(M), genmats));
+    if Length(idemmats) <= 1 then
+        return fail;
+    fi;
+
+    idemmaps := List(idemmats, function(x)
+        return LeftModuleHomomorphismByMatrix(basis, TransposedMat(x), basis);
+    end);
+    for x in idemmaps do
+        SetFilterObj(x, IsAlgebraModuleHomomorphism);
+    od;
+    return List(idemmaps, function(x) return FromEndMToHomMM(M, x!.matrix); end);
+end;
+
+
 # Return split epimorphisms M -> summands.
 DecomposeToProjections := function(M)
-  local e, id, eK, U, K, pU, pK, projsU, projsK, projs, p;
+  local fastCall, fastIdems, e, id, eK, U, K, pU, pK, projsU, projsK, projs, p;
 
   if Dimension(M) = 0 then
     return [];
+  fi;
+
+  fastCall := CALL_WITH_CATCH(QPADecompositionIdempotents, [M]);
+  if fastCall[1] = true and fastCall[2] <> fail then
+    fastIdems := fastCall[2];
+    return List(fastIdems, function(x) return ImageProjection(x); end);
   fi;
 
   e := FindNontrivialIdempotent(M);
@@ -126,10 +165,16 @@ end;
 
 # Return split monomorphisms summands -> M.
 DecomposeToInjections := function(M)
-  local e, id, eK, U, K, iU, iK, injsU, injsK, injs, p;
+  local fastCall, fastIdems, e, id, eK, U, K, iU, iK, injsU, injsK, injs, p;
 
   if Dimension(M) = 0 then
     return [];
+  fi;
+
+  fastCall := CALL_WITH_CATCH(QPADecompositionIdempotents, [M]);
+  if fastCall[1] = true and fastCall[2] <> fail then
+    fastIdems := fastCall[2];
+    return List(fastIdems, function(x) return ImageInclusion(x); end);
   fi;
 
   e := FindNontrivialIdempotent(M);
