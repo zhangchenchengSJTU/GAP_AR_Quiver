@@ -888,7 +888,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         });
       })();
       (function addRightButtons() {
-        ['arControlPanel','arTopMenu','arFolderPanel','arListDrawer','calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegend','arQuiverTikzModal','quiverMiniContainer','arDownloadFallback'].forEach(id => {
+        ['arControlPanel','arTopMenu','arFolderPanel','arListDrawer','calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegend','arQuiverTikzModal','quiverMiniContainer'].forEach(id => {
           const el = document.getElementById(id);
           if (el && el.parentNode) el.parentNode.removeChild(el);
         });
@@ -2210,12 +2210,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <button data-list="almostSupportTauToggle|almostSupportTauList|Almost support τ-tilting modules">Almost support τ-tilting</button>
             </div></details>
             <details><summary>Tools</summary><div class="ar-folder-body">
-              <button type="button" data-action="calculator">Calculator</button>
-              <button type="button" data-action="manual">Manual</button>
-              <button type="button" data-action="download-html">Download standalone HTML</button>
-              <button type="button" data-action="export-tex">Export AR quiver to TeX</button>
-              <button type="button" data-action="display-code">Display code</button>
-              <button type="button" data-action="legend">Color legend</button>
+              <button data-action="calculator">Calculator</button>
+              <button data-action="export-tex">Export AR quiver to TeX</button>
+              <button data-action="display-code">Display code</button>
+              <button data-action="legend">Color legend</button>
             </div></details>
           `;
           document.body.appendChild(folderPanel);
@@ -2768,106 +2766,61 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.display = 'block';
         }
 
-        const githubManualUrl = 'https://zhangchenchengsjtu.github.io/GAP_AR_Quiver/readme.html';
-
-        function manualUrlCandidates() {
-          const href = window.location.href;
-          try {
-            const url = new URL(href);
-            const parts = url.pathname.split('/');
-            const viewIndex = parts.indexOf('view');
-            if (viewIndex >= 0 && parts[viewIndex + 1] === 'ARquiver') {
-              const binderUrl = new URL(url.href);
-              binderUrl.pathname = parts.slice(0, viewIndex + 1).join('/') + '/readme.html';
-              binderUrl.search = '';
-              binderUrl.hash = '';
-              return [binderUrl.href, githubManualUrl];
-            }
-            const arIndex = parts.indexOf('ARquiver');
-            if (arIndex >= 0) {
-              const localUrl = new URL(url.href);
-              localUrl.pathname = parts.slice(0, arIndex).join('/') + '/readme.html';
-              localUrl.search = '';
-              localUrl.hash = '';
-              return [localUrl.href, githubManualUrl];
-            }
-          } catch (err) {}
-          return [githubManualUrl];
-        }
-
-        function openManual() {
-          const urls = manualUrlCandidates();
-          const primary = urls[0] || githubManualUrl;
-          const fallback = urls[1] || githubManualUrl;
-          if (primary === githubManualUrl || !/^https?:/i.test(primary)) {
-            window.location.href = primary;
-            return;
-          }
-          fetch(primary, { method: 'GET', cache: 'no-store' })
-            .then(resp => { window.location.href = resp && resp.ok ? primary : fallback; })
-            .catch(() => { window.location.href = fallback; });
-        }
-
-        function showDownloadFallback(url, name) {
-          let box = document.getElementById('arDownloadFallback');
-          if (!box) {
-            box = document.createElement('div');
-            box.id = 'arDownloadFallback';
-            box.style.position = 'fixed';
-            box.style.right = '14px';
-            box.style.bottom = '14px';
-            box.style.zIndex = '40000';
-            box.style.maxWidth = '360px';
-            box.style.padding = '10px 12px';
-            box.style.border = '1px solid #93c5fd';
-            box.style.borderRadius = '8px';
-            box.style.background = '#eff6ff';
-            box.style.boxShadow = '0 12px 28px rgba(15,23,42,0.2)';
-            box.style.fontFamily = 'system-ui,-apple-system,Segoe UI,sans-serif';
-            box.style.fontSize = '13px';
-            document.body.appendChild(box);
-          }
-          box.innerHTML = '<div style="font-weight:700;margin-bottom:4px;">Standalone HTML is ready</div><div style="margin-bottom:6px;">If the download did not start automatically, use this link:</div><a id="arDownloadFallbackLink" href="" download="" target="_blank" rel="noopener" style="color:#2563eb;font-weight:700;">Download ' + name + '</a><button type="button" id="arDownloadFallbackClose" style="float:right;margin-left:8px;">×</button>';
-          const link = box.querySelector('#arDownloadFallbackLink');
-          link.href = url;
-          link.download = name;
-          box.querySelector('#arDownloadFallbackClose').addEventListener('click', () => {
-            if (box.parentNode) box.parentNode.removeChild(box);
-          });
-          setTimeout(() => {
-            if (box.parentNode) box.parentNode.removeChild(box);
-          }, 120000);
-        }
-
-        function downloadStandaloneHtml() {
+        function cleanRuntimeCloneForSave() {
           const clone = document.documentElement.cloneNode(true);
-          ['arControlPanel','arTopMenu','arFolderPanel','arListDrawer','calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegend','arQuiverTikzModal','quiverMiniContainer','arDownloadFallback'].forEach(id => {
+          ['arControlPanel','arTopMenu','arFolderPanel','arListDrawer','calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegend','arQuiverTikzModal','quiverMiniContainer'].forEach(id => {
             const el = clone.querySelector('#' + id);
             if (el && el.parentNode) el.parentNode.removeChild(el);
           });
-          const doc = '<!DOCTYPE html>' + String.fromCharCode(10) + clone.outerHTML;
+          return clone;
+        }
+
+        function saveStandaloneHtmlFromShortcut() {
+          const doc = '<!DOCTYPE html>' + String.fromCharCode(10) + cleanRuntimeCloneForSave().outerHTML;
           const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           const name = (window.location.pathname.split('/').pop() || 'ar-quiver.html').replace(/[^A-Za-z0-9_.-]/g, '_');
           a.href = url;
           a.download = name || 'ar-quiver.html';
-          a.rel = 'noopener';
-          a.style.display = 'none';
           document.body.appendChild(a);
           a.click();
-          showDownloadFallback(url, a.download);
-          setTimeout(() => {
-            if (a.parentNode) a.parentNode.removeChild(a);
-          }, 1500);
-          setTimeout(() => URL.revokeObjectURL(url), 120000);
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
         }
+
+        document.addEventListener('keydown', (event) => {
+          if ((event.ctrlKey || event.metaKey) && String(event.key || '').toLowerCase() === 's') {
+            event.preventDefault();
+            saveStandaloneHtmlFromShortcut();
+          }
+        }, true);
+
+        function showFramedSaveNotice() {
+          if (window.self === window.top) return;
+          const notice = document.createElement('div');
+          notice.id = 'arFramedSaveNotice';
+          notice.style.position = 'fixed';
+          notice.style.right = '12px';
+          notice.style.bottom = '12px';
+          notice.style.maxWidth = '360px';
+          notice.style.zIndex = '40000';
+          notice.style.padding = '10px 12px';
+          notice.style.border = '1px solid #f59e0b';
+          notice.style.borderRadius = '8px';
+          notice.style.background = '#fffbeb';
+          notice.style.color = '#92400e';
+          notice.style.font = '12px system-ui,-apple-system,Segoe UI,sans-serif';
+          notice.style.boxShadow = '0 8px 24px rgba(15,23,42,0.18)';
+          notice.textContent = 'Tip: this page is inside a Binder/Jupyter frame. Browser Save Page may save only the outer frame. Use Ctrl+S here, or open the frame HTML itself before saving.';
+          document.body.appendChild(notice);
+          setTimeout(() => { if (notice.parentNode) notice.parentNode.removeChild(notice); }, 12000);
+        }
+        showFramedSaveNotice();
 
         function handleMenuAction(event) {
           const btn = event.target.closest('button');
           if (!btn) return;
-          event.preventDefault();
-          event.stopPropagation();
           const toggleId = btn.getAttribute('data-toggle');
           const clickId = btn.getAttribute('data-click');
           const listSpec = btn.getAttribute('data-list');
@@ -2908,8 +2861,6 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (action === 'undo' && typeof undo === 'function') undo();
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
-          if (action === 'manual') openManual();
-          if (action === 'download-html') downloadStandaloneHtml();
           if (action === 'export-tex') showTexExport('xy');
           if (action === 'display-code') showDisplayCodeModal();
           if (action === 'legend') showColorLegend();
