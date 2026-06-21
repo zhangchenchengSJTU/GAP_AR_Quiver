@@ -1,4 +1,4 @@
-# Drawing AR-quivers of Finite-Dimensional Algebras with GAP
+# AR-Quivers of Finite-Dimensional Algebras via GAP
 
 ## Quick Start
 
@@ -8,116 +8,110 @@
 >
 > **A VPN is required to access the binder when you are in China.**
 
-Automatic launch: click [![Binder](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgbadge_logo.svg)](https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/HEAD), or open one of the following links:
+Click the badge to launch automatically: [![Binder](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgbadge_logo.svg)](https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/HEAD), or open one of the following links:
 
 - Stable version: https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/main
 - Testing version: https://mybinder.org/v2/gh/zhangchenchengSJTU/GAP_AR_Quiver/test
 
-Manual launch: open [Binder](https://mybinder.org/) and choose the `GitHub` option. Complete only the following steps.
+Manual launch: open [Binder](https://mybinder.org/) and select the `GitHub` option.
 
-1. Make sure that the `GitHub repository name or URL` field is set to `GitHub`. Paste `https://github.com/zhangchenchengSJTU/GAP_AR_Quiver` into the box on the right.
-2. Click `launch` directly. You can also set `Git ref (branch, tag, or commit)` field to `test` to try the latest testing version.
-
-3. Wait until the environment is ready. Binder will then redirect you to the Jupyter Notebook page.
+1. In the `GitHub repository name or URL` field, paste `https://github.com/zhangchenchengSJTU/GAP_AR_Quiver`.
+2. Click `launch`. To use the testing version, set `Git ref (branch, tag, or commit)` to `test`.
+3. Wait for the environment to build. Binder will redirect to the Jupyter Notebook page.
 
 ### Enter Jupyter Notebook
 
-After entering Jupyter Notebook, the browser address should look like `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/treee`. In the root directory, you should see the following items:
+After the environment loads, the browser address will resemble `https://hub.bids.mybinder.org/user/zhangchenchengsjtu-gap_ar_quiver-???????/tree`. The root directory contains:
 
-- `Dockerfile`: the environment specification, mainly for developers. Users do not need to edit it.
-- `readme.md`
-- `readme.html`
-- `ARquiver`: the working directory for drawing AR-quivers. After entering this folder, you will see:
-  - `source`: the source-code directory. Users usually do not need to inspect it.
-  - `run.ipynb`: the notebook used to run the computation and rendering scripts.
-  - `example.txt`, `yourfi.txt`, and similar files: input files containing quiver data.
+- `ARquiver`: working directory for AR-quiver computation. It contains:
+  - `source`: source code directory.
+  - `run.ipynb`: notebook for running computation and rendering.
+  - `example.txt`, `yourfile.txt`, and similar files: input files containing quiver data.
+- `Dockerfile`: environment specification for developers.
+- `readme.md`, `readme.html`: documentation.
+
+![image-20260620150816247](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620150816247.png)
 
 ### Draw the path algebra
 
-Use https://q.uiver.app to draw a quiver with relations. Please follow these conventions:
+Use https://q.uiver.app to draw a quiver with relations, following these conventions:
 
-- vertices of the quiver should be positive integers;
-- arrows should be simple Latin letters or Greek letters written in $\LaTeX$ format, such as `a` or `\alpha`;
-- choose an empty grid cell and enter the relations of the path algebra in the form `rel: ....`.
+- vertices are positive integers;
+- arrows are single Latin or Greek letters in $\LaTeX$ format, e.g. `a` or `\alpha`;
+- relations are entered in an empty grid cell in the form `rel: ...`.
 
 Example:
 
-![image-20260612214532284](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260612214532284.png)
+![image-20260620152733004](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620152733004.png)
 
-Click `LaTeX` at the bottom of the `q.uiver` page and copy the generated `tikzcd` source code. 
-
-Create a new `txt` file named `yourfile.txt` inside the `ARquiver` directory, paste the copied source code into it, save the file, and close it.
+Click `LaTeX` at the bottom of the `q.uiver` page and copy the generated `tikzcd` source code. Create a new file `yourfile.txt` in the `ARquiver` directory, paste the code into it, and save.
 
 ### Draw the AR-quiver
 
 Open `run.ipynb` and run the following cells in order:
 
 ```python
-# Compute algebra data: filename.txt -> filename.log
+# yourfile.txt -> yourfile.log
 %run source/compute_all.py
 ```
 
 ```python
-# Render interactive diagram: filename.log -> filename.html
+# yourfile.log -> yourfile.html
 %run source/render_all.py
 ```
 
-> [!Note]
->
-> The chronological order: `yourfile.txt` `->` `yourfile.log` `->` `yourfile.html`.
-
 The `ARquiver` directory will then contain:
 
-- `yourfile.log`: the algebra computation log;
-- `yourfile.html`: the interactive AR-quiver canvas.
+- `yourfile.log`: algebra computation log;
+- `yourfile.html`: interactive AR-quiver canvas.
+
+The `html` file can be downloaded directly:
+
+![image-20260620150639083](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620150639083.png)
 
 ### Arrange the AR-quiver into a usual form
 
-Open `yourfile.html` to view the interactive visualization of the AR-quiver.
+Open `yourfile.html` to view the interactive AR-quiver.
 
 ![image-20260618220032641](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618220032641.png)
 
-We first describe the basic AR-quiver controls.
+Basic controls:
 
-- Each ellipse represents an indecomposable module. Its dimension vector is arranged according to the vertex positions in the original `tikzcd` input.
+- Each ellipse represents an indecomposable module; its dimension vector is arranged according to vertex positions in the `tikzcd` input. Some ellipses may overlap.
+- Purple border: projective-injective. Red border: projective non-injective. Blue border: injective non-projective.
+- `Quivers > AR irreducible arrows`: show/hide irreducible morphisms (black arrows in day mode, white arrows in night mode).
+- `Quivers > Translation quiver τ`: show/hide the AR translation $\tau = D\mathrm{Tr}$ (golden arrows).
+- `View > Borders`: show/hide vertex borders.
+- `History`: browse, replay, undo, and redo recorded UI actions.
 
-  > [!caution]
-  >
-  > Some ellipses may overlap.
-- Ellipses with purple borders are both projective and injective. Red vertices are projective but not injective, while blue vertices are injective but not projective.
-- `Quivers > AR irreducible arrows`: show or hide irreducible morphisms, drawn as black arrows.
-- `Quivers > Translation quiver τ`: show or hide the AR translation $\tau = D \mathrm{Tr}$, drawn as golden arrows.
-- `View > Borders`: show or hide vertex borders.
-- `Ctrl + Z` undoes an operation, and `Ctrl + Y` redoes it.
-
-The main manual task is to arrange the AR-quiver into a readable standard form. Here are some useful guidelines.
+The main task is to arrange the AR-quiver into a readable standard form.
 
 > [!tip]
 >
-> The $\tau$-orbits, namely the orbits of the golden arrows, are disjoint. Projective-injective objects do not belong to any $\tau$-orbit. Every other indecomposable module belongs to exactly one $\tau$-orbit. Hence each $\tau$-orbit is one of the following two types:
+> The $\tau$-orbits are disjoint. Projective-injective objects belong to no $\tau$-orbit; every other indecomposable belongs to exactly one. Each $\tau$-orbit is of one of the following types:
 >
-> 1. a straight path from an injective object to a projective object;
-> 2. a cycle that contains no projective or injective object.
+> 1. a path from an injective to a projective object;
+> 2. a cycle containing no projective or injective object.
 
-Following this tip, we first find a projective object with long $\tau$-orbit, e.g., $\substack{2\\ 0 \quad 2}$ . Since vertices may overlap, you can refresh the page until a satisfying display occurs. Turn off `AR irreducible arrows`, then place the arrow $\substack{2\\ 0 \quad 2} \ \ \leftarrow \ \substack{2\\ 0 \quad 2}$ horizontally in an empty region. 
+Start by identifying a projective object with a long $\tau$-orbit, e.g., $\substack{2\\ 0 \quad 2}$. If vertices overlap, refresh the page to obtain a cleaner initial layout. Hide `AR irreducible arrows` and place the $\tau$-arrow $\substack{2\\ 0 \quad 2} \ \ \leftarrow  \substack{2\\ 0 \quad 2}$ horizontally in an empty region.
 
 > [!tip]
 >
-> **Long-press the golden arrow** to align the next arrow (while making sure that there are no black arrows hidden behind).
+> **Long-press a golden arrow** to align the subsequent arrow (ensure no black arrows are hidden behind it).
 
 This gives:
 
-![image-20260618221201601](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618221201601.png)
+![image-20260620152926761](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620152926761.png)
 
-Next, turn on `Irr` and look for the almost split short exact sequence $\substack{2\\ 0 \quad 2} \ \ \rightarrowtail \bigoplus M_i  \twoheadrightarrow \ \substack{2\\ 0 \quad 2}$.
+Enable `AR irreducible arrows` and locate the almost split sequence $\substack{2\\ 0 \quad 2} \ \ \rightarrowtail \bigoplus M_i \twoheadrightarrow \ \substack{2\\ 0 \quad 2}$.
 
-<img src="https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618221401009.png" alt="image-20260618221401009" style="zoom:50%;" />
+<img src="https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618221401009.png" alt="image-20260618221401009" style="zoom:25%;" />
 
-Then turn off `AR irreducible arrows` again and long-press the golden arrows for alignment. If a cycle appears, select an edge and use the `↑` and `↓` keys to adjust the curvature of the arrow. After a sequence of such operations, one obtains the $\tau$-orbits:
+Hide `AR irreducible arrows` again and long-press the golden arrows to complete the alignment. For cycles, select an edge and use `↑` / `↓` to adjust its curvature. After these operations, the $\tau$-orbits are obtained:
 
 ![image-20260618221717802](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618221717802.png)
 
-Finally, turn off `AR irreducible arrows` and adjust the curvature of the horizontal black arrows that were hidden behind the golden arrows. If some edges are visually inconvenient, double-click them to switch between dark and light colours. The final AR-quiver is then obtained:
+Finally, hide `AR irreducible arrows` and adjust the curvature of any black arrows previously hidden behind golden ones. Double-click an edge to toggle between dark and light colours. The final AR-quiver is:
 
 ![image-20260618222714203](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618222714203.png)
 
@@ -127,71 +121,74 @@ Finally, turn off `AR irreducible arrows` and adjust the curvature of the horizo
 
 ## Features
 
-The generated `filename.html` file is an interactive workspace for studying the AR-quiver and related homological data of the algebra defined by `filename.txt`. The page consists of a main canvas, a top navigation bar, and a sidebar opened by `Controls`. This introduction follows the order of the interface: first the canvas and top navigation, then each sidebar section from top to bottom.
+The generated `filename.html` is an interactive workspace for studying the AR-quiver and homological data of the algebra defined by `filename.txt`. The page consists of a main canvas, a top navigation bar, and a sidebar toggled by `Controls`. The sections below follow the interface order: canvas and navigation bar first, then each sidebar section from top to bottom.
+
+Recent additions include the history panel, `Clear canvas`, day/night mode, a direct top-bar `Modules matrix` button, resizable/toggleable floating tool windows, sortable side-drawer lists, module-matrix and class-inspection tools, traversal tools, expanded GAP-code snippets, display-code import/export improvements, and improved night-mode rendering for controls, lists, legends, the original quiver, and module-matrix views.
 
 ### Basic canvas interaction
 
-Each ellipse on the canvas represents an indecomposable module. The label shown inside the ellipse is normally the dimension vector, arranged according to the shape of the original input quiver when this information is available. The internal node number is the identifier used throughout `filename.log`.
+Each ellipse represents an indecomposable module. The label is the dimension vector, arranged according to the input quiver shape when available. The internal node number is the identifier used throughout `filename.log`.
 
-Basic operations:
+- Drag a vertex to reposition it.
+- Drag the background to pan.
+- Scroll to zoom.
+- Hover over a vertex to display its node number.
+- Double-click an edge to toggle dark/light colour.
+- Select an edge and press `↑` / `↓` to adjust its curvature.
 
-- Drag a vertex to change the layout.
-- Drag the background to pan the view.
-- Use the mouse wheel to zoom.
-- Hover over a vertex to see only its internal node number.
-- Double-click an edge to toggle between dark and light display colors.
-- Select an edge and press `↑` or `↓` to adjust its curvature.
-
-These operations only change the visualization. They do not recompute the algebra.
+These operations affect only the visualisation and do not recompute the algebra.
 
 ### Top navigation bar
 
 #### `Controls`
 
-This opens or hides the sidebar. The sidebar contains all overlays, lists, and tools. It is divided into `View`, `Quivers`, `Modules`, `Classes`, `Tilting`, and `Tools`.
+Opens or hides the sidebar. The sidebar contains all overlays, lists, GAP snippets, and tools, divided into `View`, `Quivers`, `Modules`, `Classes`, `Tilting`, `GAP codes`, and `Tools`.
+
+#### `History`
+
+Opens a draggable history panel. The panel records recent layout, colouring, class-inspection, and matrix actions where applicable. Use `Back`, `Forward`, or `replay` to revisit a previous state. This replaces the old top-bar `Ctrl+Z` / `Ctrl+Y` buttons while preserving keyboard-oriented workflow through the history panel.
 
 #### `Fit graph`
 
-This recenters and rescales the current canvas so that the visible graph fits into the window. It is useful after dragging vertices or zooming far away from the main diagram.
+Recentres and rescales the canvas to fit the visible graph in the window.
 
-#### `Ctrl+Z` and `Ctrl+Y`
+#### `Clear canvas`
 
-These buttons duplicate the keyboard shortcuts.
+Resets the workspace to the initial visual state without moving vertices. It closes temporary drawers and tool windows, clears list selections and temporary colourings, restores the default label mode, and leaves only the initial graph layers enabled: vertex borders, AR irreducible arrows, and the translation quiver.
 
-- `Ctrl+Z` undoes recent layout or coloring operations.
-- `Ctrl+Y` redoes an operation that was undone.
+#### `Modules matrix`
 
-They are intended for manual arrangement of the AR-quiver, especially when aligning $\tau$-orbits.
-
-#### `Clear colors`
-
-This removes temporary colorings produced by the calculator, list selections, torsion/cotorsion classes, tilting objects, support $\tau$-tilting objects, and module-class highlights. It does not delete arrows and does not change the underlying computation.
+Opens the module-matrix viewer directly from the top bar. The same tool is also available from `Controls > Tools > Module matrix`.
 
 #### `show dimension vector`
 
-This is the default label mode. Vertices display the dimension vectors of indecomposable modules. The source is the main `digraph Quiver` block in `filename.log`.
+Default label mode. Each vertex displays the dimension vector of the corresponding indecomposable module. The source is the `digraph Quiver` block in `filename.log`.
 
 #### `show label`
 
-This replaces each dimension vector by the internal node number. This is the best mode when comparing the picture with `filename.log`, since all tables in the log refer to modules by these numbers.
+Replaces each dimension vector with the internal node number. Useful when comparing the canvas with `filename.log`, where all tables reference modules by node number.
 
 #### `show custom label`
 
-This displays user-defined labels when available. If no custom label has been assigned, the vertex falls back to the dimension-vector label.
+Displays user-defined labels when available; falls back to dimension-vector labels otherwise.
 
 > [!Tip]
 >
-> Double click a vertex to **customise its label**. The input support simple unicodes. For instance, `N^2` displays like `N²` .
+> Double-click a vertex to **customise its label**. The input supports basic Unicode. For instance, `N^2` renders as `N²`.
 
 #### `Ctrl+L hide/show UI`
 
-This keyboard shortcut hides or restores the user interface. It is useful for screenshots or for arranging a large graph without visual obstruction.
+Hides or restores the user interface. Useful for screenshots or for arranging a large graph.
+
+#### `Day/Night`
+
+Toggles between day mode and night mode. Night mode keeps mathematical colours stable where possible, but changes the main canvas, controls, drawers, and floating windows to black backgrounds with white text. AR irreducible arrows are black in day mode and white in night mode; the colour legend updates this convention dynamically.
 
 ### Sidebar: `View`
 
 #### `PD`
 
-Displays the projective dimension of each indecomposable module as a floating label. The value `-1` denotes infinity or an unresolved value. The data come from
+Displays the projective dimension of each indecomposable module as a floating label; `-1` denotes $\infty$ or an unresolved value. Data source:
 
 ```text
 PDID := [[node, pd, id], ...];
@@ -199,11 +196,11 @@ PDID := [[node, pd, id], ...];
 
 #### `ID`
 
-Displays injective dimension, using the third entry of the same `PDID` table.
+Displays the injective dimension of each module, using the third entry of the same `PDID` table.
 
 #### `Top`
 
-Displays the simple factors of the top of each indecomposable module. Multiplicities are preserved. The data source is
+Displays the simple factors of $\mathrm{top}(M)$ for each indecomposable module $M$, with multiplicities. Data source:
 
 ```text
 TopSoc := [[node, top, soc], ...];
@@ -211,18 +208,18 @@ TopSoc := [[node, top, soc], ...];
 
 #### `Soc`
 
-Displays the simple factors of the socle of each indecomposable module, using the same `TopSoc` table.
+Displays the simple factors of $\mathrm{soc}(M)$ for each indecomposable module $M$, using the same `TopSoc` table.
 
 #### `Borders`
 
-Shows or hides vertex borders. The convention is:
+Shows or hides vertex borders. Convention:
 
-- blue border: injective module;
-- red border: projective module;
-- purple border: projective-injective module;
-- grey border: ordinary indecomposable module.
+- blue: injective;
+- red: projective;
+- purple: projective-injective;
+- grey: other indecomposable.
 
-The source in the log is
+Data source:
 
 ```text
 Projective modules found (Node IDs): [...]
@@ -231,21 +228,21 @@ Injective modules found (Node IDs):  [...]
 
 ### Sidebar: `Quivers`
 
-This section overlays auxiliary quivers on top of the AR-quiver.
+Overlays auxiliary quivers on the AR-quiver canvas.
 
 #### `AR irreducible arrows`
 
-Shows or hides the black irreducible morphisms of the AR-quiver. These are the arrows in
+Shows or hides the irreducible morphisms of the AR-quiver (black arrows in day mode, white arrows in night mode). Data source:
 
 ```text
 digraph Quiver { ... }
 ```
 
-If multiple identical arrows occur, the display may collapse them visually while keeping multiplicity information.
+Repeated arrows may be collapsed visually; multiplicity information is preserved.
 
 #### `Translation quiver τ`
 
-Shows the AR translation quiver. A golden arrow $M \longrightarrow N$ means $N=\tau M$. This is useful for arranging the AR-quiver into $\tau$-orbits. The data source is
+Shows the AR translation quiver. A golden arrow $M \longrightarrow N$ indicates $N=\tau M$. Data source:
 
 ```text
 digraph TranslationQuiver { ... }
@@ -253,47 +250,47 @@ digraph TranslationQuiver { ... }
 
 #### `Syzygy quiver`
 
-Shows the syzygy quiver. A pink arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of the kernel of a projective cover of $X$, i.e. $Y \in \mathrm{Smd}(\Omega X)$. The data source is
+Shows the syzygy quiver. A pink arrow $X \longrightarrow Y$ indicates $Y \in \mathrm{add}(\Omega X)$. Data source:
 
 ```text
 digraph SyzygySummand { ... }
 ```
 
-The calculator uses this quiver to compute $\Omega^n(X)$ by iteration.
+The calculator iterates this quiver to compute $\Omega^n(X)$.
 
 #### `Cosyzygy quiver`
 
-Shows the cosyzygy quiver. A green arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of the cokernel of an injective envelope of $X$, i.e. $Y \in \mathrm{Smd}(\Sigma X)$. The data source is
+Shows the cosyzygy quiver. A green arrow $X \longrightarrow Y$ indicates $Y \in \mathrm{add}(\Sigma X)$. Data source:
 
 ```text
 digraph CosyzygySummand { ... }
 ```
 
-The calculator uses this quiver to compute $\Sigma^n(X)$.
+The calculator iterates this quiver to compute $\Sigma^n(X)$.
 
 #### `Radical quiver`
 
-Shows the radical quiver. A cyan arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $\mathrm{Rad}(X)$, i.e., $Y \in \mathrm{Smd}(\mathrm{Rad}(X))$. Repeated arrows encode multiplicities. The data source is
+Shows the radical quiver. A cyan arrow $X \longrightarrow Y$ indicates $Y \in \mathrm{add}(\mathrm{Rad}(X))$; repeated arrows encode multiplicities. Data source:
 
 ```text
 digraph RadicalSummand { ... }
 ```
 
-The calculator uses this quiver to compute $\mathrm{Rad}^n(X)$.
+The calculator iterates this quiver to compute $\mathrm{Rad}^n(X)$.
 
 #### `Coradical quiver`
 
-Shows the coradical quiver. A purple arrow $X \longrightarrow Y$ means that $Y$ is an indecomposable direct summand of $X/\mathrm{Soc}(X)$, i.e., $Y \in \mathrm{Smd}(X/\mathrm{Sox}(X))$. Repeated arrows encode multiplicities. The data source is
+Shows the coradical quiver. A purple arrow $X \longrightarrow Y$ indicates $Y \in \mathrm{add}(X/\mathrm{Soc}(X))$; repeated arrows encode multiplicities. Data source:
 
 ```text
 digraph CoradicalSummand { ... }
 ```
 
-The calculator uses this quiver to compute $\mathrm{Corad}^n(X)$.
+The calculator iterates this quiver to compute $\mathrm{Corad}^n(X)$.
 
 #### `Hom dimension quiver`
 
-Shows nonzero Hom dimensions. A brown arrow $M \longrightarrow N$ with label `k` (unlabelled cases means `k=1`) means $\dim\mathrm{Hom}(M,N)=k$. The source is
+Shows nonzero $\mathrm{Hom}$ dimensions. A brown arrow $M \longrightarrow N$ with label `k` (unlabelled means `k=1`) indicates $\dim\mathrm{Hom}(M,N)=k$. Data source:
 
 ```text
 digraph HomDim { ... }
@@ -301,40 +298,78 @@ digraph HomDim { ... }
 
 #### `Ext dimension quiver`
 
-Shows nonzero $\mathrm{Ext}^1$ dimensions. A red arrow $M \longrightarrow N$ with label `k` (unlabelled cases means `k=1`) means $\dim\mathrm{Ext}^1(M,N)=k$. The source is
+Shows nonzero $\mathrm{Ext}^1$ dimensions. A red arrow $M \longrightarrow N$ with label `k` (unlabelled means `k=1`) indicates $\dim\mathrm{Ext}^1(M,N)=k$. Data source:
 
 ```text
 digraph ExtDim { ... }
 ```
 
-Together with the syzygy quiver, this data is used by the calculator to evaluate higher $\mathrm{Ext}^{\geq 1}$ dimensions.
+Combined with the syzygy quiver, this data is used by the calculator to evaluate $\mathrm{Ext}^{\geq 1}$ dimensions.
+
+#### Extension middle-term table
+
+The computation log also contains an extension middle-term table:
+
+```text
+# --- ExtensionMiddleTermTable --- #
+ExtensionMiddleTermTable := [
+  [rec(sub := i, quot := j, mids := [[...], ...]), ...],
+  ...
+];;
+```
+
+The entry with `sub := i` and `quot := j` records known middle terms of short exact sequences
+
+$$
+0\to M_i\to E\to M_j\to 0.
+$$
+
+Each row of `mids` is the list of indecomposable summands of one possible middle term. For example, `mids := [[2,3], [1,12]]` means that the known middle terms include both $M_2\oplus M_3$ and $M_1\oplus M_{12}$.
+
+By default this table is a fast **known-middle-term** table, not a full enumeration of all extension classes. It includes:
+
+- split extensions;
+- the fact that pairs with $\dim\mathrm{Ext}^1(M_j,M_i)=0$ have only the split middle term;
+- non-split sequences coming from radical/top, socle/coradical, projective covers/syzygies, and injective envelopes/cosyzygies;
+- middle terms inferred from AR translation meshes and dimension-compatible commutative squares in the AR-quiver;
+- additional middle terms obtained by iteratively composing such pushout/pullback squares, using the fact that a composite of pushout/pullback squares is again a pushout/pullback square. This iteration is guarded by `max_extension_square_composition_iterations` and `max_extension_square_composition_rectangles` to avoid blow-up on large examples.
+
+To request the slower full pushout-based table, set the GAP variable
+
+```gap
+compute_full_extension_table := true;;
+```
+
+before running the computation. Over an infinite field, the full mode still uses the split extension plus basis representatives produced by `ExtOverAlgebra`; over a finite field it can enumerate finite linear combinations.
 
 #### `Original quiver Q`
 
-Opens a draggable window displaying the original quiver of the algebra and its relations. The source in the log is
+Opens a draggable window displaying the original quiver and its relations. Data source:
 
 ```text
 digraph Q { ... }
 rel := ...;
 ```
 
-The `see filename.txt` button opens the original input text. The `Open in q.uiver` button opens the https://q.uiver.app stored in the first line of the input file.
+The `see filename.txt` button opens the original input. The `Open in q.uiver` button opens the URL stored in the first line of the input file.
+
+The window now uses the same SVG-style quiver rendering as the module-matrix viewer: circular vertices, directed arrows, labels, and a layout derived from the input quiver structure. Vertex and arrow labels keep a halo for readability; in night mode the quiver switches to a black background with white strokes/text.
 
 ### Sidebar: `Modules`
 
-These buttons highlight special classes of indecomposable modules. They do not alter the graph.
+These buttons highlight special classes of indecomposable modules without altering the graph.
 
 > [!Note]
 >
-> Let $M \oplus N$ be either one of the following kind of the modules, then so are $M$ and $N$. Hence the following property is enough to shown for indecomposable modules.
+> Each property below is closed under direct summands, so it suffices to state it for indecomposable modules.
 
 #### `Torsionless`
 
-Highlights **non-projective** torsionless modules. A module is torsionless if it embeds into a projective module, equivalently if the canonical map
+Highlights **non-projective** torsionless modules (cyan). A module $M$ is torsionless if the canonical map
 $$
-M\to DDM, \quad m \mapsto [f \mapsto f(m)]
+M\to D^2M, \quad m \mapsto (f \mapsto f(m))
 $$
-is injective. The display colour is cyan. The source is
+is injective, or equivalently if $M$ embeds into a projective module. Data source:
 
 ```text
 Torsionless modules found (Node IDs): [...]
@@ -342,11 +377,11 @@ Torsionless modules found (Node IDs): [...]
 
 #### `Reflexive`
 
-Highlights **non-projective** reflexive modules. A module is reflexive if the canonical map 
+Highlights **non-projective** reflexive modules (purple). A module $M$ is reflexive if the canonical map
 $$
-M\to DDM, \quad m \mapsto [f \mapsto f(m)]
+M\to D^2M, \quad m \mapsto (f \mapsto f(m))
 $$
- is an isomorphism. The display colour is purple. The source is
+is an isomorphism. Data source:
 
 ```text
 Reflexive modules found (Node IDs): [...]
@@ -354,7 +389,7 @@ Reflexive modules found (Node IDs): [...]
 
 #### `Gorenstein projective`
 
-Highlights **non-projective** Gorenstein projective modules in green. The source is
+Highlights **non-projective** Gorenstein projective modules (green). Data source:
 
 ```text
 Gorenstein projective modules found (Node IDs): [...]
@@ -362,13 +397,15 @@ Gorenstein projective modules found (Node IDs): [...]
 
 #### `Gorenstein injective`
 
-Highlights **non-injective** Gorenstein injective modules in red. The source is
+Highlights **non-injective** Gorenstein injective modules (red). Data source:
 
 ```text
 Gorenstein injective modules found (Node IDs): [...]
 ```
 
 ### Sidebar: `Classes`
+
+Class and tilting lists open in a resizable side drawer. Clicking the same list button again closes the drawer. Rows are sortable where applicable; selecting a row highlights the corresponding modules on the AR-quiver. The drawer path and checkbox path both render the same list content.
 
 #### `Torsion classes`
 
@@ -378,20 +415,15 @@ Opens a list of torsion pairs. Each row has the form
 T := [...] | F := [...] | tilting/non-tilting
 ```
 
-Display convention:
-
-- red vertices show the torsion class `T`;
-- green vertices show the torsion-free class `F`.
-
-Mathematically, `T` is closed under quotients and extensions, while `F` is closed under submodules and extensions. For a tilting module $L$, the induced torsion pair satisfies
+Colour convention: red vertices denote the torsion class $\mathcal{T}$; green vertices denote the torsion-free class $\mathcal{F}$. For a tilting module $L$, the induced torsion pair satisfies
 
 \[
-\mathcal T=\mathrm{gen}(L)=\mathrm{Ker}\mathrm{Ext}^1(L,-),
+\mathcal{T}=\mathrm{gen}(L)=\mathrm{Ker}\,\mathrm{Ext}^1(L,-),
 \qquad
-\mathcal F=\mathrm{Ker}\mathrm{Hom}(L,-).
+\mathcal{F}=\mathrm{Ker}\,\mathrm{Hom}(L,-).
 \]
 
-The list is sorted by the stored class data. The source is
+Data source:
 
 ```text
 # --- TorsionPairTable --- #
@@ -402,11 +434,19 @@ The `tilting` flag records whether the torsion pair arises from a tilting module
 
 > [!Caution]
 >
-> Different tilting modules may induce the same torsion pairs.
+> Distinct tilting modules may induce the same torsion pair.
 
-The `split` flag records whether the torsion pair splits. A torsion pair $(\mathcal T, \mathcal F)$ splits if and only if $\mathcal T \cup \mathcal F$ consists of all indecomposable modules.
+The `split` flag records whether the torsion pair $(\mathcal{T}, \mathcal{F})$ splits, i.e., $\mathcal{T} \cup \mathcal{F}$ exhausts all indecomposable modules.
 
-![image-20260618231225010](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618231225010.png)
+`Controls > GAP codes > Extension closure` provides copyable GAP code for computing extension closures from a middle-term table. This is kept out of the generated HTML sidebar list because enumerating all extension-closed classes can be exponentially large. The GAP snippet includes:
+
+- `ExtensionClosureFromTable(X, table)`;
+- `IsExtensionClosedClassFromTable(X, table)`;
+- `AllExtensionClosedClassesFromTable(table)` for small enough examples.
+
+The HTML still stores `ExtensionMiddleTermTable`, so the calculator can compute the closure of a selected class on demand without rendering the full list.
+
+![image-20260620154603999](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620154603999.png)
 
 #### `Cotorsion classes`
 
@@ -416,38 +456,22 @@ Opens a list of cotorsion pairs. Each row has the form
 L := [...] | R := [...] | Hereditary := true/false
 ```
 
-Display convention:
-
-- blue vertices show the left class `L`;
-- red vertices show the right class `R`;
-- if a module belongs to both sides, half-colouring is used.
-
-The `hereditary` flag records whether the cotorsion pair is hereditary. A cotorsion pair $(\mathcal L, \mathcal R)$ is hereditary if and only if $\mathrm{Ext}^{\geq 1}(\mathcal{L},\mathcal{R}) = 0$. The list is sorted by the stored left and right classes. The source is
+Colour convention: blue vertices denote the left class $\mathcal{L}$; red vertices denote the right class $\mathcal{R}$; modules in both classes are half-coloured. The `hereditary` flag records whether $\mathrm{Ext}^{\geq 1}(\mathcal{L},\mathcal{R}) = 0$. Data source:
 
 ```text
 # --- CotorsionPairTable --- #
 L := [...] | R := [...] | Hereditary := ...
 ```
 
-![image-20260618231301708](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260618231301708.png)
+![image-20260620154314188](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620154314188.png)
 
 ### Sidebar: `Tilting`
 
 #### `Tilting modules`
 
-Opens the list of classical tilting modules. A module $T$ is (classical $1$-)tilting if
+Opens the list of classical tilting modules. A module $T$ is (classical $1$-) tilting if $\mathrm{pd}\,T\leq 1$, $\mathrm{Ext}^{\geq 1}(T,T)=0$, and there exists a short exact sequence $A\rightarrowtail T^0\twoheadrightarrow T^1$ with $T^0,T^1\in\mathrm{add}(T)$.
 
-- $\mathrm{pd}T\leq 1$;
-- $\mathrm{Ext}^{\geq 1}(T,T)=0$;
-- there is a short exact sequence $A\rightarrowtail T^0\twoheadrightarrow T^1$ with $T^0,T^1\in\mathrm{add}(T)$.
-
-Display convention:
-
-- grey vertices are the indecomposable summands of the selected tilting module;
-- red vertices are in the induced torsion class;
-- green vertices are in the induced torsion-free class.
-
-The source rows contain
+Colour convention: grey vertices are the indecomposable summands of the selected tilting module; red vertices are in the induced torsion class; green vertices are in the induced torsion-free class. Data source:
 
 ```text
 L := [...]
@@ -457,94 +481,143 @@ T := [...]
 
 where `L` is the tilting module, `T` is the torsion class, and `F` is the torsion-free class.
 
-The `splitting` tag records whether the tilting module is splitting, using the criterion that every indecomposable module in `F` has injective dimension at most one over the original algebra.
+The `splitting` tag records whether every indecomposable module in `F` has injective dimension at most one. The `separating` tag records whether the induced torsion pair is split.
 
-The `separating` tag records whether the induced torsion pair `(T,F)` is split, i.e. every indecomposable module belongs to `T` or to `F`.
-
-![image-20260619010144106](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260619010144106.png)
+![image-20260620154505565](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620154505565.png)
 
 #### `Support τ-tilting`
 
-Opens the list of support $\tau$-tilting pairs. A pair $(P,M)$ is support $\tau$-tilting if $P$ is projective, $M$ is $\tau$-rigid, $\mathrm{Hom}(P,M)=0$, and the total number of indecomposable summands of $P$ and $M$ is the number of vertices of the original quiver.
-
-The source is
+Opens the list of support $\tau$-tilting pairs. A pair $(P,M)$ is support $\tau$-tilting if $P$ is projective, $M$ is $\tau$-rigid, $\mathrm{Hom}(P,M)=0$, and $|\mathrm{ind}\,P|+|\mathrm{ind}\,M|$ equals the number of vertices of the original quiver. Data source:
 
 ```text
 # --- SupportTauTiltingTable --- #
 P := [...] | M := [...]
 ```
 
+Colour convention: light blue vertices denote the projective part $P$; grey vertices denote the indecomposable summands of $M$. The list is rendered in the side drawer and supports sorting by `P` or `M`.
+
 #### `Almost support τ-tilting`
 
-Opens the list of almost support $\tau$-tilting pairs. These have the same format as support $\tau$-tilting pairs, but the total number of summands is one less than the number of vertices of the original quiver.
-
-The source is
+Opens the list of almost support $\tau$-tilting pairs, which have the same format as support $\tau$-tilting pairs but with total summand count one less than the number of vertices. Data source:
 
 ```text
 # --- AlmostSupportTauTiltingTable --- #
 P := [...] | M := [...]
 ```
 
+The same colour convention is used: light blue for $P$ and grey for $M$.
+
+### Sidebar: `GAP codes`
+
+This section contains copyable GAP/QPA snippets derived from the current input. They are intended for experiments that are better run in GAP than in the browser.
+
+- `Generate this quiver`: reconstructs the quiver, relations, algebra, projective modules, injective modules, simples, and serialised indecomposables.
+- `Find gen(-)`: code for computing generated classes.
+- `Find cogen(-)`: code for computing cogenerated classes.
+- `Extension closure`: code for computing extension closures from the middle-term table.
+- `Ext basis sequences`: code for extracting representative short exact sequences from an $\mathrm{Ext}^1$ basis.
+- `Hom basis matrices`: code for inspecting bases of Hom spaces as matrices.
+- `Module matrices`: code for printing the linear maps defining selected modules.
+
 ### Sidebar: `Tools`
+
+Tool windows are draggable and resizable where appropriate. For `Matrices`, `Class inspector`, `Module matrix`, `Traverse`, `Calculator`, `Export AR-quiver to TeX`, `Display code`, and `Color legend`, clicking the same control button again closes the corresponding window and clears its active state.
+
+#### `Matrices`
+
+Displays adjacency-style matrices for several quiver relations:
+
+- Hom dimensions;
+- $\mathrm{Ext}^1$ dimensions;
+- $\tau$ translation;
+- syzygy and cosyzygy summands;
+- radical and coradical summands.
+
+The output can be shown as plain text, Sage syntax, or LaTeX `pmatrix` syntax. The first line records the node-number order used for rows and columns.
+
+#### `Class inspector`
+
+Inspects a class of modules entered as a list of node numbers. It reports its size, whether it appears as a torsion/torsion-free or cotorsion-side class, and whether it is closed under syzygy, cosyzygy, radical, or coradical operations. Buttons allow using the selected vertices, highlighting the class, storing one class, and comparing the stored class with the current class.
+
+#### `Module matrix`
+
+Displays the explicit linear maps of a selected indecomposable module. The graphical view uses the original quiver layout and can show either dimensions plus matrices or a simpler node/edge view. `Use selected` fills the module label from the selected AR-quiver vertex; `Reset layout` restores the module-matrix node positions.
+
+#### `Traverse`
+
+Iterates a class through one of the available quiver operations: $\tau$, $\tau^{-1}$, syzygy, cosyzygy, radical, or coradical. Enter a seed list and a number of steps, or use the currently selected vertices as the seed.
 
 #### `Calculator`
 
-The calculator performs operations using the data already stored in the HTML. Inputs and outputs use node label numbers.
+Performs operations on data stored in the HTML file. Inputs and outputs use node numbers.
 
 Available operations:
 
-- `dim Ext^k(A,B)`: computes total $\dim\mathrm{Ext}^k(A_i,B_j)$ over all selected labels.
+- `dim Ext^k(A,B)`: computes $\sum_{i,j}\dim\mathrm{Ext}^k(A_i,B_j)$ over all selected labels.
+- `extension closure(A)`: computes the smallest class containing the selected labels and closed under the known middle terms in `ExtensionMiddleTermTable`.
+- `middle terms A→?→B`: requires one indecomposable label in `A` and one in `B`, and lists the known middle terms of short exact sequences $0\to A\to E\to B\to0$, one middle term per line.
 - `ker Ext^k(A,-)`: returns all $X$ with $\mathrm{Ext}^k(A_i,X)=0$ for every selected $A_i$.
 - `ker Ext^k(-,B)`: returns all $X$ with $\mathrm{Ext}^k(X,B_j)=0$ for every selected $B_j$.
-- `Ω^n(A)`: iterates the syzygy quiver.
-- `Σ^n(A)`: iterates the cosyzygy quiver.
-- `Rad^n(A)`: iterates the radical quiver.
-- `Corad^n(A)`: iterates the coradical quiver.
+- `Ω^n(A)`: iterates the syzygy quiver $n$ times.
+- `Σ^n(A)`: iterates the cosyzygy quiver $n$ times.
+- `Rad^n(A)`: iterates the radical quiver $n$ times.
+- `Corad^n(A)`: iterates the coradical quiver $n$ times.
 
-Multiplicity convention: `3 + 5` means $M_3\oplus M_5$, while `3^2 + 5` means $M_3^{\oplus 2}\oplus M_5$. Empty output is shown as `∅`.
+Notation: `3 + 5` denotes $M_3\oplus M_5$; `3^2 + 5` denotes $M_3^{\oplus 2}\oplus M_5$. Empty output is displayed as `∅`.
 
-![image-20260619010506325](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260619010506325.png)
+![image-20260620155056526](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620155056526.png)
 
-#### `Run with GAP`
+#### `Generate this quiver` / `Run with GAP`
 
-Inside the calculator, this generates copyable `GAP` and `QPA` code reconstructing the quiver, algebra, projectives, injectives, simples, and serialised indecomposable modules when available. The script can also be downloaded as a `.g` file.
+The `GAP codes` section provides copyable scripts, and the calculator also has a `Run with GAP` helper. These snippets reconstruct the quiver, algebra, projective modules, injective modules, simple modules, and serialised indecomposable modules when needed. Generated scripts can be downloaded as `.g` files from the corresponding code panel.
 
 #### `Export AR-quiver to TeX`
 
-Exports the current arranged AR-quiver layout as copyable $\TeX$ code. The export dialog has two modes:
+Exports the current AR-quiver layout as copyable $\TeX$ code. Two modes are available:
 
-- `xymatrix`: the original matrix-style export, useful for quick Typora/xy-pic output.
-- `tikz`: a `tikzpicture` export preserving the current vertex positions, dashed $\tau$-arrows, and curved arrows via `bend left` / `bend right`.
+- `xymatrix`: matrix-style output for xy-pic.
+- `tikz`: `tikzpicture` output preserving vertex positions, dashed $\tau$-arrows, and curved arrows via `bend left`/`bend right`.
 
-For `xymatix` output, include
-
-```latex
-\usepackage[all]{xy}
-```
-
-For `tikz` output, include
+Required preamble packages:
 
 ```latex
-\usepackage{tikz,amsmath}
+\usepackage[all]{xy}      % for xymatrix
+\usepackage{tikz,amsmath} % for tikz
 ```
-
-in the $\LaTeX$ preamble. 
 
 > [!caution]
 >
-> `tikZ` is recommended when the picture contains **curved dashed arrows**, since `xymatrix` has limited support for that combination.
+> Use `tikz` when the picture contains **curved dashed arrows**, as `xymatrix` has limited support for that combination.
+
+`Typora` supports `xymatrix`.
+$$
+\scriptsize
+\xymatrix{
+{} & {\begin{smallmatrix}2 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@/_0.3pc/[rrrrrrrrrr] \ar@/^0.3pc/@{-->}[rrrrrrrrrrrrrrrr] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar@/_0.3pc/[rrrrrrrrrr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@/_0.3pc/[rrrrrrrrrr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@/_0.3pc/[rrrrrrrrrr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 1\end{smallmatrix}} \ar[dr] \ar@/_0.3pc/[llllllll] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@/_0.3pc/[llllllll] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 3\end{smallmatrix}} \ar[dr] \ar@/_0.3pc/[llllllll] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar@/_0.3pc/[llllllll] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 2\end{smallmatrix}} \ar[dlllllllllllllllll] \ar@/_0.3pc/[llllllll] \ar@{-->}[ll] & {} \\
+{\begin{smallmatrix}2 \\ 0 & 2\end{smallmatrix}} \ar[ur] \ar[dr] & {} & {\begin{smallmatrix}2 \\ 0 & 2\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 0 & 1\end{smallmatrix}} \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}1 \\ 0 & 0\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 3\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[dr] \ar[ur] \ar@{-->}[ll] & {} & {} \\
+{} & {\begin{smallmatrix}2 \\ 0 & 3\end{smallmatrix}} \ar[ur] & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}2 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar[dr] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 4\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 2 & 0\end{smallmatrix}} \ar[dr] \ar@{-->}[ll] & {} \\
+{} & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 1 & 0\end{smallmatrix}} \ar[ur] \ar[dr] \ar@/^0.3pc/@{-->}[rrrrrrrrrr] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}4 \\ 2 & 3\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 2\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}0 \\ 1 & 0\end{smallmatrix}} \ar[dlllllllllll] \ar@{-->}[ll] \\
+{} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 2 & 0\end{smallmatrix}} \ar[ur] \ar[dr] \ar@/^0.3pc/@{-->}[rrrrrrrrrr] & {} & {\begin{smallmatrix}1 \\ 1 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar[dr] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 3\end{smallmatrix}} \ar[ur] \ar[dlllll] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar[dlllll] \ar@{-->}[ll] & {} & {\begin{smallmatrix}2 \\ 1 & 2\end{smallmatrix}} \ar[ur] \ar[dlllll] \ar@{-->}[ll] & {} \\
+{} & {} & {} & {} & {} & {} & {} & {} & {\begin{smallmatrix}1 \\ 2 & 1\end{smallmatrix}} \ar[ur] \ar[urrrrrrr] \ar@/^0.6pc/@{-->}[rrrr] & {} & {\begin{smallmatrix}2 \\ 1 & 1\end{smallmatrix}} \ar[urrrrrrr] \ar[ur] \ar@{-->}[ll] & {} & {\begin{smallmatrix}3 \\ 2 & 2\end{smallmatrix}} \ar[ulllll] \ar[ur] \ar@{-->}[ll] & {} & {} & {} & {} & {} & {}
+}
+$$
+
 
 #### `Display code`
 
-> [!TIP]
->
-> Use `Display code` to copy and paste the current arrangement of an already generated `html` quiver. It records the node positions and arrow-curve offsets, so the same layout can be restored later or transferred to another `html` file with the same underlying graph. It does not store the mathematical data of the quiver.
+Records the current node positions, arrow-curve offsets, and dimmed-arrow state as copyable code. The layout can be restored later or transferred to another `html` file with the same underlying graph. Mathematical data are not included. The button acts as a toggle: click it again to close the display-code window.
+
+For instance, a display code has the form
+
+```txt
+ARQ3.<node-position-code>.<curve-code>.<dimmed-arrow-code>
+```
 
 #### `Color legend`
 
-Opens a draggable legend explaining all visual conventions: vertex borders, module-class highlights, AR arrows, $\tau$-arrows, syzygy, cosyzygy, radical, coradical, $\mathrm{Hom}$ and $\mathrm{Ext}^1$ arrows, torsion/cotorsion colours, tilting colours, support $\tau$-tilting colours, calculator colours, and floating labels.
+Opens a draggable legend summarising all visual conventions: vertex borders, module-class colours, AR arrows, $\tau$-arrows, syzygy, cosyzygy, radical, coradical, $\mathrm{Hom}$ and $\mathrm{Ext}^1$ arrows, torsion/cotorsion colours, tilting colours, support $\tau$-tilting colours, calculator colours, and floating labels. The legend follows day/night mode; in particular, the `AR irreducible arrow` swatch is black in day mode and white in night mode.
 
-## Acknowledgement
+## Acknowledgements
 
-The author gratefully acknowledges the developers and maintainers of [GAP](https://www.gap-system.org/), [Binder](https://mybinder.org/), and [quiver](https://q.uiver.app/) for providing essential tools and infrastructure used by this project. The implementation was inspired in part by A. Konovalov's [try-gap-in-jupyter](https://github.com/gap-system/try-gap-in-jupyter) repository. The author also acknowledges the assistance of the AI model `chatgpt-5.5-thinking` during the development and refinement of the codebase, and [typora](https://typora.io/) for generating `readme.html`.
+The author thanks the developers and maintainers of [GAP](https://www.gap-system.org/), [Binder](https://mybinder.org/), and [quiver](https://q.uiver.app/). The implementation drew in part on A. Konovalov's [try-gap-in-jupyter](https://github.com/gap-system/try-gap-in-jupyter) repository. The AI model `claude-sonnet-4-6-thinking` assisted in the development of this codebase. `readme.html` was generated by [Typora](https://typora.io/).
 

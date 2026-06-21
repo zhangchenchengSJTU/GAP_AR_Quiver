@@ -118,6 +118,19 @@ def parse_quiver_data(quiver_file):
     ext_content = None
     if ext_match:
         ext_content = "digraph ExtDim {" + ext_match.group(1) + "}"
+    extension_middle_table = {}
+    ext_table_match = re.search(r"# --- ExtensionMiddleTermTable --- #[\s\S]*?ExtensionMiddleTermTable\s*:=\s*\[([\s\S]*?)\];;", content)
+    if ext_table_match:
+        table_text = ext_table_match.group(1)
+        for rec_match in re.finditer(r"rec\(sub\s*:=\s*(\d+),\s*quot\s*:=\s*(\d+),\s*mids\s*:=\s*(\[[\s\S]*?\])\)", table_text):
+            try:
+                sub = int(rec_match.group(1))
+                quot = int(rec_match.group(2))
+                mids = ast.literal_eval(rec_match.group(3))
+                extension_middle_table[f"{sub}|{quot}"] = [[int(x) for x in row] for row in mids]
+            except Exception:
+                continue
+    globals()["extension_middle_table"] = extension_middle_table
     rel_match = re.search(r"rel := ([^;\n]+);", content)
     rel_content = rel_match.group(1).strip() if rel_match else None
     module_data_gap = ""
@@ -296,6 +309,17 @@ def parse_quiver_data(quiver_file):
 
     def display_class(values):
         return "0" if not values else ",".join(str(v) for v in values)
+
+    def class_is_extension_closed(values):
+        vals = set(int(v) for v in (values or []))
+        ext_table = globals().get("extension_middle_table", {}) or {}
+        for sub in vals:
+            for quot in vals:
+                mids = ext_table.get(f"{sub}|{quot}", [[sub, quot]])
+                for mid in mids:
+                    if any(int(x) not in vals for x in (mid or [])):
+                        return False
+        return True
 
     for item in tilting_data:
         item["labelText"] = f"L=[{display_class(item.get('L', []))}] | F=[{display_class(item.get('F', []))}] | T=[{display_class(item.get('T', []))}] | {item.get('tagText', '')}"
@@ -601,6 +625,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     module_data_gap_js = json.dumps(globals().get("module_data_gap", ""))
     hom_edges_js = json.dumps(hom_edges)
     ext_edges_js = json.dumps(ext_edges)
+    extension_middle_table_js = json.dumps(globals().get("extension_middle_table", {}))
     tilting_js = json.dumps(tilting_data or [])
     torsion_pairs_js = json.dumps(globals().get("torsion_pair_data", []))
     torsion_pair_buckets_js = json.dumps(globals().get("torsion_pair_buckets", {}))
@@ -637,6 +662,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       const indecomposableModuleDataGap = {{MODULE_DATA_GAP}};
       const homEdges = {{HOM_EDGES}};
       const extEdges = {{EXT_EDGES}};
+      const extensionMiddleTermTable = {{EXT_MIDDLE_TABLE}};
       const tiltingData = {{TILTING_DATA}};
       const torsionPairData = {{TORSION_PAIR_DATA}};
       const torsionPairBuckets = {{TORSION_PAIR_BUCKETS}};
@@ -1104,7 +1130,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         });
         document.getElementById('irrToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
-          toggleEdges((edge) => isBlackEdge(edge), checked);
+          toggleEdges((edge) => isIrreducibleEdge(edge), checked);
         });
         document.getElementById('trToggle').addEventListener('change', (e) => {
           const checked = e.target.checked;
@@ -1359,6 +1385,55 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           });
         }
 
+        function clearCanvasView() {
+          if (drawer) closeListDrawer(true);
+          clearListColoring();
+          ['calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegendModal','arQuiverTikzModal','arGapCodePanel','arHistoryPanel','arMatrixPanel','arClassInspectorPanel','arModuleMatrixPanel','arTraversePanel','quiverMiniContainer'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+          });
+          ['syzToggle','cosyzToggle','radToggle','coradToggle','homToggle','extToggle','quiverToggle','tiltingToggle','torsionPairToggle','cotorsionPairToggle','supportTauToggle','almostSupportTauToggle','pdToggle','idToggle','topToggle','socToggle'].forEach(id => setCheckbox(id, false));
+          ['irrToggle','trToggle','borderToggle'].forEach(id => setCheckbox(id, true));
+          applyNodeLabelMode('dimension');
+          network.unselectAll();
+          network.redraw();
+          applyNightModeColors();
+          if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
+        }
+
+        function applyNightModeColors() {
+          if (!network || !network.body || !network.body.data || !network.body.data.edges) return;
+          const night = document.documentElement.classList.contains('ar-night-mode');
+          const updates = [];
+          network.body.data.edges.get().forEach(edge => {
+            if (!isIrreducibleEdge(edge) || edge.hidden) return;
+            const current = getEdgeColor(edge);
+            const saved = edge._arDayColor || current;
+            if (night) {
+              if (current === '#000000' || current === 'black') {
+                updates.push({ id: edge.id, _arDayColor: saved, color: { ...(typeof edge.color === 'object' ? edge.color : {}), color: '#ffffff' } });
+              }
+            } else if (edge._arDayColor) {
+              updates.push({ id: edge.id, _arDayColor: null, color: { ...(typeof edge.color === 'object' ? edge.color : {}), color: edge._arDayColor } });
+            }
+          });
+          if (updates.length) network.body.data.edges.update(updates);
+          network.redraw();
+        }
+
+        function toggleNightMode() {
+          document.documentElement.classList.toggle('ar-night-mode');
+          const on = document.documentElement.classList.contains('ar-night-mode');
+          applyNightModeColors();
+          if (menuBar) {
+            const btn = menuBar.querySelector('button[data-action="toggle-night"]');
+            if (btn) {
+              btn.classList.toggle('ar-top-active', on);
+              btn.textContent = on ? 'Night mode' : 'Day mode';
+            }
+          }
+        }
+
         function addMenuStyles() {
           const style = document.createElement('style');
           style.textContent = `
@@ -1392,13 +1467,107 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             #arTopMenu button.ar-top-active { background:#dbeafe; color:#1d4ed8; font-weight:700; }
             #arTopMenu .ar-title { font-weight: 650; margin-right: 8px; }
             #arTopMenu .ar-spacer { flex: 1; }
+            html.ar-night-mode body { background:#000; }
+            html.ar-night-mode #mynetwork { background:#000 !important; }
+            html.ar-night-mode #arFolderPanel,
+            html.ar-night-mode #arListDrawer,
+            html.ar-night-mode #calculatorPanel,
+            html.ar-night-mode #arTexExportModal,
+            html.ar-night-mode #arDisplayCodeModal,
+            html.ar-night-mode #arColorLegendModal,
+            html.ar-night-mode #arQuiverTikzModal,
+            html.ar-night-mode #arGapCodePanel,
+            html.ar-night-mode #arHistoryPanel,
+            html.ar-night-mode #arMatrixPanel,
+            html.ar-night-mode #arClassInspectorPanel,
+            html.ar-night-mode #arModuleMatrixPanel,
+            html.ar-night-mode #arTraversePanel,
+            html.ar-night-mode #quiverMiniContainer {
+              background:#050505 !important;
+              color:#f8fafc !important;
+              border-color:#475569 !important;
+            }
+            html.ar-night-mode #arFolderPanel .ar-panel-head,
+            html.ar-night-mode #arListDrawer .ar-panel-head,
+            html.ar-night-mode #arGapCodePanel .ar-panel-head,
+            html.ar-night-mode #quiverMiniHeader,
+            html.ar-night-mode #arTexExportModal > div:first-child,
+            html.ar-night-mode #arDisplayCodeModal > div:first-child,
+            html.ar-night-mode #arColorLegendModal > div:first-child,
+            html.ar-night-mode [id$="Panel"] > div:first-child {
+              background:#111827 !important;
+              color:#f8fafc !important;
+              border-color:#475569 !important;
+            }
+            html.ar-night-mode #arFolderPanel summary,
+            html.ar-night-mode #arFolderPanel button,
+            html.ar-night-mode #arListDrawer,
+            html.ar-night-mode .ar-tool-body,
+            html.ar-night-mode pre,
+            html.ar-night-mode textarea,
+            html.ar-night-mode input,
+            html.ar-night-mode select {
+              background:#050505 !important;
+              color:#f8fafc !important;
+              border-color:#475569 !important;
+            }
+            html.ar-night-mode #arFolderPanel button:hover { background:#1e293b !important; }
+            html.ar-night-mode #arFolderPanel button.ar-control-active,
+            html.ar-night-mode #arTopMenu button.ar-top-active { background:#1e3a8a !important; color:#ffffff !important; }
+            html.ar-night-mode #arColorLegendModal section div,
+            html.ar-night-mode #arColorLegendModal strong { color:#f8fafc !important; }
+            html.ar-night-mode #arModuleMatrixGraph,
+            html.ar-night-mode #quiverMini,
+            html.ar-night-mode #arModuleMatrixGraph svg,
+            html.ar-night-mode #quiverMini svg {
+              background:#000 !important;
+            }
+            html.ar-night-mode #arModuleMatrixGraph line,
+            html.ar-night-mode #arModuleMatrixGraph circle,
+            html.ar-night-mode #arModuleMatrixGraph path,
+            html.ar-night-mode #quiverMini line,
+            html.ar-night-mode #quiverMini circle,
+            html.ar-night-mode #quiverMini path {
+              stroke:#ffffff !important;
+            }
+            html.ar-night-mode #arModuleMatrixGraph marker path,
+            html.ar-night-mode #quiverMini marker path { fill:#ffffff !important; stroke:none !important; }
+            html.ar-night-mode #arModuleMatrixGraph text,
+            html.ar-night-mode #arModuleMatrixGraph tspan,
+            html.ar-night-mode #quiverMini text,
+            html.ar-night-mode #quiverMini tspan { fill:#ffffff !important; color:#ffffff !important; stroke:#000000 !important; }
+            html.ar-night-mode button[style*="background:transparent"],
+            html.ar-night-mode button[id$="Close"],
+            html.ar-night-mode #quiverMiniClose,
+            html.ar-night-mode #arDrawerClose,
+            html.ar-night-mode #arLegendClose,
+            html.ar-night-mode #arTexClose,
+            html.ar-night-mode #arDisplayCodeClose { color:#ffffff !important; }
+            html.ar-night-mode #tiltingList,
+            html.ar-night-mode #torsionPairList,
+            html.ar-night-mode #cotorsionPairList,
+            html.ar-night-mode #supportTauList,
+            html.ar-night-mode #almostSupportTauList,
+            html.ar-night-mode #arListDrawerBody,
+            html.ar-night-mode #arListDrawerBody > div,
+            html.ar-night-mode #arListDrawerBody button,
+            html.ar-night-mode .ar-record-row {
+              background:#050505 !important;
+              color:#f8fafc !important;
+              border-color:#475569 !important;
+            }
+            html.ar-night-mode #arListDrawerBody button[style*="rgb(204, 251, 241)"],
+            html.ar-night-mode #arListDrawerBody button[style*="#ccfbf1"] { background:#115e59 !important; color:#ffffff !important; border-color:#5eead4 !important; }
+            html.ar-night-mode #arModuleMatrixGraph circle { fill:#000000 !important; stroke:#ffffff !important; }
+            html.ar-night-mode #arColorLegendModal .ar-legend-black > span:first-child { background:#ffffff !important; border-color:#ffffff !important; }
             #arFolderPanel {
               position: fixed;
               top: 42px;
               left: 10px;
               width: 310px;
+              height: calc(100vh - 54px);
               max-height: calc(100vh - 54px);
-              overflow: auto;
+              overflow: hidden;
               background: rgba(255,255,255,0.97);
               border: 1px solid #cbd5e1;
               border-radius: 9px;
@@ -1422,6 +1591,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               font-weight: 650;
             }
             #arFolderPanel .ar-panel-close { border: 0; background: transparent; font-size: 18px; cursor: pointer; }
+            #arFolderPanelBody { height: calc(100% - 38px); overflow: auto; padding-bottom: 10px; box-sizing: border-box; }
             #arFolderPanel details { border-bottom: 1px solid #eef2f7; }
             #arFolderPanel summary {
               cursor: pointer;
@@ -1442,6 +1612,28 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             }
             #arFolderPanel button:hover { background: #eff6ff; }
             #arFolderPanel button.ar-control-active { background:#dbeafe; color:#1d4ed8; font-weight:700; box-shadow: inset 3px 0 0 #2563eb; }
+            #arGapCodePanel .ar-panel-head {
+              display:flex;
+              align-items:center;
+              justify-content:space-between;
+              padding:8px 10px;
+              border-bottom:1px solid #e5e7eb;
+              background:#f8fafc;
+              border-radius:9px 9px 0 0;
+              font-weight:650;
+              cursor:move;
+            }
+            .ar-soft-close {
+              border:1px solid #cbd5e1;
+              background:#ffffff;
+              color:#334155;
+              border-radius:999px;
+              padding:3px 10px;
+              font:inherit;
+              font-size:12px;
+              cursor:pointer;
+            }
+            .ar-soft-close:hover { background:#eff6ff; color:#1d4ed8; border-color:#93c5fd; }
             .ar-math-label { font-family: serif; }
             #arListDrawer {
               position: fixed;
@@ -1619,7 +1811,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (drawer) return;
           drawer = document.createElement('div');
           drawer.id = 'arListDrawer';
-          drawer.innerHTML = '<div class="ar-list-resize-handle ar-list-resize-left" data-resize="left"></div><div class="ar-list-resize-handle ar-list-resize-right" data-resize="right"></div><div class="ar-list-resize-handle ar-list-resize-top" data-resize="top"></div><div class="ar-list-resize-handle ar-list-resize-bottom" data-resize="bottom"></div><div class="ar-list-resize-handle ar-list-resize-nw" data-resize="top left"></div><div class="ar-list-resize-handle ar-list-resize-ne" data-resize="top right"></div><div class="ar-list-resize-handle ar-list-resize-sw" data-resize="bottom left"></div><div class="ar-list-resize-handle ar-list-resize-se" data-resize="bottom right"></div><div class="ar-panel-head"><strong id="arDrawerTitle"></strong><button id="arDrawerClose" class="ar-panel-close">×</button></div><div id="arListDrawerBody"></div>';
+          drawer.innerHTML = '<div class="ar-list-resize-handle ar-list-resize-left" data-resize="left"></div><div class="ar-list-resize-handle ar-list-resize-right" data-resize="right"></div><div class="ar-list-resize-handle ar-list-resize-top" data-resize="top"></div><div class="ar-list-resize-handle ar-list-resize-bottom" data-resize="bottom"></div><div class="ar-list-resize-handle ar-list-resize-nw" data-resize="top left"></div><div class="ar-list-resize-handle ar-list-resize-ne" data-resize="top right"></div><div class="ar-list-resize-handle ar-list-resize-sw" data-resize="bottom left"></div><div class="ar-list-resize-handle ar-list-resize-se" data-resize="bottom right"></div><div class="ar-panel-head"><strong id="arDrawerTitle"></strong><button id="arDrawerClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div id="arListDrawerBody"></div>';
           document.body.appendChild(drawer);
           drawerTitle = drawer.querySelector('#arDrawerTitle');
           drawerBody = drawer.querySelector('#arListDrawerBody');
@@ -1873,6 +2065,35 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           }
           return values[0];
         }
+        function calcMiddleTerms(sub, quot) {
+          return extensionMiddleTermTable[String(Number(sub)) + '|' + String(Number(quot))] || [[Number(sub), Number(quot)]];
+        }
+        function calcExtensionClosure(input) {
+          const closure = new Set((input || []).map(Number).filter(Number.isFinite));
+          let changed = true;
+          while (changed) {
+            changed = false;
+            const arr = Array.from(closure);
+            arr.forEach(sub => {
+              arr.forEach(quot => {
+                calcMiddleTerms(sub, quot).forEach(mid => {
+                  (mid || []).forEach(x => {
+                    const id = Number(x);
+                    if (Number.isFinite(id) && !closure.has(id)) {
+                      closure.add(id);
+                      changed = true;
+                    }
+                  });
+                });
+              });
+            });
+          }
+          return Array.from(closure).sort((a, b) => a - b);
+        }
+        function calcFormatMiddleTerms(mids) {
+          const lines = (mids || []).map(mid => calcFormatMultiset(mid));
+          return lines.length ? lines.join(String.fromCharCode(10)) : '∅';
+        }
         function calcRunOperation() {
           const op = document.getElementById('calcOp').value;
           let output = '';
@@ -1887,6 +2108,19 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               highlightA = A;
               highlightB = B;
               output = calcExtKDimSum(k, A, B);
+            } else if (op === 'ExtClosure') {
+              const A = calcParseSet(document.getElementById('calcA').value);
+              highlightA = A;
+              highlightOutput = calcExtensionClosure(A);
+              output = calcFormatSet(highlightOutput);
+            } else if (op === 'ExtMiddleTerms') {
+              const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
+              const b = calcSingleIndecomposable(document.getElementById('calcB').value, 'B');
+              highlightA = [a];
+              highlightB = [b];
+              const mids = calcMiddleTerms(a, b);
+              highlightOutput = Array.from(new Set(mids.flat().map(Number).filter(Number.isFinite))).sort((x, y) => x - y);
+              output = calcFormatMiddleTerms(mids);
             } else if (op === 'Syzygy') {
               const k = calcParseK();
               const a = calcSingleIndecomposable(document.getElementById('calcA').value, 'A');
@@ -1934,6 +2168,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             output = err && err.message ? err.message : String(err);
           }
           document.getElementById('calcOutput').textContent = output;
+          arRecord('calculator', `Calculator ${op}: ${output}`, { op, A: document.getElementById('calcA') ? document.getElementById('calcA').value : '', B: document.getElementById('calcB') ? document.getElementById('calcB').value : '', k: document.getElementById('calcK') ? document.getElementById('calcK').value : '0' });
         }
         function gapQuote(value) {
           return String(value == null ? '' : value).split(String.fromCharCode(92)).join(String.fromCharCode(92) + String.fromCharCode(92)).split('"').join(String.fromCharCode(92) + '"');
@@ -2009,6 +2244,691 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const script = calcGapScript();
           const filename = source + '_run_with_gap.g';
           out.innerHTML = '';
+          appendGapCodeBox(out, script, filename, 'Generated GAP/QPA code for Q, kQ, A, M[i], P[i], I[i], S[i].');
+        }
+        function genGapCodeSnippet() {
+          const nl = String.fromCharCode(10);
+          return [
+            '# Exact gen(X) computation for the indecomposables M[1],...,M[n].',
+            '# First run the generated-quiver code so that A and M are defined.',
+            '# Usage: GenOf([1,2,5]);',
+            '',
+            'TraceInclusionDimension := function(trace_inc)',
+            '    if trace_inc = fail then return 0; fi;',
+            '    return Dimension(Source(trace_inc));',
+            'end;;',
+            '',
+            'ComputeTraceInclusionTable := function(verts)',
+            '    local trace_inc, trace_dim, i, j, traceCall;',
+            '    trace_inc := [];; trace_dim := [];;',
+            '    for i in [1..Length(verts)] do',
+            '        trace_inc[i] := [];; trace_dim[i] := [];;',
+            '        for j in [1..Length(verts)] do',
+            '            traceCall := CALL_WITH_CATCH(TraceOfModule, [verts[i], verts[j]]);',
+            '            if traceCall[1] = true then',
+            '                trace_inc[i][j] := traceCall[2];',
+            '                trace_dim[i][j] := TraceInclusionDimension(traceCall[2]);',
+            '            else',
+            '                trace_inc[i][j] := fail;',
+            '                trace_dim[i][j] := 0;',
+            '            fi;',
+            '        od;',
+            '    od;',
+            '    return rec(inc := trace_inc, dim := trace_dim);',
+            'end;;',
+            '',
+            'TraceFullGenerates := function(verts, trace_table, src_idx, target_idx)',
+            '    return trace_table.dim[src_idx][target_idx] = Dimension(verts[target_idx]);',
+            'end;;',
+            '',
+            'QuotientClosureFromTrace := function(verts, trace_table, source_set)',
+            '    local closure, changed, src_idx, target_idx;',
+            '    closure := ShallowCopy(source_set);; Sort(closure);;',
+            '    changed := true;;',
+            '    while changed do',
+            '        changed := false;;',
+            '        for src_idx in ShallowCopy(closure) do',
+            '            for target_idx in [1..Length(verts)] do',
+            '                if not (target_idx in closure) and TraceFullGenerates(verts, trace_table, src_idx, target_idx) then',
+            '                    AddSet(closure, target_idx);;',
+            '                    changed := true;;',
+            '                fi;',
+            '            od;',
+            '        od;',
+            '    od;',
+            '    return closure;',
+            'end;;',
+            '',
+            'MinimalTraceSources := function(verts, trace_table, source_set)',
+            '    local minimal, src_idx, other_idx, redundant;',
+            '    minimal := [];;',
+            '    for src_idx in source_set do',
+            '        redundant := false;;',
+            '        for other_idx in source_set do',
+            '            if other_idx <> src_idx and TraceFullGenerates(verts, trace_table, other_idx, src_idx) then',
+            '                redundant := true;; break;',
+            '            fi;',
+            '        od;',
+            '        if not redundant then AddSet(minimal, src_idx); fi;',
+            '    od;',
+            '    return minimal;',
+            'end;;',
+            '',
+            'IsGeneratedBySetFromTrace := function(verts, trace_table, source_set, target_idx)',
+            '    local M0, target_dim, src_idx, reduced_sources, nonzero_traces, total_trace_dim, sum_inc, sumCall, inc;',
+            '    M0 := verts[target_idx];;',
+            '    target_dim := Dimension(M0);;',
+            '    if target_dim = 0 then return true; fi;',
+            '    if Length(source_set) = 0 then return false; fi;',
+            '    reduced_sources := MinimalTraceSources(verts, trace_table, source_set);;',
+            '    nonzero_traces := [];; total_trace_dim := 0;;',
+            '    for src_idx in reduced_sources do',
+            '        if trace_table.dim[src_idx][target_idx] = target_dim then return true; fi;',
+            '        if trace_table.dim[src_idx][target_idx] > 0 and trace_table.inc[src_idx][target_idx] <> fail then',
+            '            total_trace_dim := total_trace_dim + trace_table.dim[src_idx][target_idx];;',
+            '            Add(nonzero_traces, trace_table.inc[src_idx][target_idx]);;',
+            '        fi;',
+            '    od;',
+            '    if total_trace_dim < target_dim or Length(nonzero_traces) = 0 then return false; fi;',
+            '    sum_inc := nonzero_traces[1];;',
+            '    if Dimension(Source(sum_inc)) = target_dim then return true; fi;',
+            '    if Length(nonzero_traces) >= 2 then',
+            '        for src_idx in [2..Length(nonzero_traces)] do',
+            '            inc := nonzero_traces[src_idx];;',
+            '            sumCall := CALL_WITH_CATCH(SumOfSubmodules, [sum_inc, inc]);',
+            '            if sumCall[1] = true then',
+            '                sum_inc := sumCall[2][1];;',
+            '                if Dimension(Source(sum_inc)) = target_dim then return true; fi;',
+            '            fi;',
+            '        od;',
+            '    fi;',
+            '    return Dimension(Source(sum_inc)) = target_dim;',
+            'end;;',
+            '',
+            'GenClosureFromTrace := function(verts, trace_table, source_set)',
+            '    local closure, quotient_closed, idx;',
+            '    quotient_closed := QuotientClosureFromTrace(verts, trace_table, source_set);;',
+            '    closure := ShallowCopy(quotient_closed);;',
+            '    for idx in [1..Length(verts)] do',
+            '        if not (idx in closure) and IsGeneratedBySetFromTrace(verts, trace_table, quotient_closed, idx) then',
+            '            Add(closure, idx);;',
+            '        fi;',
+            '    od;',
+            '    closure := QuotientClosureFromTrace(verts, trace_table, closure);;',
+            '    Sort(closure);;',
+            '    return closure;',
+            'end;;',
+            '',
+            'trace_table_for_gen := ComputeTraceInclusionTable(M);;',
+            'GenOf := function(X)',
+            '    return GenClosureFromTrace(M, trace_table_for_gen, X);',
+            'end;;',
+            '',
+            '# Example:',
+            'GenOf([1]);'
+          ].join(nl);
+        }
+        function cogenGapCodeSnippet() {
+          const nl = String.fromCharCode(10);
+          return [
+            '# Exact cogen(X) = sub(add X) computation for the indecomposables M[1],...,M[n].',
+            '# First run Part 1 so that A and M are defined.',
+            '# Usage: CogenOf([1,2,5]);',
+            '',
+            'RejectDimension := function(reject_inc)',
+            '    if reject_inc = fail then return fail; fi;',
+            '    return Dimension(Source(reject_inc));',
+            'end;;',
+            '',
+            'ComputeRejectInclusionTable := function(verts)',
+            '    local reject_inc, reject_dim, i, j, rejectCall;',
+            '    reject_inc := [];; reject_dim := [];;',
+            '    for i in [1..Length(verts)] do',
+            '        reject_inc[i] := [];; reject_dim[i] := [];;',
+            '        for j in [1..Length(verts)] do',
+            '            # reject_inc[i][j] is intersection of kernels of all maps verts[i] -> verts[j].',
+            '            rejectCall := CALL_WITH_CATCH(RejectOfModule, [verts[i], verts[j]]);',
+            '            if rejectCall[1] = true then',
+            '                reject_inc[i][j] := rejectCall[2];',
+            '                reject_dim[i][j] := RejectDimension(rejectCall[2]);',
+            '            else',
+            '                reject_inc[i][j] := fail;',
+            '                reject_dim[i][j] := fail;',
+            '            fi;',
+            '        od;',
+            '    od;',
+            '    return rec(inc := reject_inc, dim := reject_dim);',
+            'end;;',
+            '',
+            'IsCogeneratedBySetFromReject := function(verts, reject_table, source_set, target_idx)',
+            '    local target_dim, reject_incs, src_idx, current, interCall;',
+            '    target_dim := Dimension(verts[target_idx]);;',
+            '    if target_dim = 0 then return true; fi;',
+            '    if Length(source_set) = 0 then return false; fi;',
+            '    reject_incs := [];;',
+            '    for src_idx in source_set do',
+            '        if reject_table.dim[target_idx][src_idx] = 0 then return true; fi;',
+            '        if reject_table.inc[target_idx][src_idx] <> fail then',
+            '            Add(reject_incs, reject_table.inc[target_idx][src_idx]);',
+            '        fi;',
+            '    od;',
+            '    if Length(reject_incs) = 0 then return false; fi;',
+            '    current := reject_incs[1];;',
+            '    if Length(reject_incs) >= 2 then',
+            '        for src_idx in [2..Length(reject_incs)] do',
+            '            interCall := CALL_WITH_CATCH(IntersectionOfSubmodules, [[current, reject_incs[src_idx]]]);',
+            '            if interCall[1] = true then',
+            '                current := interCall[2];',
+            '                if Dimension(Source(current)) = 0 then return true; fi;',
+            '            fi;',
+            '        od;',
+            '    fi;',
+            '    return Dimension(Source(current)) = 0;',
+            'end;;',
+            '',
+            'CogenClosureFromReject := function(verts, reject_table, source_set)',
+            '    local closure, idx;',
+            '    closure := ShallowCopy(source_set);; Sort(closure);;',
+            '    for idx in [1..Length(verts)] do',
+            '        if not (idx in closure) and IsCogeneratedBySetFromReject(verts, reject_table, closure, idx) then',
+            '            AddSet(closure, idx);',
+            '        fi;',
+            '    od;',
+            '    Sort(closure);;',
+            '    return closure;',
+            'end;;',
+            '',
+            'reject_table_for_cogen := ComputeRejectInclusionTable(M);;',
+            'CogenOf := function(X)',
+            '    return CogenClosureFromReject(M, reject_table_for_cogen, X);',
+            'end;;',
+            '',
+            '# Example:',
+            'CogenOf([1]);'
+          ].join(nl);
+        }
+        function extensionClosureGapCodeSnippet() {
+          return String.raw`# Extension closure of a class of modules by an Ext^1 middle-term table.
+# First run the generated-quiver code so that A and M are defined.
+# Usage:
+#   table := ComputeExtMiddleTermTable(M);;
+#   ExtensionClosureFromTable([1,2,5], table);
+#
+# Convention:
+#   table[sub][quot] stores middle terms of short exact sequences
+#       0 -> M[sub] -> E -> M[quot] -> 0.
+#   Each middle term is stored by the labels of its indecomposable summands.
+#
+# Over a finite field this enumerates all Ext^1 classes and is exact.
+# Over an infinite field such as Rationals, Ext^1 has infinitely many linear
+# combinations; this snippet computes the split extension plus the chosen
+# ExtOverAlgebra basis representatives. Use finite fields for a complete table.
+
+ModuleLabelInList := function(verts, N)
+    local i;
+    for i in [1..Length(verts)] do
+        if IsomorphicModules(N, verts[i]) then return i; fi;
+    od;
+    return fail;
+end;;
+
+SnippetFindNontrivialIdempotent := function(N)
+    local HomNN, nn, m, n, i, j, f, e, imgDim;
+    if Dimension(N) = 0 then return false; fi;
+    HomNN := HomOverAlgebra(N, N);
+    nn := Length(HomNN);
+    if nn <= 1 then return false; fi;
+    m := Maximum(DimensionVector(N));
+    if m <= 0 then return false; fi;
+    n := Int(Ceil(Log2(1.0 * m)));
+    for i in [1..nn] do
+        f := HomNN[i];
+        e := f;
+        for j in [1..n] do
+            e := e * e;
+        od;
+        imgDim := Dimension(Image(e));
+        if imgDim <> 0 and imgDim <> Dimension(N) then
+            return e;
+        fi;
+    od;
+    return false;
+end;;
+
+SnippetDecomposeToProjections := function(N)
+    local e, id, eK, U, K, pU, pK, projsU, projsK, projs, p;
+    if Dimension(N) = 0 then return [];; fi;
+    e := SnippetFindNontrivialIdempotent(N);
+    if e = false then return [IdentityMapping(N)]; fi;
+    id := IdentityMapping(N);
+    eK := id - e;
+    U := Image(e);
+    K := Image(eK);
+    pU := ImageProjection(e);
+    pK := ImageProjection(eK);
+    projsU := SnippetDecomposeToProjections(U);
+    projsK := SnippetDecomposeToProjections(K);
+    projs := [];;
+    for p in projsU do Add(projs, pU * p); od;
+    for p in projsK do Add(projs, pK * p); od;
+    return projs;
+end;;
+
+IndecomposableLabelsOfModule := function(verts, N)
+    local projections, labels, pr, piece, label;
+    if Dimension(N) = 0 then return [];; fi;
+    projections := SnippetDecomposeToProjections(N);
+    labels := [];;
+    for pr in projections do
+        piece := Range(pr);
+        label := ModuleLabelInList(verts, piece);
+        if label = fail then
+            Error("Could not identify an indecomposable summand in M.");
+        fi;
+        Add(labels, label);
+    od;
+    Sort(labels);;
+    return labels;
+end;;
+
+DirectSumForClass := function(verts, class)
+    if Length(class) = 0 then
+        Error("DirectSumForClass needs a non-empty class.");
+    fi;
+    if Length(class) = 1 then
+        return verts[class[1]];
+    fi;
+    return DirectSumOfQPAModules(List(class, i -> verts[i]));
+end;;
+
+LinearCombinationOfMaps := function(zero_map, basis_maps, coeffs)
+    local h, i;
+    h := zero_map;
+    for i in [1..Length(basis_maps)] do
+        if coeffs[i] <> Zero(LeftActingDomain(Source(zero_map))) then
+            h := h + coeffs[i] * basis_maps[i];
+        fi;
+    od;
+    return h;
+end;;
+
+MiddleLabelsFromExtClass := function(verts, sub_module, quot_module, class_map)
+    local extData, syzInc, po, inc, middle;
+    extData := ExtOverAlgebra(quot_module, sub_module);
+    syzInc := extData[1];
+    po := PushOut(syzInc, class_map);
+    if po = fail then Error("PushOut failed while constructing the extension."); fi;
+    inc := po[1];
+    middle := Range(inc);
+    return IndecomposableLabelsOfModule(verts, middle);
+end;;
+
+MiddleTermLabelsForPair := function(verts, sub_idx, quot_idx)
+    local K, sub_module, quot_module, extData, syzInc, basisMaps, zeroMap, coeffTuples, tuple, labels, allLabels, h, i;
+    K := LeftActingDomain(verts[1]);
+    sub_module := verts[sub_idx];
+    quot_module := verts[quot_idx];
+    extData := ExtOverAlgebra(quot_module, sub_module);
+    syzInc := extData[1];
+    basisMaps := extData[2];
+    allLabels := [ [sub_idx, quot_idx] ];;
+    if Length(basisMaps) = 0 then return allLabels; fi;
+    zeroMap := ZeroMapping(Source(syzInc), sub_module);
+    if IsFinite(K) then
+        coeffTuples := Tuples(Elements(K), Length(basisMaps));
+    else
+        Print("Warning: base field is not finite; using only Ext basis representatives for pair ", sub_idx, " -> E -> ", quot_idx, ". ");
+        coeffTuples := [];;
+        for i in [1..Length(basisMaps)] do
+            tuple := List([1..Length(basisMaps)], j -> Zero(K));
+            tuple[i] := One(K);
+            Add(coeffTuples, tuple);
+        od;
+    fi;
+    for tuple in coeffTuples do
+        if ForAll(tuple, c -> c = Zero(K)) then
+            continue;
+        fi;
+        h := LinearCombinationOfMaps(zeroMap, basisMaps, tuple);
+        labels := MiddleLabelsFromExtClass(verts, sub_module, quot_module, h);
+        AddSet(allLabels, labels);
+    od;
+    return allLabels;
+end;;
+
+ComputeExtMiddleTermTable := function(verts)
+    local table, sub_idx, quot_idx;
+    table := [];;
+    for sub_idx in [1..Length(verts)] do
+        table[sub_idx] := [];;
+        for quot_idx in [1..Length(verts)] do
+            table[sub_idx][quot_idx] := MiddleTermLabelsForPair(verts, sub_idx, quot_idx);
+        od;
+    od;
+    return table;
+end;;
+
+ExtensionClosureFromTable := function(X, table)
+    local closure, changed, sub_idx, quot_idx, middleLists, labels, label;
+    closure := ShallowCopy(X);; Sort(closure);;
+    changed := true;;
+    while changed do
+        changed := false;;
+        for sub_idx in ShallowCopy(closure) do
+            for quot_idx in ShallowCopy(closure) do
+                middleLists := table[sub_idx][quot_idx];
+                for labels in middleLists do
+                    for label in labels do
+                        if not (label in closure) then
+                            AddSet(closure, label);;
+                            changed := true;;
+                        fi;
+                    od;
+                od;
+            od;
+        od;
+    od;
+    Sort(closure);;
+    return closure;
+end;;
+
+IsExtensionClosedClassFromTable := function(X, table)
+    return ExtensionClosureFromTable(X, table) = Set(X);
+end;;
+
+AllExtensionClosedClassesFromTable := function(table)
+    local n, allClasses, mask, X, i;
+    n := Length(table);;
+    allClasses := [];;
+    if n > 24 then
+        Error("Refusing to enumerate 2^n classes for n > 24. Use ExtensionClosureFromTable on selected seeds instead.");
+    fi;
+    for mask in [0..2^n - 1] do
+        X := [];;
+        for i in [1..n] do
+            if RemInt(QuoInt(mask, 2^(i - 1)), 2) = 1 then
+                Add(X, i);
+            fi;
+        od;
+        if IsExtensionClosedClassFromTable(X, table) then
+            Add(allClasses, X);
+        fi;
+    od;
+    SortBy(allClasses, C -> [Length(C), C]);;
+    return allClasses;
+end;;
+
+ExtensionClosureOf := function(X)
+    return ExtensionClosureFromTable(X, ComputeExtMiddleTermTable(M));
+end;;
+
+# Examples:
+# table := ComputeExtMiddleTermTable(M);;
+# ExtensionClosureFromTable([1], table);
+# IsExtensionClosedClassFromTable([1,2,5], table);
+# all_ext_closed := AllExtensionClosedClassesFromTable(table);;`;
+        }
+        function extBasisGapCodeSnippet() {
+          return String.raw`# Ext^1 basis for two classes of indecomposable modules.
+# First run the generated-quiver code so that A and M are defined.
+# Usage:
+#   ExtBasisSequencesForClasses([1,2], [3,4]);
+#   PrintExtBasisSequencesForClasses([1,2], [3,4]);
+#
+# Convention:
+#   ExtBasisSequencesForClasses(sub_class, quotient_class)
+# computes basis representatives of
+#   Ext^1( direct_sum(quotient_class), direct_sum(sub_class) ),
+# equivalently short exact sequences
+#   0 -> direct_sum(sub_class) -> E -> direct_sum(quotient_class) -> 0.
+
+ModuleLabelInList := function(verts, N)
+    local i;
+    for i in [1..Length(verts)] do
+        if IsomorphicModules(N, verts[i]) then return i; fi;
+    od;
+    return fail;
+end;;
+
+SnippetFindNontrivialIdempotent := function(N)
+    local HomNN, nn, m, n, i, j, f, e, imgDim;
+    if Dimension(N) = 0 then return false; fi;
+    HomNN := HomOverAlgebra(N, N);
+    nn := Length(HomNN);
+    if nn <= 1 then return false; fi;
+    m := Maximum(DimensionVector(N));
+    if m <= 0 then return false; fi;
+    n := Int(Ceil(Log2(1.0 * m)));
+    for i in [1..nn] do
+        f := HomNN[i];
+        e := f;
+        for j in [1..n] do e := e * e; od;
+        imgDim := Dimension(Image(e));
+        if imgDim <> 0 and imgDim <> Dimension(N) then return e; fi;
+    od;
+    return false;
+end;;
+
+SnippetDecomposeToProjections := function(N)
+    local e, id, eK, U, K, pU, pK, projsU, projsK, projs, p;
+    if Dimension(N) = 0 then return [];; fi;
+    e := SnippetFindNontrivialIdempotent(N);
+    if e = false then return [IdentityMapping(N)]; fi;
+    id := IdentityMapping(N);
+    eK := id - e;
+    U := Image(e);
+    K := Image(eK);
+    pU := ImageProjection(e);
+    pK := ImageProjection(eK);
+    projsU := SnippetDecomposeToProjections(U);
+    projsK := SnippetDecomposeToProjections(K);
+    projs := [];;
+    for p in projsU do Add(projs, pU * p); od;
+    for p in projsK do Add(projs, pK * p); od;
+    return projs;
+end;;
+
+IndecomposableLabelsOfModule := function(verts, N)
+    local projections, labels, pr, piece, label;
+    if Dimension(N) = 0 then return [];; fi;
+    projections := SnippetDecomposeToProjections(N);
+    labels := [];;
+    for pr in projections do
+        piece := Range(pr);
+        label := ModuleLabelInList(verts, piece);
+        if label = fail then Error("Could not identify an indecomposable summand in M."); fi;
+        Add(labels, label);
+    od;
+    Sort(labels);;
+    return labels;
+end;;
+
+DirectSumForClass := function(verts, class)
+    if Length(class) = 0 then
+        Error("DirectSumForClass needs a non-empty class.");
+    fi;
+    if Length(class) = 1 then
+        return verts[class[1]];
+    fi;
+    return DirectSumOfQPAModules(List(class, i -> verts[i]));
+end;;
+
+ExtBasisSequencesForClasses := function(sub_class, quotient_class)
+    local sub_module, quotient_module, extData, syzInc, basisMaps, seqs, h, po, inc, middle, q;
+    sub_module := DirectSumForClass(M, sub_class);
+    quotient_module := DirectSumForClass(M, quotient_class);
+    extData := ExtOverAlgebra(quotient_module, sub_module);
+    syzInc := extData[1];
+    basisMaps := extData[2];
+    seqs := [];;
+    for h in basisMaps do
+        po := PushOut(syzInc, h);
+        if po = fail then Error("PushOut failed while constructing an Ext representative."); fi;
+        inc := po[1];
+        middle := Range(inc);
+        q := CoKernelProjection(inc);
+        Add(seqs, rec(
+            sub_class := sub_class,
+            quotient_class := quotient_class,
+            submodule := sub_module,
+            quotient := quotient_module,
+            inclusion := inc,
+            middle := middle,
+            middle_labels := IndecomposableLabelsOfModule(M, middle),
+            quotient_projection := q
+        ));
+    od;
+    return seqs;
+end;;
+
+PrintExtBasisSequencesForClasses := function(sub_class, quotient_class)
+    local seqs, i;
+    seqs := ExtBasisSequencesForClasses(sub_class, quotient_class);
+    Print("dim Ext^1(⊕", quotient_class, ", ⊕", sub_class, ") = ", Length(seqs), "; ");
+    for i in [1..Length(seqs)] do
+        Print(i, ": 0 -> ⊕", sub_class, " -> E -> ⊕", quotient_class, " -> 0,  E indec labels = ", seqs[i].middle_labels, "; ");
+    od;
+    return seqs;
+end;;
+
+# Example:
+# PrintExtBasisSequencesForClasses([1], [2]);`;
+        }
+        function homBasisGapCodeSnippet() {
+          return String.raw`# Hom basis matrices for M[i] -> M[j].
+# First run Part 1 so that A and M are defined.
+
+MapMatrixByVertex := function(f)
+    local maps, v, call;
+    if IsRecord(f) and IsBound(f!.maps) then return f!.maps; fi;
+    maps := [];;
+    for v in [1..Length(DimensionVector(Source(f)))] do
+        call := CALL_WITH_CATCH(MatrixOfMap, [f, v]);
+        if call[1] = true then Add(maps, [v, call[2]]); fi;
+    od;
+    if Length(maps) > 0 then return maps; fi;
+    return f;
+end;;
+
+PrintHomBasisMatrices := function(i, j)
+    local basis, t;
+    basis := HomOverAlgebra(M[i], M[j]);;
+    Print("Hom basis M[", i, "] -> M[", j, "] has ", Length(basis), " maps.\n");
+    for t in [1..Length(basis)] do
+        Print("basis ", t, ": ", MapMatrixByVertex(basis[t]), "\n");
+    od;
+end;;
+
+# Example:
+# PrintHomBasisMatrices(1, 2);`;
+        }
+        function moduleMatricesGapCodeSnippet() {
+          return String.raw`# Module matrix representation for an indecomposable M[i].
+# First run Part 1 so that A and M are defined.
+
+PrintModuleMatrices := function(i)
+    local r;
+    r := IndecomposableModuleData[i];;
+    Print("M[", i, "] dimension vector: ", r.dim, "\n");
+    Print("Arrow matrices: ", r.maps, "\n");
+end;;
+
+# Example:
+# PrintModuleMatrices(1);`;
+        }
+        function usefulGapCode(kind) {
+          if (kind === 'generate') return calcGapScript();
+          if (kind === 'gen') return genGapCodeSnippet();
+          if (kind === 'cogen') return cogenGapCodeSnippet();
+          if (kind === 'extclosure') return extensionClosureGapCodeSnippet();
+          if (kind === 'extbasis') return extBasisGapCodeSnippet();
+          if (kind === 'hombasis') return homBasisGapCodeSnippet();
+          if (kind === 'modulemat') return moduleMatricesGapCodeSnippet();
+          return calcGapScript();
+        }
+        function usefulGapCommand(kind) {
+          if (kind === 'gen') return 'GenOf([1]);';
+          if (kind === 'cogen') return 'CogenOf([1]);';
+          if (kind === 'extclosure') return ['table := ComputeExtMiddleTermTable(M);;', 'ExtensionClosureFromTable([1], table);', 'IsExtensionClosedClassFromTable([1], table);'].join(String.fromCharCode(10));
+          if (kind === 'extbasis') return 'PrintExtBasisSequencesForClasses([1], [2]);';
+          if (kind === 'hombasis') return 'PrintHomBasisMatrices(1, 2);';
+          if (kind === 'modulemat') return 'PrintModuleMatrices(1);';
+          return '# Run the setup code above.';
+        }
+        function usefulGapParts(kind) {
+          if (kind === 'generate') {
+            return [
+              { title: 'Part 1: generate the quiver path algebra', code: calcGapScript(), suffix: 'generate_this_quiver' }
+            ];
+          }
+          return [
+            { title: 'Part 1: generate the quiver path algebra', code: calcGapScript(), suffix: 'generate_this_quiver' },
+            { title: 'Part 2: run the key code in GAP', code: usefulGapCode(kind), suffix: (kind || 'algorithm') + '_key_code' },
+            { title: 'Part 3: run command', code: usefulGapCommand(kind), suffix: (kind || 'algorithm') + '_command' }
+          ];
+        }
+        function hideUsefulGapCode() {
+          const panel = document.getElementById('arGapCodePanel');
+          if (panel) {
+            panel.style.display = 'none';
+            panel.removeAttribute('data-gap-kind');
+          }
+          if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
+        }
+        function showUsefulGapCode(kind) {
+          const source = calcSourceStem();
+          let panel = document.getElementById('arGapCodePanel');
+          if (panel && panel.style.display !== 'none' && panel.getAttribute('data-gap-kind') === kind) {
+            hideUsefulGapCode();
+            return;
+          }
+          if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'arGapCodePanel';
+            panel.style.position = 'fixed';
+            panel.style.right = '22px';
+            panel.style.top = '88px';
+            panel.style.width = '520px';
+            panel.style.maxWidth = 'calc(100vw - 44px)';
+            panel.style.background = 'rgba(255,255,255,0.98)';
+            panel.style.border = '1px solid #cbd5e1';
+            panel.style.borderRadius = '10px';
+            panel.style.boxShadow = '0 12px 32px rgba(15,23,42,0.24)';
+            panel.style.zIndex = '20004';
+            panel.style.fontFamily = 'system-ui,-apple-system,Segoe UI,sans-serif';
+            panel.style.fontSize = '13px';
+            panel.innerHTML = '<div class="ar-panel-head"><span>Useful GAP code</span><button class="ar-soft-close" data-gap-close="1" title="Close GAP code panel">Close</button></div><div id="arGapCodeBody" style="padding:10px;"></div>';
+            document.body.appendChild(panel);
+            makeFloatingWindow(panel, panel.querySelector('.ar-panel-head'), { minWidth: 360, minHeight: 260 });
+            panel.addEventListener('click', (e) => {
+              if (e.target && e.target.getAttribute('data-gap-close')) hideUsefulGapCode();
+            });
+          }
+          panel.style.display = 'block';
+          panel.setAttribute('data-gap-kind', kind);
+          const parts = usefulGapParts(kind);
+          const names = { generate: 'generate_this_quiver', gen: 'find_gen', cogen: 'find_cogen', extclosure: 'extension_closure', extbasis: 'ext_basis_sequences', hombasis: 'hom_basis_matrices', modulemat: 'module_matrices' };
+          const body = panel.querySelector('#arGapCodeBody');
+          appendGapCodeParts(body, parts, source, names[kind] || 'gap_code');
+          if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
+        }
+        function appendGapCodeParts(out, parts, source, baseName) {
+          out.innerHTML = '';
+          (parts || []).forEach((part, idx) => {
+            const wrap = document.createElement('div');
+            wrap.style.marginBottom = '12px';
+            const title = document.createElement('div');
+            title.textContent = part.title || ('Part ' + (idx + 1));
+            title.style.fontWeight = '700';
+            title.style.marginBottom = '4px';
+            title.style.color = '#0f172a';
+            wrap.appendChild(title);
+            const filename = source + '_' + (part.suffix || baseName || ('part_' + (idx + 1))) + '.g';
+            appendGapCodeBox(wrap, part.code || '', filename, '');
+            out.appendChild(wrap);
+          });
+        }
+        function appendGapCodeBox(out, script, filename, caption) {
           const textarea = document.createElement('textarea');
           textarea.value = script;
           textarea.style.width = '100%';
@@ -2048,7 +2968,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           });
           buttons.appendChild(copyBtn);
           buttons.appendChild(downloadBtn);
-          out.appendChild(document.createTextNode('Generated GAP/QPA code for Q, kQ, A, M[i], P[i], I[i], S[i].'));
+          out.appendChild(document.createTextNode(caption || 'Generated GAP/QPA code.'));
           out.appendChild(document.createElement('br'));
           out.appendChild(buttons);
           out.appendChild(textarea);
@@ -2089,7 +3009,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                 <span>Calculator</span><button id="calcClose" style="border:0; background:transparent; font-size:18px; cursor:pointer;">×</button>
               </div>
               <div style="padding:10px; display:grid; gap:8px;">
-                <label>Function <select id="calcOp" style="width:100%;"><option value="ExtK">dim Ext^k(A,B)</option><option value="ExtKperp">ker Ext^k(A,-)</option><option value="perpExtK">ker Ext^k(-,B)</option><option value="Syzygy">Ω^n(A)</option><option value="Cosyzygy">Σ^n(A)</option><option value="Radical">Rad^n(A)</option><option value="Coradical">Corad^n(A)</option></select></label>
+                <label>Function <select id="calcOp" style="width:100%;"><option value="ExtK">dim Ext^k(A,B)</option><option value="ExtClosure">extension closure(A)</option><option value="ExtMiddleTerms">middle terms A→?→B</option><option value="ExtKperp">ker Ext^k(A,-)</option><option value="perpExtK">ker Ext^k(-,B)</option><option value="Syzygy">Ω^n(A)</option><option value="Cosyzygy">Σ^n(A)</option><option value="Radical">Rad^n(A)</option><option value="Coradical">Corad^n(A)</option></select></label>
                 <label id="calcKLabel">k / n <input id="calcK" style="width:100%; box-sizing:border-box;" value="0" /></label>
                 <label id="calcALabel">A labels <span title="calculator color for A" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#bfdbfe;"></span><input id="calcA" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
                 <label id="calcBLabel">B labels <span title="calculator color for B" style="display:inline-block;width:0.85em;height:0.85em;vertical-align:-0.08em;margin-left:0.2em;border:1px solid #64748b;border-radius:2px;background:#fde68a;"></span><input id="calcB" style="width:100%; box-sizing:border-box;" placeholder="e.g. 1 2 5 or all" /></label>
@@ -2119,13 +3039,15 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               const bLabel = calculatorPanel.querySelector('#calcBLabel');
               const kLabel = calculatorPanel.querySelector('#calcKLabel');
               const hint = calculatorPanel.querySelector('#calcHint');
-              const usesA = ['ExtK','ExtKperp','Syzygy','Cosyzygy','Radical','Coradical'].includes(op);
-              const usesB = ['ExtK','perpExtK'].includes(op);
+              const usesA = ['ExtK','ExtClosure','ExtMiddleTerms','ExtKperp','Syzygy','Cosyzygy','Radical','Coradical'].includes(op);
+              const usesB = ['ExtK','ExtMiddleTerms','perpExtK'].includes(op);
               const usesK = ['ExtK','ExtKperp','perpExtK','Syzygy','Cosyzygy','Radical','Coradical'].includes(op);
               aLabel.style.display = usesA ? 'block' : 'none';
               bLabel.style.display = usesB ? 'block' : 'none';
               kLabel.style.display = usesK ? 'block' : 'none';
               if (op === 'ExtK') hint.textContent = 'Computes Sum dim Ext^k(A_i, B_j); k=0 is Hom, k=1 is Ext^1, k>=2 uses syzygy and Ext^1 data.';
+              else if (op === 'ExtClosure') hint.textContent = 'Input a class in A; returns its extension closure using the precomputed extension middle-term table.';
+              else if (op === 'ExtMiddleTerms') hint.textContent = 'Input exactly one indecomposable in A and one in B; returns all logged middle terms of 0→A→E→B→0, one per line.';
               else if (op === 'ExtKperp') hint.textContent = 'Input A only; returns modules X with Ext^k(A_i, X)=0 for all A_i.';
               else if (op === 'perpExtK') hint.textContent = 'Input B only; returns modules X with Ext^k(X, B_j)=0 for all B_j.';
               else if (op === 'Syzygy') hint.textContent = 'Input exactly one indecomposable module label in A; returns Ω^n(A), computed by fast powering the syzygy quiver. Multiplicities are shown as powers.';
@@ -2168,6 +3090,19 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const id = btn.getAttribute('data-click');
             btn.classList.toggle('ar-control-active', activeModuleClasses.has(id));
           });
+          const gapPanel = document.getElementById('arGapCodePanel');
+          const activeGapKind = gapPanel && gapPanel.style.display !== 'none' ? gapPanel.getAttribute('data-gap-kind') : null;
+          folderPanel.querySelectorAll('button[data-gap-code]').forEach(btn => {
+            btn.classList.toggle('ar-control-active', !!activeGapKind && btn.getAttribute('data-gap-code') === activeGapKind);
+          });
+          const panelActions = { matrices: 'arMatrixPanel', 'class-inspector': 'arClassInspectorPanel', 'module-matrix': 'arModuleMatrixPanel', traverse: 'arTraversePanel', calculator: 'calculatorPanel', 'export-tex': 'arTexExportModal', 'display-code': 'arDisplayCodeModal', legend: 'arColorLegendModal' };
+          folderPanel.querySelectorAll('button[data-action]').forEach(btn => {
+            const action = btn.getAttribute('data-action');
+            const panelId = panelActions[action];
+            if (!panelId) return;
+            const panel = document.getElementById(panelId);
+            btn.classList.toggle('ar-control-active', !!(panel && panel.style.display !== 'none'));
+          });
         }
 
         function createFolderPanel() {
@@ -2175,7 +3110,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           folderPanel = document.createElement('div');
           folderPanel.id = 'arFolderPanel';
           folderPanel.innerHTML = `
-            <div class="ar-panel-head"><span>Controls</span><button class="ar-panel-close" data-action="close-panel">×</button></div>
+            <div class="ar-panel-head"><span>Controls</span><button data-action="close-panel" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div>
+            <div id="arFolderPanelBody">
             <details open><summary>View</summary><div class="ar-folder-body">
               <button data-toggle="pdToggle">PD</button>
               <button data-toggle="idToggle">ID</button>
@@ -2209,15 +3145,29 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               <button data-list="supportTauToggle|supportTauList|Support τ-tilting modules">Support τ-tilting</button>
               <button data-list="almostSupportTauToggle|almostSupportTauList|Almost support τ-tilting modules">Almost support τ-tilting</button>
             </div></details>
+            <details><summary>GAP codes</summary><div class="ar-folder-body">
+              <button data-gap-code="generate">Generate this quiver</button>
+              <button data-gap-code="gen">Find gen(-)</button>
+              <button data-gap-code="cogen">Find cogen(-)</button>
+              <button data-gap-code="extclosure">Extension closure</button>
+              <button data-gap-code="extbasis">Ext basis sequences</button>
+              <button data-gap-code="hombasis">Hom basis matrices</button>
+              <button data-gap-code="modulemat">Module matrices</button>
+            </div></details>
             <details><summary>Tools</summary><div class="ar-folder-body">
+              <button data-action="matrices">Matrices</button>
+              <button data-action="class-inspector">Class inspector</button>
+              <button data-action="module-matrix">Module matrix</button>
+              <button data-action="traverse">Traverse</button>
               <button data-action="calculator">Calculator</button>
               <button data-action="export-tex">Export AR quiver to TeX</button>
               <button data-action="display-code">Display code</button>
               <button data-action="legend">Color legend</button>
             </div></details>
+            </div>
           `;
           document.body.appendChild(folderPanel);
-          makeFloatingWindow(folderPanel, folderPanel.querySelector('.ar-panel-head'), { minWidth: 220, minHeight: 180 });
+          makeFloatingWindow(folderPanel, folderPanel.querySelector('.ar-panel-head'), { minWidth: 220, minHeight: 180, onResize: (el) => { const body = el.querySelector('#arFolderPanelBody'); const head = el.querySelector('.ar-panel-head'); if (body) body.style.height = Math.max(80, el.getBoundingClientRect().height - (head ? head.offsetHeight : 38)) + 'px'; } });
           folderPanel.addEventListener('click', handleMenuAction);
           refreshFolderControlStates();
         }
@@ -2412,6 +3362,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             if (!positions[from] || !positions[to]) return;
             const opts = ['->'];
             if (isTranslationEdge(edge) || String(edge.id || '').startsWith('tr_')) opts.push('dashed');
+            if (isDimmedEdge(edge)) opts.push('gray');
             let path = '--';
             if (from === to) {
               path = 'to[loop above]';
@@ -2449,8 +3400,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           });
         }
 
-        function showTexExport(mode) {
+        function showTexExport(mode, toggle) {
           let modal = document.getElementById('arTexExportModal');
+          if (toggle && modal && modal.style.display === 'block') { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); return; }
           if (!modal) {
             modal = document.createElement('div');
             modal.id = 'arTexExportModal';
@@ -2470,7 +3422,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.display = 'none';
             modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong id="arTexExportTitle">Export AR quiver to TeX / xymatrix</strong><button id="arTexClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div style="display:flex;gap:8px;padding:8px 10px;border-bottom:1px solid #e5e7eb;background:#fff;"><button data-tex-mode="xy">xymatrix</button><button data-tex-mode="tikz">TikZ</button></div><textarea id="arTexOutput" style="box-sizing:border-box;width:100%;height:360px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTexCopy">Copy</button><button id="arTexDownload">Download .tex</button></div>';
             document.body.appendChild(modal);
-            modal.querySelector('#arTexClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelector('#arTexClose').addEventListener('click', () => { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
             modal.querySelectorAll('button[data-tex-mode]').forEach(btn => {
               btn.addEventListener('click', () => setTexExportMode(btn.getAttribute('data-tex-mode')));
             });
@@ -2557,16 +3509,18 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             nodePart += encodeDisplaySigned((p.x - anchor.x) / gridSize) + encodeDisplaySigned((p.y - anchor.y) / gridSize);
           });
           let curvePart = '';
+          let dimPart = '';
           network.body.data.edges.get().forEach((edge, index) => {
             const step = curveStepFromSmooth(edge.smooth);
             if (step) curvePart += encodeDisplayUnsigned2(index) + encodeDisplaySigned(step);
+            if (isDimmableAREdge(edge) && isDimmedEdge(edge)) dimPart += encodeDisplayUnsigned2(index);
           });
-          return 'ARQ2.' + nodePart + '.' + curvePart;
+          return 'ARQ3.' + nodePart + '.' + curvePart + '.' + dimPart;
         }
 
         function normalizeDisplayCodeInput(text) {
           const raw = String(text || '').trim();
-          const direct = raw.match(/ARQ2\\.[0-9A-Za-z\\-_]*\\.[0-9A-Za-z\\-_]*/);
+          const direct = raw.match(/ARQ[23]\\.[0-9A-Za-z\\-_]*\\.[0-9A-Za-z\\-_]*(?:\\.[0-9A-Za-z\\-_]*)?/);
           if (direct) return direct[0];
           return raw.replace(/[`\\s]/g, '');
         }
@@ -2574,14 +3528,18 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         function applyDisplayCodeText(text) {
           const raw = normalizeDisplayCodeInput(text);
           try {
-            if (!raw.startsWith('ARQ2.')) throw new Error('Display code must start with ARQ2.');
+            const version = raw.startsWith('ARQ3.') ? 3 : (raw.startsWith('ARQ2.') ? 2 : 0);
+            if (!version) throw new Error('Display code must start with ARQ2 or ARQ3.');
             const parts = raw.slice(5).split('.');
-            if (parts.length !== 2) throw new Error('Display code must have node and curve sections.');
+            if (version === 2 && parts.length !== 2) throw new Error('ARQ2 display code must have node and curve sections.');
+            if (version === 3 && parts.length !== 3) throw new Error('ARQ3 display code must have node, curve, and dimmed-arrow sections.');
             const nodePart = parts[0];
             const curvePart = parts[1];
+            const dimPart = version === 3 ? parts[2] : '';
             const ids = network.body.data.nodes.getIds().map(Number).filter(Number.isFinite).sort((a, b) => a - b);
             if (nodePart.length % 2 !== 0) throw new Error('Node section length mismatch.');
             if (curvePart.length % 3 !== 0) throw new Error('Curve section length mismatch.');
+            if (dimPart.length % 2 !== 0) throw new Error('Dimmed-arrow section length mismatch.');
             const positions = network.getPositions(ids);
             const anchor = ids.length ? positions[ids[0]] : null;
             if (anchor) {
@@ -2608,6 +3566,22 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               edgeCurveMemory.set(String(edge.id), smooth);
               updates.push({ id: edge.id, smooth });
             }
+            edges.forEach(edge => {
+              if (!isDimmableAREdge(edge) || edge.id === undefined || edge.id === null) return;
+              if (String(edge.id || '').startsWith('tr_') || isGoldenEdge(edge)) {
+                updates.push({ id: edge.id, color: { color: 'gold' } });
+              } else {
+                updates.push({ id: edge.id, color: { color: '#000000' } });
+              }
+            });
+            for (let i = 0; i < dimPart.length; i += 2) {
+              const index = decodeDisplayUnsigned2(dimPart, i);
+              if (index < 0 || index >= edges.length) continue;
+              const edge = edges[index];
+              if (!isDimmableAREdge(edge) || edge.id === undefined || edge.id === null) continue;
+              const dimmedColor = (String(edge.id || '').startsWith('tr_') || isGoldenEdge(edge)) ? '#ffe9a6' : '#cccccc';
+              updates.push({ id: edge.id, color: { color: dimmedColor } });
+            }
             if (updates.length) network.body.data.edges.update(updates);
             network.redraw();
             if (typeof updateAllFloatingLabels === 'function') updateAllFloatingLabels();
@@ -2619,8 +3593,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           }
         }
 
-        function showDisplayCodeModal() {
+        function showDisplayCodeModal(toggle) {
           let modal = document.getElementById('arDisplayCodeModal');
+          if (toggle && modal && modal.style.display === 'block') { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); return; }
           if (!modal) {
             modal = document.createElement('div');
             modal.id = 'arDisplayCodeModal';
@@ -2638,9 +3613,9 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             modal.style.boxShadow = '0 18px 48px rgba(15,23,42,0.35)';
             modal.style.zIndex = '30000';
             modal.style.display = 'none';
-            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: compact node positions and arrow curves</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .txt</button></div>';
+            modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: compact node positions, arrow curves, and dimmed arrows</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .txt</button></div>';
             document.body.appendChild(modal);
-            modal.querySelector('#arDisplayCodeClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelector('#arDisplayCodeClose').addEventListener('click', () => { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
             modal.querySelector('#arDisplayCodeRefresh').addEventListener('click', () => { modal.querySelector('#arDisplayCodeText').value = exportDisplayCodeText(); });
             modal.querySelector('#arDisplayCodeApply').addEventListener('click', () => {
               if (applyDisplayCodeText(modal.querySelector('#arDisplayCodeText').value)) alert('Display code applied.');
@@ -2668,10 +3643,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           modal.style.display = 'block';
         }
 
-        function showColorLegend() {
+        function showColorLegend(toggle) {
           let modal = document.getElementById('arColorLegendModal');
+          if (toggle && modal && modal.style.display === 'block') { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); return; }
           if (!modal) {
-            const row = (label, color, note, borderColor) => '<div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="display:inline-block;width:0.95em;height:0.95em;border:2px solid ' + (borderColor || '#64748b') + ';border-radius:2px;background:' + color + ';"></span><span><strong>' + label + '</strong>' + (note ? ' — ' + note : '') + '</span></div>';
+            const row = (label, color, note, borderColor) => '<div class="ar-legend-row ar-legend-' + String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '" style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="display:inline-block;width:0.95em;height:0.95em;border:2px solid ' + (borderColor || '#64748b') + ';border-radius:2px;background:' + color + ';"></span><span><strong>' + label + '</strong>' + (note ? ' — ' + note : '') + '</span></div>';
             const section = (title, rows) => '<section style="margin:8px 0;"><div style="font-weight:700;color:#0f172a;margin-bottom:3px;">' + title + '</div>' + rows.join('') + '</section>';
             modal = document.createElement('div');
             modal.id = 'arColorLegendModal';
@@ -2761,9 +3737,291 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
                 document.addEventListener('mouseup', onUp);
               });
             }
-            modal.querySelector('#arLegendClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelector('#arLegendClose').addEventListener('click', () => { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
           }
           modal.style.display = 'block';
+        }
+
+        let arHistory = [], arHistoryIndex = -1, arStoredClass = [], arReplaying = false;
+        function arToolPanel(id, title) {
+          let p = document.getElementById(id);
+          if (!p) {
+            p = document.createElement('div');
+            p.id = id;
+            p.style.cssText = 'position:fixed;right:32px;top:104px;width:520px;max-width:calc(100vw - 48px);max-height:calc(100vh - 120px);overflow:auto;z-index:1400;background:rgba(255,255,255,.98);border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.18);';
+            p.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid rgb(229,231,235);background:rgb(248,250,252);border-radius:10px 10px 0 0;font-weight:650;cursor:move;"><span>${title}</span><button class="ar-tool-close" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div class="ar-tool-body" style="padding:10px;font-size:12px;"></div>`;
+            document.body.appendChild(p);
+            p.querySelector('.ar-tool-close').addEventListener('click', () => { p.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
+            makeFloatingWindow(p, p.firstElementChild, { minWidth: 300, minHeight: 180 });
+          }
+          p.style.display = 'block';
+          return p;
+        }
+        function arClassText(ids) { return '[' + (ids || []).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join(',') + ']'; }
+        function arParseClassText(text) { return calcParseSet(String(text || '')); }
+        function arHighlightClass(ids, color) {
+          resetTiltingStyles(); resetPairStyles();
+          const s = new Set(); applyFullFill(ids || [], color || '#fef08a', s);
+          pairHighlighted = s; network.unselectAll(); network.redraw();
+        }
+        function arRecord(kind, label, payload) {
+          if (arReplaying) return;
+          arHistory.splice(arHistoryIndex + 1);
+          arHistory.push({ kind, label, payload: payload || {}, time: new Date().toLocaleTimeString() });
+          arHistoryIndex = arHistory.length - 1;
+          if (document.getElementById('arHistoryPanel')?.style.display === 'block') arShowHistory();
+        }
+        function arReplay(item) {
+          if (!item) return;
+          arReplaying = true;
+          try {
+          if (item.kind === 'toggle') { const el = document.getElementById(item.payload.id); if (el) { el.checked = !!item.payload.checked; dispatchChange(el); } }
+          if (item.kind === 'class') arHighlightClass(item.payload.ids || [], item.payload.color || '#fef08a');
+          if (item.kind === 'list') showListInDrawer(item.payload.toggleId || '', item.payload.listId, item.payload.title);
+          if (item.kind === 'calculator') { showCalculator(); if (document.getElementById('calcOp')) document.getElementById('calcOp').value = item.payload.op || 'ExtK'; if (document.getElementById('calcA')) document.getElementById('calcA').value = item.payload.A || ''; if (document.getElementById('calcB')) document.getElementById('calcB').value = item.payload.B || ''; if (document.getElementById('calcK')) document.getElementById('calcK').value = item.payload.k || '0'; calcRunOperation(); }
+          } finally { arReplaying = false; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); }
+        }
+        function arShowHistory(toggle) {
+          const existing = document.getElementById('arHistoryPanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; return; }
+          const p = arToolPanel('arHistoryPanel', 'History');
+          const b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><button id="arHistBack">Back</button><button id="arHistFwd">Forward</button><button id="arHistClear">Clear</button></div>` + (arHistory.length ? arHistory.map((h,i)=>`<div style="display:flex;gap:6px;margin:3px 0;${i===arHistoryIndex?'background:#ecfeff;':''}"><button data-hist="${i}">replay</button><span>${i+1}. [${h.time}] ${h.label}</span></div>`).join('') : '<span style="color:#64748b;">No actions yet.</span>');
+          b.querySelector('#arHistBack').onclick = () => { if (arHistoryIndex > 0) { arHistoryIndex--; arReplay(arHistory[arHistoryIndex]); arShowHistory(); } };
+          b.querySelector('#arHistFwd').onclick = () => { if (arHistoryIndex + 1 < arHistory.length) { arHistoryIndex++; arReplay(arHistory[arHistoryIndex]); arShowHistory(); } };
+          b.querySelector('#arHistClear').onclick = () => { arHistory = []; arHistoryIndex = -1; arShowHistory(); };
+          b.querySelectorAll('[data-hist]').forEach(btn => btn.onclick = () => { arHistoryIndex = Number(btn.dataset.hist); arReplay(arHistory[arHistoryIndex]); arShowHistory(); });
+        }
+        function arMatrixFromEdges(edges, ids) {
+          const m = new Map(); (edges || []).forEach(e => m.set(`${Number(e[0])}|${Number(e[1])}`, String(e[2] == null ? '1' : e[2])));
+          return ids.map(i => ids.map(j => m.get(`${i}|${j}`) || '0'));
+        }
+        function arShowMatrix(toggle) {
+          const existing = document.getElementById('arMatrixPanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
+          const p = arToolPanel('arMatrixPanel', 'Matrices'), b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><select id="arMatKind"><option value="hom">Hom</option><option value="ext">Ext¹</option><option value="tau">τ</option><option value="syz">Syzygy</option><option value="cosyz">Cosyzygy</option><option value="rad">Radical</option><option value="corad">Coradical</option></select><select id="arMatFmt"><option value="plain">plain</option><option value="sage">Sage</option><option value="latex">LaTeX</option></select></div><textarea id="arMatOut" style="width:100%;height:300px;font-family:monospace;font-size:11px;"></textarea>`;
+          const run = () => { const ids = calcAllIds(); const k = b.querySelector('#arMatKind').value; const e = k==='hom'?homEdges:k==='ext'?extEdges:k==='tau'?goldenEdges:k==='syz'?syzygyEdges:k==='cosyz'?cosyzygyEdges:k==='rad'?radicalEdges:coradicalEdges; const mat = arMatrixFromEdges(e, ids); const f = b.querySelector('#arMatFmt').value; const txt = f==='sage' ? 'matrix(['+mat.map(r=>'['+r.join(',')+']').join(',')+'])' : f==='latex' ? '\\\\begin{pmatrix}'+mat.map(r=>r.join(' & ')).join('\\\\\\\\')+'\\\\end{pmatrix}' : mat.map(r=>r.join(' ')).join('\\n'); const comment = f==='latex' ? '% ids: ' : '# ids: '; b.querySelector('#arMatOut').value = comment+ids.join(',')+'\\n'+txt; arRecord('matrix','Show '+k+' matrix',{kind:k}); };
+          b.querySelector('#arMatKind').onchange = run; b.querySelector('#arMatFmt').onchange = run; run();
+        }
+        function arClosureByEdges(seed, edges) { const s = new Set(seed || []); let changed = true, guard = 0; while (changed && guard++ < 100) { changed = false; (edges || []).forEach(e => { if (s.has(Number(e[0])) && !s.has(Number(e[1]))) { s.add(Number(e[1])); changed = true; } }); } return Array.from(s).sort((a,b)=>a-b); }
+        function arSameClass(a,b) { a=(a||[]).map(Number).sort((x,y)=>x-y); b=(b||[]).map(Number).sort((x,y)=>x-y); return a.length===b.length && a.every((x,i)=>x===b[i]); }
+        function arModuleRecord(id) {
+          const text = String(indecomposableModuleDataGap || '');
+          const startRe = new RegExp('rec\\\\(id\\\\s*:=\\\\s*' + Number(id) + '\\\\s*,', 'm');
+          const startMatch = text.match(startRe);
+          if (!startMatch || startMatch.index === undefined) return null;
+          const start = startMatch.index;
+          const rest = text.slice(start + startMatch[0].length);
+          const nextMatch = rest.match(new RegExp(',\\\\s*rec\\\\(id\\\\s*:=\\\\s*\\\\d+\\\\s*,', 'm'));
+          const block = text.slice(start, nextMatch && nextMatch.index !== undefined ? start + startMatch[0].length + nextMatch.index : text.indexOf('];;', start) > 0 ? text.indexOf('];;', start) : text.length);
+          const dimMatch = block.match(new RegExp('dim\\\\s*:=\\\\s*(\\\\[[^\\\\]]*\\\\])', 'm'));
+          const mapsMatch = block.match(new RegExp('maps\\\\s*:=\\\\s*([\\\\s\\\\S]*?)\\\\s*\\\\]\\\\s*\\\\)', 'm'));
+          if (!dimMatch || !mapsMatch) return null;
+          const maps = {};
+          const mapText = mapsMatch[1].trim() + ' ]';
+          const mapRe = new RegExp('\\\\[\\\\s*"([^"]+)"\\\\s*,\\\\s*(\\\\[\\\\s*\\\\[[\\\\s\\\\S]*?\\\\]\\\\s*\\\\])\\\\s*\\\\]', 'g');
+          let mm;
+          while ((mm = mapRe.exec(mapText)) !== null) maps[mm[1]] = mm[2].replace(new RegExp('\\\\s+', 'g'), ' ');
+          return { id: Number(id), dim: dimMatch[1].replace(new RegExp('\\\\s+', 'g'), ' '), maps, rawMaps: mapText };
+        }
+        function arModuleMatrixText(id) {
+          const rec = arModuleRecord(id);
+          return rec ? ('M[' + id + '] dim := ' + rec.dim + '\\nmaps := ' + rec.rawMaps) : ('M[' + id + '] module matrix data not found in serialized log.');
+        }
+        function arSelectedModuleMatricesText(ids) {
+          return (ids || []).map(id => arModuleMatrixText(id)).join('\\n\\n');
+        }
+        function arInTable(cls, data, keys) { return (data || []).some(item => keys.some(k => arSameClass(cls, item[k] || []))); }
+        function arShowInspector(toggle) {
+          const existing = document.getElementById('arClassInspectorPanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
+          const p = arToolPanel('arClassInspectorPanel', 'Class inspector'), b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<input id="arInspectClass" style="width:100%;" value="[]"><div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;"><button id="arInspectRun">Inspect</button><button id="arInspectSel">Use selected</button><button id="arInspectHigh">Highlight</button><button id="arInspectStore">Store</button><button id="arInspectCompare">Compare</button></div><pre id="arInspectOut" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:300px;overflow:auto;"></pre>`;
+          const run = () => { let cls = arParseClassText(b.querySelector('#arInspectClass').value); b.querySelector('#arInspectOut').textContent = ['Class: '+arClassText(cls),'Size: '+cls.length,'Torsion class: '+(arInTable(cls,torsionPairData,['T'])?'yes':'no'),'Torsionfree class: '+(arInTable(cls,torsionPairData,['F'])?'yes':'no'),'Left cotorsion class: '+(arInTable(cls,cotorsionPairData,['L'])?'yes':'no'),'Right cotorsion class: '+(arInTable(cls,cotorsionPairData,['R'])?'yes':'no'),'Syzygy closed: '+(arSameClass(cls,arClosureByEdges(cls,syzygyEdges))?'yes':'no'),'Cosyzygy closed: '+(arSameClass(cls,arClosureByEdges(cls,cosyzygyEdges))?'yes':'no'),'Radical closed: '+(arSameClass(cls,arClosureByEdges(cls,radicalEdges))?'yes':'no'),'Coradical closed: '+(arSameClass(cls,arClosureByEdges(cls,coradicalEdges))?'yes':'no'),'Stored: '+arClassText(arStoredClass)].join('\\n'); arRecord('inspect','Inspect '+arClassText(cls),{ids:cls}); };
+          b.querySelector('#arInspectRun').onclick = run; b.querySelector('#arInspectSel').onclick = () => { b.querySelector('#arInspectClass').value = arClassText(network.getSelectedNodes()); run(); }; b.querySelector('#arInspectHigh').onclick = () => { const cls=arParseClassText(b.querySelector('#arInspectClass').value); arHighlightClass(cls); arRecord('class','Highlight '+arClassText(cls),{ids:cls}); }; b.querySelector('#arInspectStore').onclick = () => { arStoredClass = arParseClassText(b.querySelector('#arInspectClass').value); run(); }; b.querySelector('#arInspectCompare').onclick = () => { const cls=arParseClassText(b.querySelector('#arInspectClass').value), A=new Set(arStoredClass), B=new Set(cls); b.querySelector('#arInspectOut').textContent = ['stored = '+arClassText(arStoredClass),'current = '+arClassText(cls),'union = '+arClassText([...new Set([...A,...B])]),'intersection = '+arClassText([...A].filter(x=>B.has(x))),'stored minus current = '+arClassText([...A].filter(x=>!B.has(x)))].join('\\n'); }; run();
+        }
+        let arModuleMatrixNodePositions = new Map();
+        let arModuleMatrixLabelPositions = new Map();
+        function arShowModuleMatrix(toggle) {
+          const existing = document.getElementById('arModuleMatrixPanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
+          const p = arToolPanel('arModuleMatrixPanel', 'Module matrix'), b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;"><label>Module label <input id="arModuleMatrixId" type="number" min="1" value="1" style="width:80px;"></label><label>Labels <select id="arModuleMatrixMode"><option value="matrix">dimensions + matrices</option><option value="structure">node + edge</option></select></label><button id="arModuleMatrixSelected">Use selected</button><button id="arModuleMatrixReset">Reset layout</button></div><div id="arModuleMatrixGraph" style="width:100%;height:320px;border:1px solid #ddd;background:white;overflow:hidden;"></div><pre id="arModuleMatrixText" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:180px;overflow:auto;"></pre>`;
+          const draw = () => {
+            try {
+              const id = Number(b.querySelector('#arModuleMatrixId').value || 1);
+              const mode = b.querySelector('#arModuleMatrixMode').value || 'matrix';
+              const rec = arModuleRecord(id);
+              b.querySelector('#arModuleMatrixText').textContent = arModuleMatrixText(id);
+              const dimText = rec && rec.dim ? rec.dim.trim() : '';
+              const dims = dimText ? dimText.slice(dimText.startsWith('[') ? 1 : 0, dimText.endsWith(']') ? -1 : dimText.length).split(',').map(x => x.trim()) : [];
+              const layoutPositions = {};
+              if (quiverStructure) {
+                let s = String(quiverStructure).trim();
+                if (s.startsWith('[') && s.endsWith(']')) s = s.slice(1, -1);
+                s.split(';').forEach((row, rowIdx) => {
+                  let colIdx = 0;
+                  for (let i = 0; i < row.length; i++) {
+                    if ('0123456789'.indexOf(row[i]) >= 0) { const nid = parseInt(row[i]); layoutPositions[nid] = { x: colIdx * 100, y: rowIdx * 100 }; colIdx++; }
+                    else colIdx++;
+                  }
+                });
+              }
+              const target = b.querySelector('#arModuleMatrixGraph');
+              const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+              const matrixLines = value => {
+                const raw = String(value == null || value === '' ? '0' : value).trim();
+                if (raw === '0' || raw === '[]') return ['0'];
+                const rows = [];
+                const text = raw.replace(new RegExp('\\s+', 'g'), ' ');
+                let depth = 0, start = -1;
+                for (let i = 0; i < text.length; i++) {
+                  if (text[i] === '[') { depth++; if (depth === 2) start = i + 1; }
+                  if (text[i] === ']') { if (depth === 2 && start >= 0) rows.push(text.slice(start, i).split(',').map(x => x.trim()).filter(Boolean).join(' ')); depth--; }
+                }
+                return rows.length ? rows : [text.replace(new RegExp('[\\\\[\\\\],]', 'g'), ' ').trim().replace(new RegExp('\\\\s+', 'g'), ' ') || '0'];
+              };
+              const textBlock = (lines, attrs) => {
+                const safe = (lines && lines.length ? lines : ['']).map(esc);
+                return `<text x="0" y="0" ${attrs}>` + safe.map((line, i) => `<tspan x="0" dy="${i === 0 ? 0 : 14}">${line}</tspan>`).join('') + `</text>`;
+              };
+              const posValues = Object.values(layoutPositions);
+              let minX = posValues.length ? Math.min(...posValues.map(p => p.x)) : 0;
+              let minY = posValues.length ? Math.min(...posValues.map(p => p.y)) : 0;
+              let maxX = posValues.length ? Math.max(...posValues.map(p => p.x)) : 240;
+              let maxY = posValues.length ? Math.max(...posValues.map(p => p.y)) : 160;
+              const pad = 70;
+              const initialPosOf = (nodeId, idx) => {
+                const p0 = layoutPositions[nodeId];
+                if (p0) return { x: p0.x - minX + pad, y: p0.y - minY + pad };
+                return { x: pad + (idx % 4) * 100, y: pad + Math.floor(idx / 4) * 90 };
+              };
+              const qNodes = (quiverNodes || []);
+              const nodePos = new Map(qNodes.map((n, idx) => {
+                const key = String(n.id);
+                return [Number(n.id), arModuleMatrixNodePositions.get(key) || initialPosOf(n.id, idx)];
+              }));
+              if (!posValues.length && qNodes.length) { maxX = Math.max(...Array.from(nodePos.values()).map(p0 => p0.x)); maxY = Math.max(...Array.from(nodePos.values()).map(p0 => p0.y)); minX = 0; minY = 0; }
+              const width = Math.max(260, maxX - minX + pad * 2);
+              const height = Math.max(180, maxY - minY + pad * 2);
+              const edgePoint = (a, c, sign) => {
+                const dx = c.x - a.x, dy = c.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+                return { x: a.x + sign * dx / len * 14, y: a.y + sign * dy / len * 14 };
+              };
+              const edgeSvg = (quiverEdges || []).map((e, i) => {
+                const a = nodePos.get(Number(e[0])) || initialPosOf(e[0], i);
+                const c = nodePos.get(Number(e[1])) || initialPosOf(e[1], i + 1);
+                const from = edgePoint(a, c, 1), to = edgePoint(c, a, 1);
+                const name = e[2] || '';
+                const mat = rec && rec.maps && rec.maps[name] ? rec.maps[name] : '0';
+                const key = 'e' + i;
+                const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+                const labelOffset = arModuleMatrixLabelPositions.get(key) || { x: 0, y: -8 };
+                const labelPos = { x: mid.x + labelOffset.x, y: mid.y + labelOffset.y };
+                const lines = mode === 'structure' ? [name] : matrixLines(mat);
+                return `<g class="mm-edge" data-edge="${i}" data-from="${esc(e[0])}" data-to="${esc(e[1])}"><line data-edge-line="${i}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#000" stroke-width="1.8" marker-end="url(#mmArrow)"/></g><g class="mm-edge-label" data-label-key="${key}" transform="translate(${labelPos.x},${labelPos.y})" style="cursor:move;user-select:none;">${textBlock(lines, 'text-anchor="middle" font-family="monospace" font-size="11" fill="#111827"')}</g>`;
+              }).join('');
+              const nodeSvg = qNodes.map((n, idx) => {
+                const p0 = nodePos.get(Number(n.id)) || initialPosOf(n.id, idx);
+                const dim = dims[Number(n.id) - 1] !== undefined ? dims[Number(n.id) - 1] : '0';
+                const label = mode === 'structure' ? String(n.label) : dim;
+                return `<g class="mm-node" data-node-id="${esc(n.id)}" transform="translate(${p0.x},${p0.y})" style="cursor:move;user-select:none;"><circle cx="0" cy="0" r="12" fill="#fff" stroke="#000" stroke-width="2"></circle><text x="0" y="4" text-anchor="middle" font-family="monospace" font-weight="700" font-size="12">${esc(label)}</text></g>`;
+              }).join('');
+              target.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="display:block;background:white;"><defs><marker id="mmArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/></marker></defs>${edgeSvg}${nodeSvg}</svg>`;
+              const svg = target.querySelector('svg');
+              const svgPoint = event => {
+                const rect = svg.getBoundingClientRect();
+                const vb = svg.viewBox.baseVal;
+                return { x: vb.x + (event.clientX - rect.left) * vb.width / rect.width, y: vb.y + (event.clientY - rect.top) * vb.height / rect.height };
+              };
+              const parseTranslate = el => {
+                const m = String(el.getAttribute('transform') || '').match(new RegExp('translate\\\\(([-0-9.]+),([-0-9.]+)\\\\)'));
+                return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 };
+              };
+              const currentNodePos = nodeId => {
+                const g = svg.querySelector(`.mm-node[data-node-id="${CSS.escape(String(nodeId))}"]`);
+                return g ? parseTranslate(g) : (nodePos.get(Number(nodeId)) || { x: 0, y: 0 });
+              };
+              const updateEdge = idx => {
+                const line = svg.querySelector(`[data-edge-line="${idx}"]`);
+                const edge = svg.querySelector(`.mm-edge[data-edge="${idx}"]`);
+                if (!line || !edge) return;
+                const a = currentNodePos(edge.getAttribute('data-from'));
+                const c = currentNodePos(edge.getAttribute('data-to'));
+                const from = edgePoint(a, c, 1), to = edgePoint(c, a, 1);
+                line.setAttribute('x1', from.x); line.setAttribute('y1', from.y);
+                line.setAttribute('x2', to.x); line.setAttribute('y2', to.y);
+                const key = 'e' + idx;
+                const label = svg.querySelector(`.mm-edge-label[data-label-key="${key}"]`);
+                if (label) {
+                  const offset = arModuleMatrixLabelPositions.get(key) || { x: 0, y: -8 };
+                  label.setAttribute('transform', `translate(${(from.x + to.x) / 2 + offset.x},${(from.y + to.y) / 2 + offset.y})`);
+                }
+              };
+              let drag = null;
+              svg.querySelectorAll('.mm-node').forEach(g => {
+                g.addEventListener('mousedown', event => {
+                  const p0 = svgPoint(event), cur = parseTranslate(g);
+                  drag = { type: 'node', el: g, id: g.getAttribute('data-node-id'), dx: p0.x - cur.x, dy: p0.y - cur.y };
+                  document.addEventListener('mousemove', onMove);
+                  document.addEventListener('mouseup', onUp);
+                  event.preventDefault(); event.stopPropagation();
+                });
+              });
+              svg.querySelectorAll('.mm-edge-label').forEach(g => {
+                g.addEventListener('mousedown', event => {
+                  const p0 = svgPoint(event), cur = parseTranslate(g);
+                  drag = { type: 'label', el: g, key: g.getAttribute('data-label-key'), dx: p0.x - cur.x, dy: p0.y - cur.y };
+                  document.addEventListener('mousemove', onMove);
+                  document.addEventListener('mouseup', onUp);
+                  event.preventDefault(); event.stopPropagation();
+                });
+              });
+              const onMove = event => {
+                if (!drag) return;
+                const p0 = svgPoint(event), x = p0.x - drag.dx, y = p0.y - drag.dy;
+                drag.el.setAttribute('transform', `translate(${x},${y})`);
+                if (drag.type === 'node') {
+                  arModuleMatrixNodePositions.set(String(drag.id), { x, y });
+                  (quiverEdges || []).forEach((e, idx) => { if (String(e[0]) === String(drag.id) || String(e[1]) === String(drag.id)) updateEdge(idx); });
+                } else {
+                  const idx = Number(String(drag.key || '').replace(/^e/, ''));
+                  const edge = svg.querySelector(`.mm-edge[data-edge="${idx}"]`);
+                  if (edge) {
+                    const a = currentNodePos(edge.getAttribute('data-from'));
+                    const c = currentNodePos(edge.getAttribute('data-to'));
+                    const from = edgePoint(a, c, 1), to = edgePoint(c, a, 1);
+                    arModuleMatrixLabelPositions.set(String(drag.key), { x: x - (from.x + to.x) / 2, y: y - (from.y + to.y) / 2 });
+                  } else {
+                    arModuleMatrixLabelPositions.set(String(drag.key), { x, y });
+                  }
+                }
+                event.preventDefault();
+              };
+              const onUp = () => { drag = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+              arRecord('module-matrix', 'Show module matrix M[' + id + ']', { id });
+            } catch (err) {
+              const target = b.querySelector('#arModuleMatrixGraph');
+              const out = b.querySelector('#arModuleMatrixText');
+              if (target) target.innerHTML = '<div style="padding:12px;color:#b91c1c;">Module matrix render error. See details below.</div>';
+              if (out) out.textContent = String(err && err.stack || err);
+            }
+          };
+          b.querySelector('#arModuleMatrixId').oninput = draw;
+          b.querySelector('#arModuleMatrixMode').onchange = draw;
+          b.querySelector('#arModuleMatrixReset').onclick = () => { arModuleMatrixNodePositions = new Map(); arModuleMatrixLabelPositions = new Map(); draw(); };
+          b.querySelector('#arModuleMatrixSelected').onclick = () => { const selected = network.getSelectedNodes(); if (selected.length) b.querySelector('#arModuleMatrixId').value = selected[0]; draw(); };
+          draw();
+        }
+        function arTraverseStep(ids, op) { const e = op==='tau'?goldenEdges:op==='tau-inv'?goldenEdges.map(x=>[x[1],x[0]]):op==='syzygy'?syzygyEdges:op==='cosyzygy'?cosyzygyEdges:op==='radical'?radicalEdges:coradicalEdges; const out = new Set(); (ids||[]).forEach(id => (e||[]).forEach(x => { if (Number(x[0]) === Number(id)) out.add(Number(x[1])); })); return Array.from(out).sort((a,b)=>a-b); }
+        function arShowTraverse(toggle) {
+          const existing = document.getElementById('arTraversePanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
+          const p = arToolPanel('arTraversePanel', 'Traverse tools'), b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<input id="arTravSeed" style="width:100%;" value="[]"><div style="display:flex;gap:6px;margin:8px 0;"><select id="arTravOp"><option value="tau">τ</option><option value="tau-inv">τ inverse</option><option value="syzygy">syzygy</option><option value="cosyzygy">cosyzygy</option><option value="radical">radical</option><option value="coradical">coradical</option></select><input id="arTravSteps" type="number" min="0" value="1" style="width:60px;"><button id="arTravRun">Run</button><button id="arTravSel">Use selected</button></div><pre id="arTravOut" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:280px;overflow:auto;"></pre>`;
+          const run = () => { const seed=arParseClassText(b.querySelector('#arTravSeed').value), op=b.querySelector('#arTravOp').value, steps=Math.max(0,Number(b.querySelector('#arTravSteps').value||1)); let cur=seed, lines=['0: '+arClassText(cur)]; for(let i=1;i<=steps;i++){ cur=arTraverseStep(cur,op); lines.push(i+': '+arClassText(cur)); } b.querySelector('#arTravOut').textContent=lines.join('\\n'); arHighlightClass(cur,'#bfdbfe'); arRecord('class','Traverse '+op+' '+arClassText(seed),{ids:cur,color:'#bfdbfe'}); };
+          b.querySelector('#arTravRun').onclick = run; b.querySelector('#arTravSel').onclick = () => { b.querySelector('#arTravSeed').value = arClassText(network.getSelectedNodes()); run(); };
         }
 
         function handleMenuAction(event) {
@@ -2772,7 +4030,13 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           const toggleId = btn.getAttribute('data-toggle');
           const clickId = btn.getAttribute('data-click');
           const listSpec = btn.getAttribute('data-list');
+          const gapCodeKind = btn.getAttribute('data-gap-code');
           const action = btn.getAttribute('data-action');
+          if (gapCodeKind) {
+            showUsefulGapCode(gapCodeKind);
+            refreshFolderControlStates();
+            return;
+          }
           if (toggleId) {
             if (toggleId === 'quiverToggle') {
               const el = document.getElementById(toggleId);
@@ -2784,9 +4048,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               toggleCheckbox(toggleId);
               const toggleEl = document.getElementById(toggleId);
               btn.classList.toggle('ar-control-active', !!(toggleEl && toggleEl.checked));
+              if (toggleEl) arRecord('toggle', `${toggleId} ${toggleEl.checked ? 'on' : 'off'}`, { id: toggleId, checked: toggleEl.checked });
             }
           }
-          if (!toggleId && !clickId && !listSpec && action && action !== 'calculator') {
+          if (!toggleId && !clickId && !listSpec && action && !['calculator','matrices','class-inspector','module-matrix','traverse','export-tex','display-code','legend'].includes(action)) {
             btn.classList.add('ar-control-active');
             setTimeout(() => btn.classList.remove('ar-control-active'), 350);
           }
@@ -2801,17 +4066,25 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             const opened = showListInDrawer(parts[0], parts[1], parts[2]);
             clearListMenuActive();
             if (opened) btn.classList.add('ar-control-active');
+            if (opened) arRecord('list', `Open ${parts[2]}`, { toggleId: parts[0], listId: parts[1], title: parts[2] });
           }
           if (action === 'close-panel') folderPanel.style.display = 'none';
           if (action === 'fit') network.fit({ animation: true });
           if (action === 'toggle-ui') toggleMenuUi();
-          if (action === 'clear-colors') clearListColoring();
+          if (action === 'clear-colors') clearCanvasView();
+          if (action === 'clear-canvas') clearCanvasView();
           if (action === 'undo' && typeof undo === 'function') undo();
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
-          if (action === 'export-tex') showTexExport('xy');
-          if (action === 'display-code') showDisplayCodeModal();
-          if (action === 'legend') showColorLegend();
+          if (action === 'history') arShowHistory();
+          if (action === 'matrices') arShowMatrix(true);
+          if (action === 'class-inspector') arShowInspector(true);
+          if (action === 'module-matrix') arShowModuleMatrix(true);
+          if (action === 'traverse') arShowTraverse(true);
+          if (action === 'export-tex') showTexExport('xy', true);
+          if (action === 'display-code') showDisplayCodeModal(true);
+          if (action === 'legend') showColorLegend(true);
+          refreshFolderControlStates();
         }
 
         function translateTexToken(token) {
@@ -2865,10 +4138,10 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         }
 
         function nodeCircleLabel(id) {
-          const base = baseNodeStyles.get(id) || baseNodeStyles.get(Number(id));
+          const base = baseNodeStyles.get(id) || baseNodeStyles.get(String(id)) || baseNodeStyles.get(Number(id));
           if (nodeLabelMode === 'label') return String(id);
           if (nodeLabelMode === 'custom') {
-            const custom = customTexLabels.get(id) || customTexLabels.get(Number(id));
+            const custom = customTexLabels.get(id) || customTexLabels.get(String(id)) || customTexLabels.get(Number(id));
             return custom ? latexToCanvasLabel(custom) : (base ? base.label : String(id));
           }
           return base ? base.label : String(id);
@@ -2887,12 +4160,35 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           network.redraw();
         }
 
+        function refreshCustomNodeLabelMode(focusedNodeId) {
+          applyNodeLabelMode('dimension');
+          setTimeout(() => {
+            nodeLabelMode = 'custom';
+            const updates = network.body.data.nodes.get().map(n => ({
+              id: n.id,
+              label: nodeCircleLabel(n.id),
+              title: String(n.id)
+            }));
+            if (updates.length) network.body.data.nodes.update(updates);
+            if (focusedNodeId !== undefined && focusedNodeId !== null) {
+              network.body.data.nodes.update({
+                id: focusedNodeId,
+                label: nodeCircleLabel(focusedNodeId),
+                title: String(focusedNodeId)
+              });
+            }
+            nodeLabelButtons.forEach((button, key) => button.classList.toggle('ar-top-active', key === nodeLabelMode));
+            network.redraw();
+          }, 20);
+        }
+        window.refreshCustomNodeLabelMode = refreshCustomNodeLabelMode;
+
         function createMenuBar() {
           addMenuStyles();
           createFolderPanel();
           menuBar = document.createElement('div');
           menuBar.id = 'arTopMenu';
-          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="fit">Fit graph</button><button data-action="undo">Ctrl+Z</button><button data-action="redo">Ctrl+Y</button><button data-action="clear-colors">Clear colors</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
+          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="history">History</button><button data-action="fit">Fit graph</button><button data-action="clear-canvas">Clear canvas</button><button data-action="module-matrix">Modules matrix</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span><button data-action="toggle-night">Day/Night</button>';
           document.body.appendChild(menuBar);
           menuBar.querySelectorAll('button[data-label-mode]').forEach(button => {
             nodeLabelButtons.set(button.getAttribute('data-label-mode'), button);
@@ -2910,10 +4206,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             if (action === 'toggle-panel') {
               folderPanel.style.display = folderPanel.style.display === 'block' ? 'none' : 'block';
             }
+            if (action === 'history') arShowHistory(true);
             if (action === 'fit') network.fit({ animation: true });
-            if (action === 'undo' && typeof undo === 'function') undo();
-            if (action === 'redo' && typeof redo === 'function') redo();
-            if (action === 'clear-colors') clearListColoring();
+            if (action === 'clear-canvas') clearCanvasView();
+            if (action === 'module-matrix') arShowModuleMatrix(true);
+            if (action === 'toggle-night') toggleNightMode();
           });
         }
 
@@ -3370,7 +4667,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         state.apply(state.rows[bounded].item);
       }
 
-      function renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra) {
+      function renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra, rerenderFn) {
         const el = document.getElementById(containerId);
         if (!el) return;
         if (!data || data.length === 0) {
@@ -3402,7 +4699,8 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
             else { state.sortKey = key; state.sortMode = 'lex'; }
             state.selectedIndex = 0;
-            renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
+            if (typeof rerenderFn === 'function') rerenderFn();
+            else renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
             return;
           }
           const rowBtn = event.target.closest('button[data-row]');
@@ -3415,13 +4713,53 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       }
 
       function renderSupportTauList(containerId, data, title) {
-        renderButtonRecordList(
-          containerId,
-          data,
-          title,
-          [{ key: 'P', label: 'P' }, { key: 'M', label: 'M' }],
-          applySupportTauHighlight
-        );
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        try {
+          if (!Array.isArray(data) || data.length === 0) {
+            el.innerHTML = `<b>${title}</b><br/><span style="color:#666;">No data.</span>`;
+            return;
+          }
+          const state = ensureListState(containerId, 'M');
+          state.apply = applySupportTauHighlight;
+          const safeList = arr => (!arr || arr.length === 0) ? '0' : arr.join(',');
+          let rows = data.map((item, originalIndex) => ({ item, originalIndex }));
+          const key = state.sortKey === 'P' ? 'P' : 'M';
+          rows.sort((a, b) => compareByColumn(a, b, key, state.sortMode));
+          state.rows = rows;
+          if (state.selectedIndex >= rows.length) state.selectedIndex = rows.length - 1;
+          const modeText = state.sortMode === 'lex' ? 'lex' : 'length+lex';
+          const headerButtons = ['P','M'].map(col => {
+            const active = key === col;
+            return `<button type="button" data-sort-key="${col}" style="font-size:11px; margin-right:4px; padding:2px 6px; border:1px solid ${active ? '#0f766e' : '#ccc'}; border-radius:4px; background:${active ? '#ccfbf1' : '#fff'}; cursor:pointer;">${col}${active ? ` (${modeText})` : ''}</button>`;
+          }).join('');
+          const items = rows.map((row, idx) => {
+            const item = row.item || {};
+            const body = item.labelText || `P=[${safeList(item.P || [])}] | M=[${safeList(item.M || [])}]`;
+            return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. ${body}</button>`;
+          }).join('');
+          el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
+          el.onclick = event => {
+            const sortBtn = event.target.closest('button[data-sort-key]');
+            if (sortBtn && el.contains(sortBtn)) {
+              const nextKey = sortBtn.getAttribute('data-sort-key');
+              if (state.sortKey === nextKey) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
+              else { state.sortKey = nextKey; state.sortMode = 'lex'; }
+              state.selectedIndex = 0;
+              renderSupportTauList(containerId, data, title);
+              return;
+            }
+            const rowBtn = event.target.closest('button[data-row]');
+            if (rowBtn && el.contains(rowBtn)) activateButtonListRow(containerId, Number(rowBtn.getAttribute('data-row')));
+          };
+          el.onkeydown = event => {
+            if (event.key === 'ArrowDown') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex + 1); }
+            if (event.key === 'ArrowUp') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex - 1); }
+          };
+          if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
+        } catch (err) {
+          el.innerHTML = `<b>${title}</b><pre style="white-space:pre-wrap;color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;padding:8px;">Support tau render error: ${err && err.stack ? err.stack : String(err)}</pre>`;
+        }
       }
 
       function renderTorsionClassListLikeCotorsion(containerId) {
@@ -3552,7 +4890,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (extraRenderer) return ` | ${item.hereditary ? 'hereditary' : 'non-hereditary'}`;
           return '';
         };
-        renderButtonRecordList(containerId, filteredData, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra);
+        renderButtonRecordList(containerId, filteredData, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra, rerender);
         if (isTorsion) installPairFilterButtons(containerId, 'torsion', rerender);
         if (isCotorsion) installPairFilterButtons(containerId, 'cotorsion', rerender);
         if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
@@ -3609,7 +4947,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             applyTiltingHighlight(item);
             const idx = tiltingData.indexOf(item);
             setActiveTilting(idx);
-          }, tiltingExtraText);
+          }, tiltingExtraText, renderTiltingList);
           installTiltingFilterButtons('tiltingList');
           if (el && !el.querySelector('button[data-row]') && data && data.length) {
             throw new Error('tiltingData is nonempty but no tilting row was rendered');
@@ -4227,7 +5565,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         miniContainer.style.zIndex = '20000';
         miniContainer.style.boxSizing = 'border-box';
         miniContainer.innerHTML = `
-          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><span style="display:flex;gap:6px;align-items:center;"><button id="quiverOpenBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">Open in q.uiver</button><button id="quiverTikzBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">see ${originalQuiverFilename || 'quiver.txt'}</button></span></div>
+          <div id="quiverMiniHeader" class="ar-panel-head" style="font-size:12px; margin:-6px -6px 6px -6px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><span style="display:flex;gap:6px;align-items:center;"><button id="quiverOpenBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">Open in q.uiver</button><button id="quiverTikzBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">see ${originalQuiverFilename || 'quiver.txt'}</button><button id="quiverMiniClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;" type="button">×</button></span></div>
           <div id="quiverMini" style="width:100%; height:220px; border:1px solid #ddd; background:white; box-sizing:border-box;"></div>
           <div id="quiverRel" style="margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;"></div>
         `;
@@ -4236,6 +5574,11 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         const relBox = miniContainer.querySelector('#quiverRel');
         const tikzBtn = miniContainer.querySelector('#quiverTikzBtn');
         const openBtn = miniContainer.querySelector('#quiverOpenBtn');
+        const closeBtn = miniContainer.querySelector('#quiverMiniClose');
+        if (closeBtn) {
+          closeBtn.addEventListener('mousedown', (event) => { event.stopPropagation(); });
+          closeBtn.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); miniContainer.style.display = 'none'; const el = document.getElementById('quiverToggle'); if (el) el.checked = false; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
+        }
         if (openBtn) {
           openBtn.addEventListener('mousedown', (event) => { event.stopPropagation(); });
           openBtn.addEventListener('click', (event) => {
@@ -4257,7 +5600,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           return;
         }
 
-        // Layout nodes using QuiverStructure
+        const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
         let layoutPositions = {};
         if (quiverStructure) {
           let s = quiverStructure.trim();
@@ -4266,7 +5609,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           rows.forEach((row, rowIdx) => {
             let colIdx = 0;
             for (let i = 0; i < row.length; i++) {
-              if (/\\d/.test(row[i])) {
+              if ('0123456789'.indexOf(row[i]) >= 0) {
                 const nid = parseInt(row[i]);
                 layoutPositions[nid] = { x: colIdx * 100, y: rowIdx * 100 };
                 colIdx++;
@@ -4276,39 +5619,35 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             }
           });
         }
-
-        const nodes = new vis.DataSet(quiverNodes.map(n => {
-          const pos = layoutPositions[n.id] || {};
-          return {
-            id: n.id,
-            label: String(n.label),
-            shape: 'ellipse',
-            font: { face: 'monospace', size: 14, bold: true, color: 'black', vadjust: 0, align: 'center' },
-            color: { border: 'gray', background: 'white' },
-            borderWidth: 2,
-            ...(pos.x !== undefined ? { x: pos.x, y: pos.y } : {})
-          };
+        const rawPos = quiverNodes.map((n, idx) => layoutPositions[n.id] || { x: (idx % 4) * 100, y: Math.floor(idx / 4) * 90 });
+        const minX = rawPos.length ? Math.min(...rawPos.map(p => p.x)) : 0;
+        const minY = rawPos.length ? Math.min(...rawPos.map(p => p.y)) : 0;
+        const maxX = rawPos.length ? Math.max(...rawPos.map(p => p.x)) : 240;
+        const maxY = rawPos.length ? Math.max(...rawPos.map(p => p.y)) : 160;
+        const pad = 70;
+        const nodePos = new Map(quiverNodes.map((n, idx) => {
+          const p = rawPos[idx];
+          return [Number(n.id), { x: p.x - minX + pad, y: p.y - minY + pad }];
         }));
-        const edges = new vis.DataSet(quiverEdges.map((e, i) => ({
-          id: `q_${i}` ,
-          from: e[0],
-          to: e[1],
-          label: e[2] || '',
-          arrows: 'to',
-          font: { align: 'horizontal', size: 12, face: 'monospace', color: '#333', vadjust: 0 },
-          smooth: false
-        })));
-        miniQuiver = new vis.Network(miniContainer.querySelector('#quiverMini'), { nodes, edges }, {
-          physics: false,
-          interaction: { dragNodes: true, zoomView: true, dragView: true },
-          edges: { arrows: { to: true }, font: { align: 'horizontal' }, smooth: false }
-        });
-        setTimeout(() => {
-          if (miniQuiver) {
-            miniQuiver.redraw();
-            miniQuiver.fit({ animation: false });
-          }
-        }, 0);
+        const width = Math.max(260, maxX - minX + pad * 2);
+        const height = Math.max(180, maxY - minY + pad * 2);
+        const edgePoint = (a, c, r) => {
+          const dx = c.x - a.x, dy = c.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+          return { x: a.x + dx / len * r, y: a.y + dy / len * r };
+        };
+        const edgeSvg = quiverEdges.map((e, i) => {
+          const a = nodePos.get(Number(e[0])) || { x: pad, y: pad };
+          const c = nodePos.get(Number(e[1])) || { x: pad + 100, y: pad };
+          const from = edgePoint(a, c, 14), to = edgePoint(c, a, 14);
+          const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2 - 8;
+          const label = e[2] || '';
+          return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#000" stroke-width="1.8" marker-end="url(#qMiniArrow)"/><text x="${mx}" y="${my}" text-anchor="middle" font-family="monospace" font-size="11" stroke="#fff" stroke-width="4" paint-order="stroke" fill="#111827">${esc(label)}</text>`;
+        }).join('');
+        const nodeSvg = quiverNodes.map(n => {
+          const p = nodePos.get(Number(n.id)) || { x: pad, y: pad };
+          return `<g transform="translate(${p.x},${p.y})"><circle cx="0" cy="0" r="12" fill="#fff" stroke="#000" stroke-width="2"></circle><text x="0" y="4" text-anchor="middle" font-family="monospace" font-weight="700" font-size="12" stroke="#fff" stroke-width="4" paint-order="stroke" fill="#111827">${esc(n.label)}</text></g>`;
+        }).join('');
+        mini.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="display:block;background:white;"><defs><marker id="qMiniArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/></marker></defs>${edgeSvg}${nodeSvg}</svg>`;
       }
 
       function makeDraggable(container, handle) {
@@ -4460,9 +5799,24 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
         return goldenEdgeSet.has(`${edge.from}->${edge.to}`);
       }
 
+      function isDimmedEdge(edge) {
+        const c = getEdgeColor(edge);
+        return c === '#cccccc' || c === 'lightgray' || c === 'lightgrey' || c === '#ffe9a6';
+      }
+
       function isBlackEdge(edge) {
         const c = getEdgeColor(edge);
-        return c === '#000000' || c === 'black';
+        return c === '#000000' || c === 'black' || c === '#ffffff' || c === 'white' || c === '#cccccc' || c === 'lightgray' || c === 'lightgrey';
+      }
+
+      function isIrreducibleEdge(edge) {
+        if (!edge) return false;
+        const id = edge.id === undefined || edge.id === null ? '' : String(edge.id);
+        return !/^(tr|syz|cosyz|rad|corad|hom|ext)_/.test(id);
+      }
+
+      function isDimmableAREdge(edge) {
+        return isIrreducibleEdge(edge) || String(edge.id || '').startsWith('tr_') || isGoldenEdge(edge);
       }
 
       function isTranslationEdge(edge) {
@@ -4623,55 +5977,67 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
 
       network.on('doubleClick', function(p) {
         if (p.nodes.length > 0) {
-          const n_id = Number(p.nodes[0]);
-          const current = customTexLabels.get(n_id) || '';
-          const wasShowingCustomLabel = nodeLabelMode === 'custom';
-          network.setOptions({ interaction: { dragNodes: false } });
-          network.unselectAll();
-          const input = prompt('Custom TeX label for node ' + n_id, current);
-          const releaseNodeAfterPrompt = () => {
+          const nodeId = p.nodes[0];
+          const n_id = Number(nodeId);
+          const labelKey = Number.isFinite(n_id) ? n_id : nodeId;
+          const current = customTexLabels.get(labelKey) || customTexLabels.get(String(nodeId)) || '';
+          const releaseNodeInteractionState = () => {
             network.unselectAll();
-            if (network.body && network.body.nodes && network.body.nodes[n_id]) {
-              network.body.nodes[n_id].selected = false;
+            if (network.body && network.body.nodes && network.body.nodes[nodeId]) {
+              network.body.nodes[nodeId].selected = false;
+            }
+            if (network.selectionHandler && typeof network.selectionHandler.unselectAll === 'function') {
+              network.selectionHandler.unselectAll();
+            }
+            if (network.interactionHandler) {
+              network.interactionHandler.dragging = false;
+              network.interactionHandler.drag = {};
+            }
+            if (network.canvas && network.canvas.frame && typeof network.canvas.frame.blur === 'function') {
+              network.canvas.frame.blur();
             }
             network.setOptions({ interaction: { dragNodes: true } });
             network.redraw();
           };
-          if (input === null) {
-            releaseNodeAfterPrompt();
-            setTimeout(releaseNodeAfterPrompt, 0);
-            setTimeout(releaseNodeAfterPrompt, 80);
-            return;
-          }
-          const value = input.trim();
-          if (value) customTexLabels.set(n_id, value);
-          else customTexLabels.delete(n_id);
-          const refreshByClickingLabelButtons = () => {
-            const labelButton = nodeLabelButtons.get('label');
-            const customButton = nodeLabelButtons.get('custom');
-            if (labelButton && customButton) {
-              labelButton.click();
-              setTimeout(() => customButton.click(), 0);
-            } else {
-              applyNodeLabelMode('label');
-              applyNodeLabelMode('custom');
+          network.setOptions({ interaction: { dragNodes: false } });
+          releaseNodeInteractionState();
+          setTimeout(() => {
+            const input = prompt('Custom TeX label for node ' + String(nodeId), current);
+            if (input === null) {
+              releaseNodeInteractionState();
+              setTimeout(releaseNodeInteractionState, 0);
+              setTimeout(releaseNodeInteractionState, 80);
+              return;
             }
-          };
-          refreshByClickingLabelButtons();
-          releaseNodeAfterPrompt();
-          setTimeout(releaseNodeAfterPrompt, 0);
-          setTimeout(releaseNodeAfterPrompt, 80);
+            const value = input.trim();
+            if (value) {
+              customTexLabels.set(labelKey, value);
+              customTexLabels.set(String(nodeId), value);
+            } else {
+              customTexLabels.delete(labelKey);
+              customTexLabels.delete(String(nodeId));
+            }
+            releaseNodeInteractionState();
+            if (typeof window.refreshCustomNodeLabelMode === 'function') {
+              window.refreshCustomNodeLabelMode(nodeId);
+            } else {
+              console.error('refreshCustomNodeLabelMode is not available');
+            }
+            setTimeout(releaseNodeInteractionState, 0);
+            setTimeout(releaseNodeInteractionState, 80);
+          }, 0);
           return;
         }
         if (p.edges.length > 0) {
           const edge_id = p.edges[0];
           const edge = network.body.data.edges.get(edge_id);
+          if (!edge || !isDimmableAREdge(edge)) return;
           const blackColor = '#000000';
           const lightGray = '#cccccc';
           const goldColor = '#ffd700';
           const lightGold = '#ffe9a6';
           const currentColor = getEdgeColor(edge);
-          const isGold = isGoldenEdge(edge) || currentColor === goldColor || currentColor === lightGold || currentColor === 'gold';
+          const isGold = String(edge.id || '').startsWith('tr_') || isGoldenEdge(edge) || currentColor === goldColor || currentColor === lightGold || currentColor === 'gold';
           let newColor = currentColor;
           if (isGold) {
             newColor = (currentColor === lightGold) ? goldColor : lightGold;
@@ -4708,6 +6074,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
     js_injection = js_injection.replace("{{MODULE_DATA_GAP}}", module_data_gap_js)
     js_injection = js_injection.replace("{{HOM_EDGES}}", hom_edges_js)
     js_injection = js_injection.replace("{{EXT_EDGES}}", ext_edges_js)
+    js_injection = js_injection.replace("{{EXT_MIDDLE_TABLE}}", extension_middle_table_js)
     js_injection = js_injection.replace("{{TILTING_DATA}}", tilting_js)
     js_injection = js_injection.replace("{{TORSION_PAIR_DATA}}", torsion_pairs_js)
     js_injection = js_injection.replace("{{TORSION_PAIR_BUCKETS}}", torsion_pair_buckets_js)

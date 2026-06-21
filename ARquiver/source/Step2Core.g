@@ -90,12 +90,51 @@ FindNontrivialIdempotent := function(M)
 end;
 
 
+# Return primitive idempotent endomorphisms using QPA's finite-field decomposition routine when available.
+QPADecompositionIdempotents := function(M)
+    local basis, endo, genmaps, genmats, idemmats, idemmaps, x;
+
+    if Dimension(M) = 0 then
+        return [];
+    fi;
+    if not IsFinite(LeftActingDomain(M)) then
+        return fail;
+    fi;
+
+    basis := CanonicalBasis(M);
+    endo := EndOverAlgebra(M);
+    genmaps := BasisVectors(Basis(endo));
+    if Length(genmaps) <= 1 then
+        return fail;
+    fi;
+    genmats := List(genmaps, function(x) return TransposedMat(x); end);
+    idemmats := IdempotentsForDecomposition(AlgebraWithOne(LeftActingDomain(M), genmats));
+    if Length(idemmats) <= 1 then
+        return fail;
+    fi;
+
+    idemmaps := List(idemmats, function(x)
+        return LeftModuleHomomorphismByMatrix(basis, TransposedMat(x), basis);
+    end);
+    for x in idemmaps do
+        SetFilterObj(x, IsAlgebraModuleHomomorphism);
+    od;
+    return List(idemmaps, function(x) return FromEndMToHomMM(M, x!.matrix); end);
+end;
+
+
 # Return split epimorphisms M -> summands.
 DecomposeToProjections := function(M)
-  local e, id, eK, U, K, pU, pK, projsU, projsK, projs, p;
+  local fastCall, fastIdems, e, id, eK, U, K, pU, pK, projsU, projsK, projs, p;
 
   if Dimension(M) = 0 then
     return [];
+  fi;
+
+  fastCall := CALL_WITH_CATCH(QPADecompositionIdempotents, [M]);
+  if fastCall[1] = true and fastCall[2] <> fail then
+    fastIdems := fastCall[2];
+    return List(fastIdems, function(x) return ImageProjection(x); end);
   fi;
 
   e := FindNontrivialIdempotent(M);
@@ -126,10 +165,16 @@ end;
 
 # Return split monomorphisms summands -> M.
 DecomposeToInjections := function(M)
-  local e, id, eK, U, K, iU, iK, injsU, injsK, injs, p;
+  local fastCall, fastIdems, e, id, eK, U, K, iU, iK, injsU, injsK, injs, p;
 
   if Dimension(M) = 0 then
     return [];
+  fi;
+
+  fastCall := CALL_WITH_CATCH(QPADecompositionIdempotents, [M]);
+  if fastCall[1] = true and fastCall[2] <> fail then
+    fastIdems := fastCall[2];
+    return List(fastIdems, function(x) return ImageInclusion(x); end);
   fi;
 
   e := FindNontrivialIdempotent(M);
@@ -1929,6 +1974,339 @@ WriteExtDimQuiver := function(fname, verts, dim_vectors, ext_dim)
     AppendTo(fname, "}\n");
 end;;
 
+ModuleLabelInListForExtensions := function(verts, N)
+    local i;
+    for i in [1..Length(verts)] do
+        if IsomorphicModules(N, verts[i]) then return i; fi;
+    od;
+    return fail;
+end;;
+
+ExtensionMiddleLabelsOfModule := function(verts, N)
+    local projCall, labels, pr, summand, label;
+    if Dimension(N) = 0 then return [];; fi;
+    projCall := CALL_WITH_CATCH(DecomposeToProjections, [N]);
+    if projCall[1] <> true or not IsList(projCall[2]) then
+        label := ModuleLabelInListForExtensions(verts, N);
+        if label = fail then Error("Could not identify an extension middle term summand."); fi;
+        return [label];
+    fi;
+    labels := [];;
+    for pr in projCall[2] do
+        summand := Range(pr);
+        label := ModuleLabelInListForExtensions(verts, summand);
+        if label = fail then Error("Could not identify an extension middle term summand."); fi;
+        Add(labels, label);
+    od;
+    Sort(labels);;
+    return labels;
+end;;
+
+LinearCombinationOfExtensionMaps := function(zero_map, basis_maps, coeffs)
+    local h, i;
+    h := zero_map;
+    for i in [1..Length(basis_maps)] do
+        if coeffs[i] <> Zero(LeftActingDomain(Source(zero_map))) then
+            h := h + coeffs[i] * basis_maps[i];
+        fi;
+    od;
+    return h;
+end;;
+
+ExtensionMiddleTermLabelsForPair := function(verts, sub_idx, quot_idx, ext_dim)
+    local K, subM, quotM, extData, syzInc, basisMaps, allLabels, zeroMap, coeffTuples, tuple, i, h, po, labels;
+    allLabels := [[sub_idx, quot_idx]];;
+    if IsList(ext_dim) and ext_dim[sub_idx][quot_idx] = 0 then
+        return allLabels;
+    fi;
+    K := LeftActingDomain(verts[1]);
+    subM := verts[sub_idx];;
+    quotM := verts[quot_idx];;
+    extData := ExtOverAlgebra(quotM, subM);
+    syzInc := extData[1];;
+    basisMaps := extData[2];;
+    if Length(basisMaps) = 0 then return allLabels; fi;
+    zeroMap := ZeroMapping(Source(syzInc), subM);
+    if IsFinite(K) then
+        coeffTuples := Tuples(Elements(K), Length(basisMaps));
+    else
+        coeffTuples := [];;
+        for i in [1..Length(basisMaps)] do
+            tuple := List([1..Length(basisMaps)], j -> Zero(K));
+            tuple[i] := One(K);
+            Add(coeffTuples, tuple);
+        od;
+    fi;
+    for tuple in coeffTuples do
+        if ForAll(tuple, c -> c = Zero(K)) then continue; fi;
+        h := LinearCombinationOfExtensionMaps(zeroMap, basisMaps, tuple);
+        po := PushOut(syzInc, h);
+        if po <> fail then
+            labels := ExtensionMiddleLabelsOfModule(verts, Range(po[1]));
+            AddSet(allLabels, labels);
+        fi;
+    od;
+    return allLabels;
+end;;
+
+AddKnownExtensionMiddleTerms := function(verts, table)
+    local idx, addSeq, idsSub, idsQuot, idsMid, radCall, topCall, socCall, socIncCall, cosocCall, syzCall, pcCall, injCall, cokerCall;
+
+    addSeq := function(subObj, midObj, quotObj)
+        idsSub := ExtensionMiddleLabelsOfModule(verts, subObj);
+        idsQuot := ExtensionMiddleLabelsOfModule(verts, quotObj);
+        idsMid := ExtensionMiddleLabelsOfModule(verts, midObj);
+        if Length(idsSub) = 1 and Length(idsQuot) = 1 then
+            AddSet(table[idsSub[1]][idsQuot[1]], idsMid);
+        fi;
+    end;;
+
+    for idx in [1..Length(verts)] do
+        radCall := CALL_WITH_CATCH(RadicalOfModule, [verts[idx]]);
+        topCall := CALL_WITH_CATCH(TopOfModule, [verts[idx]]);
+        if radCall[1] = true and topCall[1] = true and Dimension(radCall[2]) > 0 and Dimension(topCall[2]) > 0 then
+            addSeq(radCall[2], verts[idx], topCall[2]);
+        fi;
+
+        socCall := CALL_WITH_CATCH(SocleOfModule, [verts[idx]]);
+        cosocCall := fail;
+        socIncCall := CALL_WITH_CATCH(SocleOfModuleInclusion, [verts[idx]]);
+        if socIncCall[1] = true then
+            cokerCall := CALL_WITH_CATCH(CoKernelProjection, [socIncCall[2]]);
+            if cokerCall[1] = true then cosocCall := cokerCall[2]; fi;
+        fi;
+        if socCall[1] = true and cosocCall <> fail and Dimension(socCall[2]) > 0 and Dimension(Range(cosocCall)) > 0 then
+            addSeq(socCall[2], verts[idx], Range(cosocCall));
+        fi;
+
+        syzCall := CALL_WITH_CATCH(1stSyzygy, [verts[idx]]);
+        pcCall := CALL_WITH_CATCH(ProjectiveCover, [verts[idx]]);
+        if syzCall[1] = true and pcCall[1] = true and not (IsInt(syzCall[2]) and syzCall[2] = 0) and Dimension(syzCall[2]) > 0 then
+            addSeq(syzCall[2], Source(pcCall[2]), verts[idx]);
+        fi;
+
+        injCall := CALL_WITH_CATCH(InjectiveEnvelope, [verts[idx]]);
+        if injCall[1] = true then
+            cokerCall := CALL_WITH_CATCH(CoKernelProjection, [injCall[2]]);
+            if cokerCall[1] = true and Dimension(Range(cokerCall[2])) > 0 then
+                addSeq(verts[idx], Range(injCall[2]), Range(cokerCall[2]));
+            fi;
+        fi;
+    od;
+    return table;
+end;;
+
+AddKnownExtensionMiddleTermsFromARCommutativeSquares := function(verts, edges, tau_map, table)
+    local outAdj, inAdj, e, u, v, x, tx, mids, n, a, b, common, dimMid, dimEnds;
+    outAdj := [];;
+    inAdj := [];;
+    for e in edges do
+        if not IsList(e) or Length(e) < 2 then continue; fi;
+        u := e[1];; v := e[2];;
+        if not IsBound(outAdj[u]) then outAdj[u] := [];; fi;
+        if not IsBound(inAdj[v]) then inAdj[v] := [];; fi;
+        Add(outAdj[u], v);
+        Add(inAdj[v], u);
+    od;
+
+    if IsList(tau_map) then
+        for x in [1..Length(verts)] do
+            if IsBound(tau_map[x]) and tau_map[x] <> fail then
+                tx := tau_map[x];
+                if IsBound(outAdj[tx]) and IsBound(inAdj[x]) then
+                    common := Intersection(Set(outAdj[tx]), Set(inAdj[x]));
+                    if Length(common) > 0 then
+                        mids := [];;
+                        for n in common do Add(mids, n); od;
+                        Sort(mids);;
+                        dimMid := Sum(mids, n -> Dimension(verts[n]));
+                        dimEnds := Dimension(verts[tx]) + Dimension(verts[x]);
+                        if dimMid = dimEnds then AddSet(table[tx][x], mids); fi;
+                    fi;
+                fi;
+            fi;
+        od;
+    fi;
+
+    for u in [1..Length(verts)] do
+        if not IsBound(outAdj[u]) then continue; fi;
+        for v in [1..Length(verts)] do
+            if not IsBound(inAdj[v]) then continue; fi;
+            common := Intersection(Set(outAdj[u]), Set(inAdj[v]));
+            if Length(common) < 2 then continue; fi;
+            for a in [1..Length(common)] do
+                for b in [a+1..Length(common)] do
+                    mids := [common[a], common[b]];
+                    dimMid := Dimension(verts[mids[1]]) + Dimension(verts[mids[2]]);
+                    dimEnds := Dimension(verts[u]) + Dimension(verts[v]);
+                    if dimMid = dimEnds then
+                        AddSet(table[u][v], mids);
+                    fi;
+                od;
+            od;
+        od;
+    od;
+    return table;
+end;;
+
+AddComposedPushoutPullbackSquareMiddleTerms := function(verts, edges, table)
+    local outAdj, inAdj, e, rects, seen, rectKey, addRect, addMiddle, u, v, common, a, b,
+        r, s, nr, changed, iter, maxIter, maxRects, initialCount, dimOK;
+
+    rectKey := function(rect)
+        return Concatenation(String(rect[1]), "|", String(rect[2]), "|", String(rect[3]), "|", String(rect[4]));
+    end;;
+
+    dimOK := function(rect)
+        return Dimension(verts[rect[2]]) + Dimension(verts[rect[3]]) = Dimension(verts[rect[1]]) + Dimension(verts[rect[4]]);
+    end;;
+
+    addMiddle := function(rect)
+        local mids;
+        mids := [rect[2], rect[3]];;
+        Sort(mids);;
+        AddSet(table[rect[1]][rect[4]], mids);
+    end;;
+
+    addRect := function(rect)
+        local key;
+        if not dimOK(rect) then return false; fi;
+        key := rectKey(rect);
+        if key in seen then return false; fi;
+        AddSet(seen, key);
+        Add(rects, rect);
+        addMiddle(rect);
+        return true;
+    end;;
+
+    outAdj := [];; inAdj := [];;
+    for e in edges do
+        if not IsList(e) or Length(e) < 2 then continue; fi;
+        u := e[1];; v := e[2];;
+        if not IsBound(outAdj[u]) then outAdj[u] := [];; fi;
+        if not IsBound(inAdj[v]) then inAdj[v] := [];; fi;
+        Add(outAdj[u], v);
+        Add(inAdj[v], u);
+    od;
+
+    rects := [];; seen := [];;
+    for u in [1..Length(verts)] do
+        if not IsBound(outAdj[u]) then continue; fi;
+        for v in [1..Length(verts)] do
+            if not IsBound(inAdj[v]) then continue; fi;
+            common := Intersection(Set(outAdj[u]), Set(inAdj[v]));
+            if Length(common) < 2 then continue; fi;
+            for a in [1..Length(common)] do
+                for b in [a+1..Length(common)] do
+                    addRect([u, common[a], common[b], v]);
+                    addRect([u, common[b], common[a], v]);
+                od;
+            od;
+        od;
+    od;
+
+    maxIter := 2;
+    if IsBoundGlobal("max_extension_square_composition_iterations") then
+        maxIter := ValueGlobal("max_extension_square_composition_iterations");
+    fi;
+    maxRects := 400;
+    if IsBoundGlobal("max_extension_square_composition_rectangles") then
+        maxRects := ValueGlobal("max_extension_square_composition_rectangles");
+    fi;
+    if Length(rects) > maxRects then
+        Print("Skipping iterative pushout/pullback square composition: ", Length(rects), " seed squares exceeds limit ", maxRects, ".\n");
+        return table;
+    fi;
+
+    changed := true;; iter := 0;;
+    while changed and iter < maxIter do
+        changed := false;;
+        iter := iter + 1;;
+        initialCount := Length(rects);
+        for a in [1..initialCount] do
+            r := rects[a];
+            for b in [1..initialCount] do
+                s := rects[b];
+
+                # Horizontal composition:
+                # [x,y,z,w] composed with [y,y2,w,w2] gives [x,y2,z,w2].
+                if r[2] = s[1] and r[4] = s[3] then
+                    nr := [r[1], s[2], r[3], s[4]];
+                    if addRect(nr) then
+                        changed := true;
+                        if Length(rects) > maxRects then
+                            Print("Stopping iterative pushout/pullback square composition after ", Length(rects), " rectangles.\n");
+                            return table;
+                        fi;
+                    fi;
+                fi;
+
+                # Vertical composition:
+                # [x,y,z,w] composed with [z,w,z2,w2] gives [x,y,z2,w2].
+                if r[3] = s[1] and r[4] = s[2] then
+                    nr := [r[1], r[2], s[3], s[4]];
+                    if addRect(nr) then
+                        changed := true;
+                        if Length(rects) > maxRects then
+                            Print("Stopping iterative pushout/pullback square composition after ", Length(rects), " rectangles.\n");
+                            return table;
+                        fi;
+                    fi;
+                fi;
+            od;
+        od;
+    od;
+
+    return table;
+end;;
+
+ComputeExtensionMiddleTermTable := function(verts, ext_dim, edges, tau_map)
+    local table, i, j, useFull;
+    table := [];;
+    for i in [1..Length(verts)] do
+        table[i] := [];;
+        for j in [1..Length(verts)] do
+            table[i][j] := [[i, j]];
+        od;
+    od;
+    table := AddKnownExtensionMiddleTerms(verts, table);
+    if IsList(edges) and IsList(tau_map) then
+        table := AddKnownExtensionMiddleTermsFromARCommutativeSquares(verts, edges, tau_map, table);
+    fi;
+    if IsList(edges) then
+        table := AddComposedPushoutPullbackSquareMiddleTerms(verts, edges, table);
+    fi;
+    useFull := IsBoundGlobal("compute_full_extension_table") and ValueGlobal("compute_full_extension_table") = true;
+    if useFull then
+        for i in [1..Length(verts)] do
+            for j in [1..Length(verts)] do
+                if IsList(ext_dim) and ext_dim[i][j] <> 0 then
+                    table[i][j] := Union(table[i][j], ExtensionMiddleTermLabelsForPair(verts, i, j, ext_dim));
+                fi;
+            od;
+        od;
+    fi;
+    return table;
+end;;
+
+WriteExtensionMiddleTermTable := function(fname, table)
+    local i, j;
+    AppendTo(fname, "\n# --- ExtensionMiddleTermTable --- #\n");
+    AppendTo(fname, "# rows are submodule labels; columns are quotient labels; entries are middle-term indecomposable label lists.\n");
+    AppendTo(fname, "ExtensionMiddleTermTable := [\n");
+    for i in [1..Length(table)] do
+        AppendTo(fname, "  [");
+        for j in [1..Length(table[i])] do
+            AppendTo(fname, "rec(sub := ", i, ", quot := ", j, ", mids := ", table[i][j], ")");
+            if j < Length(table[i]) then AppendTo(fname, ", "); fi;
+        od;
+        AppendTo(fname, "]");
+        if i < Length(table) then AppendTo(fname, ","); fi;
+        AppendTo(fname, "\n");
+    od;
+    AppendTo(fname, "];;\n");
+end;;
+
 ComputeSyzygyEdges := function(verts, projective_node_ids)
     local edges, source_idx, target_idx, syzCall, ids;
     edges := [];
@@ -2595,7 +2973,7 @@ end;;
 
 GenerateQuiverData := function(A, N, arg)
     local res, tr_list, torsionless_node_ids, reflexive_node_ids,
-        dim_vectors, hom_dim, ext_dim, tau_map, pdid, syz_edges, cosyz_edges, rad_edges, corad_edges, gi_gp;
+        dim_vectors, hom_dim, ext_dim, ext_middle_table, tau_map, pdid, syz_edges, cosyz_edges, rad_edges, corad_edges, gi_gp;
 
     Progress("starting computation");
 
@@ -2632,6 +3010,8 @@ GenerateQuiverData := function(A, N, arg)
     WriteSummandQuiverFromEdges(res.fname, "CoradicalSummand", res.verts, corad_edges);
     Progress("computing top/soc data");
     WriteTopSocData(res.fname, A, res.verts);
+    Progress("computing extension middle-term table");
+    ext_middle_table := ComputeExtensionMiddleTermTable(res.verts, ext_dim, res.edges, tau_map);
     WriteTranslationQuiver(res.fname, res.verts, dim_vectors, tau_map);
 
     Progress("computing torsionless and reflexive modules");
@@ -2655,6 +3035,7 @@ GenerateQuiverData := function(A, N, arg)
     Progress("writing Hom/Ext quivers");
     WriteHomDimQuiver(res.fname, res.verts, dim_vectors, hom_dim);
     WriteExtDimQuiver(res.fname, res.verts, dim_vectors, ext_dim);
+    WriteExtensionMiddleTermTable(res.fname, ext_middle_table);
 
     if not IsBoundGlobal("compute_tilting") or compute_tilting = true then
         Progress("computing tilting modules");
