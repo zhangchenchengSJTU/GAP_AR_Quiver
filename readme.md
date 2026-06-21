@@ -79,10 +79,10 @@ Basic controls:
 
 - Each ellipse represents an indecomposable module; its dimension vector is arranged according to vertex positions in the `tikzcd` input. Some ellipses may overlap.
 - Purple border: projective-injective. Red border: projective non-injective. Blue border: injective non-projective.
-- `Quivers > AR irreducible arrows`: show/hide irreducible morphisms (black arrows).
+- `Quivers > AR irreducible arrows`: show/hide irreducible morphisms (black arrows in day mode, white arrows in night mode).
 - `Quivers > Translation quiver τ`: show/hide the AR translation $\tau = D\mathrm{Tr}$ (golden arrows).
 - `View > Borders`: show/hide vertex borders.
-- `Ctrl+Z` / `Ctrl+Y`: undo / redo.
+- `History`: browse, replay, undo, and redo recorded UI actions.
 
 The main task is to arrange the AR-quiver into a readable standard form.
 
@@ -123,6 +123,8 @@ Finally, hide `AR irreducible arrows` and adjust the curvature of any black arro
 
 The generated `filename.html` is an interactive workspace for studying the AR-quiver and homological data of the algebra defined by `filename.txt`. The page consists of a main canvas, a top navigation bar, and a sidebar toggled by `Controls`. The sections below follow the interface order: canvas and navigation bar first, then each sidebar section from top to bottom.
 
+Recent additions include the history panel, `Clear canvas`, day/night mode, a direct top-bar `Modules matrix` button, resizable/toggleable floating tool windows, sortable side-drawer lists, module-matrix and class-inspection tools, traversal tools, expanded GAP-code snippets, display-code import/export improvements, and improved night-mode rendering for controls, lists, legends, the original quiver, and module-matrix views.
+
 ### Basic canvas interaction
 
 Each ellipse represents an indecomposable module. The label is the dimension vector, arranged according to the input quiver shape when available. The internal node number is the identifier used throughout `filename.log`.
@@ -140,19 +142,23 @@ These operations affect only the visualisation and do not recompute the algebra.
 
 #### `Controls`
 
-Opens or hides the sidebar. The sidebar contains all overlays, lists, and tools, divided into `View`, `Quivers`, `Modules`, `Classes`, `Tilting`, and `Tools`.
+Opens or hides the sidebar. The sidebar contains all overlays, lists, GAP snippets, and tools, divided into `View`, `Quivers`, `Modules`, `Classes`, `Tilting`, `GAP codes`, and `Tools`.
+
+#### `History`
+
+Opens a draggable history panel. The panel records recent layout, colouring, class-inspection, and matrix actions where applicable. Use `Back`, `Forward`, or `replay` to revisit a previous state. This replaces the old top-bar `Ctrl+Z` / `Ctrl+Y` buttons while preserving keyboard-oriented workflow through the history panel.
 
 #### `Fit graph`
 
 Recentres and rescales the canvas to fit the visible graph in the window.
 
-#### `Ctrl+Z` and `Ctrl+Y`
+#### `Clear canvas`
 
-Duplicate the keyboard shortcuts: `Ctrl+Z` undoes recent layout or colouring operations; `Ctrl+Y` redoes them. Intended for manual arrangement, especially when aligning $\tau$-orbits.
+Resets the workspace to the initial visual state without moving vertices. It closes temporary drawers and tool windows, clears list selections and temporary colourings, restores the default label mode, and leaves only the initial graph layers enabled: vertex borders, AR irreducible arrows, and the translation quiver.
 
-#### `Clear colors`
+#### `Modules matrix`
 
-Removes all temporary colourings produced by the calculator, list selections, torsion/cotorsion classes, tilting objects, support $\tau$-tilting objects, and module-class highlights. Arrows and underlying data are unaffected.
+Opens the module-matrix viewer directly from the top bar. The same tool is also available from `Controls > Tools > Module matrix`.
 
 #### `show dimension vector`
 
@@ -173,6 +179,10 @@ Displays user-defined labels when available; falls back to dimension-vector labe
 #### `Ctrl+L hide/show UI`
 
 Hides or restores the user interface. Useful for screenshots or for arranging a large graph.
+
+#### `Day/Night`
+
+Toggles between day mode and night mode. Night mode keeps mathematical colours stable where possible, but changes the main canvas, controls, drawers, and floating windows to black backgrounds with white text. AR irreducible arrows are black in day mode and white in night mode; the colour legend updates this convention dynamically.
 
 ### Sidebar: `View`
 
@@ -222,7 +232,7 @@ Overlays auxiliary quivers on the AR-quiver canvas.
 
 #### `AR irreducible arrows`
 
-Shows or hides the irreducible morphisms of the AR-quiver (black arrows). Data source:
+Shows or hides the irreducible morphisms of the AR-quiver (black arrows in day mode, white arrows in night mode). Data source:
 
 ```text
 digraph Quiver { ... }
@@ -343,6 +353,8 @@ rel := ...;
 
 The `see filename.txt` button opens the original input. The `Open in q.uiver` button opens the URL stored in the first line of the input file.
 
+The window now uses the same SVG-style quiver rendering as the module-matrix viewer: circular vertices, directed arrows, labels, and a layout derived from the input quiver structure. Vertex and arrow labels keep a halo for readability; in night mode the quiver switches to a black background with white strokes/text.
+
 ### Sidebar: `Modules`
 
 These buttons highlight special classes of indecomposable modules without altering the graph.
@@ -392,6 +404,8 @@ Gorenstein injective modules found (Node IDs): [...]
 ```
 
 ### Sidebar: `Classes`
+
+Class and tilting lists open in a resizable side drawer. Clicking the same list button again closes the drawer. Rows are sortable where applicable; selecting a row highlights the corresponding modules on the AR-quiver. The drawer path and checkbox path both render the same list content.
 
 #### `Torsion classes`
 
@@ -480,6 +494,8 @@ Opens the list of support $\tau$-tilting pairs. A pair $(P,M)$ is support $\tau$
 P := [...] | M := [...]
 ```
 
+Colour convention: light blue vertices denote the projective part $P$; grey vertices denote the indecomposable summands of $M$. The list is rendered in the side drawer and supports sorting by `P` or `M`.
+
 #### `Almost support τ-tilting`
 
 Opens the list of almost support $\tau$-tilting pairs, which have the same format as support $\tau$-tilting pairs but with total summand count one less than the number of vertices. Data source:
@@ -489,7 +505,47 @@ Opens the list of almost support $\tau$-tilting pairs, which have the same forma
 P := [...] | M := [...]
 ```
 
+The same colour convention is used: light blue for $P$ and grey for $M$.
+
+### Sidebar: `GAP codes`
+
+This section contains copyable GAP/QPA snippets derived from the current input. They are intended for experiments that are better run in GAP than in the browser.
+
+- `Generate this quiver`: reconstructs the quiver, relations, algebra, projective modules, injective modules, simples, and serialised indecomposables.
+- `Find gen(-)`: code for computing generated classes.
+- `Find cogen(-)`: code for computing cogenerated classes.
+- `Extension closure`: code for computing extension closures from the middle-term table.
+- `Ext basis sequences`: code for extracting representative short exact sequences from an $\mathrm{Ext}^1$ basis.
+- `Hom basis matrices`: code for inspecting bases of Hom spaces as matrices.
+- `Module matrices`: code for printing the linear maps defining selected modules.
+
 ### Sidebar: `Tools`
+
+Tool windows are draggable and resizable where appropriate. For `Matrices`, `Class inspector`, `Module matrix`, `Traverse`, `Calculator`, `Export AR-quiver to TeX`, `Display code`, and `Color legend`, clicking the same control button again closes the corresponding window and clears its active state.
+
+#### `Matrices`
+
+Displays adjacency-style matrices for several quiver relations:
+
+- Hom dimensions;
+- $\mathrm{Ext}^1$ dimensions;
+- $\tau$ translation;
+- syzygy and cosyzygy summands;
+- radical and coradical summands.
+
+The output can be shown as plain text, Sage syntax, or LaTeX `pmatrix` syntax. The first line records the node-number order used for rows and columns.
+
+#### `Class inspector`
+
+Inspects a class of modules entered as a list of node numbers. It reports its size, whether it appears as a torsion/torsion-free or cotorsion-side class, and whether it is closed under syzygy, cosyzygy, radical, or coradical operations. Buttons allow using the selected vertices, highlighting the class, storing one class, and comparing the stored class with the current class.
+
+#### `Module matrix`
+
+Displays the explicit linear maps of a selected indecomposable module. The graphical view uses the original quiver layout and can show either dimensions plus matrices or a simpler node/edge view. `Use selected` fills the module label from the selected AR-quiver vertex; `Reset layout` restores the module-matrix node positions.
+
+#### `Traverse`
+
+Iterates a class through one of the available quiver operations: $\tau$, $\tau^{-1}$, syzygy, cosyzygy, radical, or coradical. Enter a seed list and a number of steps, or use the currently selected vertices as the seed.
 
 #### `Calculator`
 
@@ -511,9 +567,9 @@ Notation: `3 + 5` denotes $M_3\oplus M_5$; `3^2 + 5` denotes $M_3^{\oplus 2}\opl
 
 ![image-20260620155056526](https://raw.githubusercontent.com/czhang271828/imgs/New_img//n_imgimage-20260620155056526.png)
 
-#### `Run with GAP`
+#### `Generate this quiver` / `Run with GAP`
 
-Generates copyable `GAP`/`QPA` code that reconstructs the quiver, algebra, projective modules, injective modules, simple modules, and serialised indecomposable modules. The script can be downloaded as a `.g` file.
+The `GAP codes` section provides copyable scripts, and the calculator also has a `Run with GAP` helper. These snippets reconstruct the quiver, algebra, projective modules, injective modules, simple modules, and serialised indecomposable modules when needed. Generated scripts can be downloaded as `.g` files from the corresponding code panel.
 
 #### `Export AR-quiver to TeX`
 
@@ -549,17 +605,17 @@ $$
 
 #### `Display code`
 
-Records the current node positions and arrow-curve offsets as copyable code. The layout can be restored later or transferred to another `html` file with the same underlying graph. Mathematical data are not included.
+Records the current node positions, arrow-curve offsets, and dimmed-arrow state as copyable code. The layout can be restored later or transferred to another `html` file with the same underlying graph. Mathematical data are not included. The button acts as a toggle: click it again to close the display-code window.
 
-For instance, the `Display code` of the above diagram is
+For instance, a display code has the form
 
 ```txt
-ARQ2.YWaWcWeWVVTVXVRVZVPVbVNVdVVXfXXXdXZXbXeUcUOUaUQUYUSUWUUUOWUYeYWYcYYYaYVZZZXZ.0aV0cV0eV0gV0iV0kV0mV0oV0qV1KX1SX1ZX1fY
+ARQ3.<node-position-code>.<curve-code>.<dimmed-arrow-code>
 ```
 
 #### `Color legend`
 
-Opens a draggable legend summarising all visual conventions: vertex borders, module-class colours, AR arrows, $\tau$-arrows, syzygy, cosyzygy, radical, coradical, $\mathrm{Hom}$ and $\mathrm{Ext}^1$ arrows, torsion/cotorsion colours, tilting colours, support $\tau$-tilting colours, calculator colours, and floating labels.
+Opens a draggable legend summarising all visual conventions: vertex borders, module-class colours, AR arrows, $\tau$-arrows, syzygy, cosyzygy, radical, coradical, $\mathrm{Hom}$ and $\mathrm{Ext}^1$ arrows, torsion/cotorsion colours, tilting colours, support $\tau$-tilting colours, calculator colours, and floating labels. The legend follows day/night mode; in particular, the `AR irreducible arrow` swatch is black in day mode and white in night mode.
 
 ## Acknowledgements
 

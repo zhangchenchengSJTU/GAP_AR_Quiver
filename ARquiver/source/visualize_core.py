@@ -1385,6 +1385,55 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           });
         }
 
+        function clearCanvasView() {
+          if (drawer) closeListDrawer(true);
+          clearListColoring();
+          ['calculatorPanel','arTexExportModal','arDisplayCodeModal','arColorLegendModal','arQuiverTikzModal','arGapCodePanel','arHistoryPanel','arMatrixPanel','arClassInspectorPanel','arModuleMatrixPanel','arTraversePanel','quiverMiniContainer'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+          });
+          ['syzToggle','cosyzToggle','radToggle','coradToggle','homToggle','extToggle','quiverToggle','tiltingToggle','torsionPairToggle','cotorsionPairToggle','supportTauToggle','almostSupportTauToggle','pdToggle','idToggle','topToggle','socToggle'].forEach(id => setCheckbox(id, false));
+          ['irrToggle','trToggle','borderToggle'].forEach(id => setCheckbox(id, true));
+          applyNodeLabelMode('dimension');
+          network.unselectAll();
+          network.redraw();
+          applyNightModeColors();
+          if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
+        }
+
+        function applyNightModeColors() {
+          if (!network || !network.body || !network.body.data || !network.body.data.edges) return;
+          const night = document.documentElement.classList.contains('ar-night-mode');
+          const updates = [];
+          network.body.data.edges.get().forEach(edge => {
+            if (!isIrreducibleEdge(edge) || edge.hidden) return;
+            const current = getEdgeColor(edge);
+            const saved = edge._arDayColor || current;
+            if (night) {
+              if (current === '#000000' || current === 'black') {
+                updates.push({ id: edge.id, _arDayColor: saved, color: { ...(typeof edge.color === 'object' ? edge.color : {}), color: '#ffffff' } });
+              }
+            } else if (edge._arDayColor) {
+              updates.push({ id: edge.id, _arDayColor: null, color: { ...(typeof edge.color === 'object' ? edge.color : {}), color: edge._arDayColor } });
+            }
+          });
+          if (updates.length) network.body.data.edges.update(updates);
+          network.redraw();
+        }
+
+        function toggleNightMode() {
+          document.documentElement.classList.toggle('ar-night-mode');
+          const on = document.documentElement.classList.contains('ar-night-mode');
+          applyNightModeColors();
+          if (menuBar) {
+            const btn = menuBar.querySelector('button[data-action="toggle-night"]');
+            if (btn) {
+              btn.classList.toggle('ar-top-active', on);
+              btn.textContent = on ? 'Night mode' : 'Day mode';
+            }
+          }
+        }
+
         function addMenuStyles() {
           const style = document.createElement('style');
           style.textContent = `
@@ -1418,13 +1467,107 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             #arTopMenu button.ar-top-active { background:#dbeafe; color:#1d4ed8; font-weight:700; }
             #arTopMenu .ar-title { font-weight: 650; margin-right: 8px; }
             #arTopMenu .ar-spacer { flex: 1; }
+            html.ar-night-mode body { background:#000; }
+            html.ar-night-mode #mynetwork { background:#000 !important; }
+            html.ar-night-mode #arFolderPanel,
+            html.ar-night-mode #arListDrawer,
+            html.ar-night-mode #calculatorPanel,
+            html.ar-night-mode #arTexExportModal,
+            html.ar-night-mode #arDisplayCodeModal,
+            html.ar-night-mode #arColorLegendModal,
+            html.ar-night-mode #arQuiverTikzModal,
+            html.ar-night-mode #arGapCodePanel,
+            html.ar-night-mode #arHistoryPanel,
+            html.ar-night-mode #arMatrixPanel,
+            html.ar-night-mode #arClassInspectorPanel,
+            html.ar-night-mode #arModuleMatrixPanel,
+            html.ar-night-mode #arTraversePanel,
+            html.ar-night-mode #quiverMiniContainer {
+              background:#050505 !important;
+              color:#f8fafc !important;
+              border-color:#475569 !important;
+            }
+            html.ar-night-mode #arFolderPanel .ar-panel-head,
+            html.ar-night-mode #arListDrawer .ar-panel-head,
+            html.ar-night-mode #arGapCodePanel .ar-panel-head,
+            html.ar-night-mode #quiverMiniHeader,
+            html.ar-night-mode #arTexExportModal > div:first-child,
+            html.ar-night-mode #arDisplayCodeModal > div:first-child,
+            html.ar-night-mode #arColorLegendModal > div:first-child,
+            html.ar-night-mode [id$="Panel"] > div:first-child {
+              background:#111827 !important;
+              color:#f8fafc !important;
+              border-color:#475569 !important;
+            }
+            html.ar-night-mode #arFolderPanel summary,
+            html.ar-night-mode #arFolderPanel button,
+            html.ar-night-mode #arListDrawer,
+            html.ar-night-mode .ar-tool-body,
+            html.ar-night-mode pre,
+            html.ar-night-mode textarea,
+            html.ar-night-mode input,
+            html.ar-night-mode select {
+              background:#050505 !important;
+              color:#f8fafc !important;
+              border-color:#475569 !important;
+            }
+            html.ar-night-mode #arFolderPanel button:hover { background:#1e293b !important; }
+            html.ar-night-mode #arFolderPanel button.ar-control-active,
+            html.ar-night-mode #arTopMenu button.ar-top-active { background:#1e3a8a !important; color:#ffffff !important; }
+            html.ar-night-mode #arColorLegendModal section div,
+            html.ar-night-mode #arColorLegendModal strong { color:#f8fafc !important; }
+            html.ar-night-mode #arModuleMatrixGraph,
+            html.ar-night-mode #quiverMini,
+            html.ar-night-mode #arModuleMatrixGraph svg,
+            html.ar-night-mode #quiverMini svg {
+              background:#000 !important;
+            }
+            html.ar-night-mode #arModuleMatrixGraph line,
+            html.ar-night-mode #arModuleMatrixGraph circle,
+            html.ar-night-mode #arModuleMatrixGraph path,
+            html.ar-night-mode #quiverMini line,
+            html.ar-night-mode #quiverMini circle,
+            html.ar-night-mode #quiverMini path {
+              stroke:#ffffff !important;
+            }
+            html.ar-night-mode #arModuleMatrixGraph marker path,
+            html.ar-night-mode #quiverMini marker path { fill:#ffffff !important; stroke:none !important; }
+            html.ar-night-mode #arModuleMatrixGraph text,
+            html.ar-night-mode #arModuleMatrixGraph tspan,
+            html.ar-night-mode #quiverMini text,
+            html.ar-night-mode #quiverMini tspan { fill:#ffffff !important; color:#ffffff !important; stroke:#000000 !important; }
+            html.ar-night-mode button[style*="background:transparent"],
+            html.ar-night-mode button[id$="Close"],
+            html.ar-night-mode #quiverMiniClose,
+            html.ar-night-mode #arDrawerClose,
+            html.ar-night-mode #arLegendClose,
+            html.ar-night-mode #arTexClose,
+            html.ar-night-mode #arDisplayCodeClose { color:#ffffff !important; }
+            html.ar-night-mode #tiltingList,
+            html.ar-night-mode #torsionPairList,
+            html.ar-night-mode #cotorsionPairList,
+            html.ar-night-mode #supportTauList,
+            html.ar-night-mode #almostSupportTauList,
+            html.ar-night-mode #arListDrawerBody,
+            html.ar-night-mode #arListDrawerBody > div,
+            html.ar-night-mode #arListDrawerBody button,
+            html.ar-night-mode .ar-record-row {
+              background:#050505 !important;
+              color:#f8fafc !important;
+              border-color:#475569 !important;
+            }
+            html.ar-night-mode #arListDrawerBody button[style*="rgb(204, 251, 241)"],
+            html.ar-night-mode #arListDrawerBody button[style*="#ccfbf1"] { background:#115e59 !important; color:#ffffff !important; border-color:#5eead4 !important; }
+            html.ar-night-mode #arModuleMatrixGraph circle { fill:#000000 !important; stroke:#ffffff !important; }
+            html.ar-night-mode #arColorLegendModal .ar-legend-black > span:first-child { background:#ffffff !important; border-color:#ffffff !important; }
             #arFolderPanel {
               position: fixed;
               top: 42px;
               left: 10px;
               width: 310px;
+              height: calc(100vh - 54px);
               max-height: calc(100vh - 54px);
-              overflow: auto;
+              overflow: hidden;
               background: rgba(255,255,255,0.97);
               border: 1px solid #cbd5e1;
               border-radius: 9px;
@@ -1448,6 +1591,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
               font-weight: 650;
             }
             #arFolderPanel .ar-panel-close { border: 0; background: transparent; font-size: 18px; cursor: pointer; }
+            #arFolderPanelBody { height: calc(100% - 38px); overflow: auto; padding-bottom: 10px; box-sizing: border-box; }
             #arFolderPanel details { border-bottom: 1px solid #eef2f7; }
             #arFolderPanel summary {
               cursor: pointer;
@@ -1667,7 +1811,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
           if (drawer) return;
           drawer = document.createElement('div');
           drawer.id = 'arListDrawer';
-          drawer.innerHTML = '<div class="ar-list-resize-handle ar-list-resize-left" data-resize="left"></div><div class="ar-list-resize-handle ar-list-resize-right" data-resize="right"></div><div class="ar-list-resize-handle ar-list-resize-top" data-resize="top"></div><div class="ar-list-resize-handle ar-list-resize-bottom" data-resize="bottom"></div><div class="ar-list-resize-handle ar-list-resize-nw" data-resize="top left"></div><div class="ar-list-resize-handle ar-list-resize-ne" data-resize="top right"></div><div class="ar-list-resize-handle ar-list-resize-sw" data-resize="bottom left"></div><div class="ar-list-resize-handle ar-list-resize-se" data-resize="bottom right"></div><div class="ar-panel-head"><strong id="arDrawerTitle"></strong><button id="arDrawerClose" class="ar-panel-close">×</button></div><div id="arListDrawerBody"></div>';
+          drawer.innerHTML = '<div class="ar-list-resize-handle ar-list-resize-left" data-resize="left"></div><div class="ar-list-resize-handle ar-list-resize-right" data-resize="right"></div><div class="ar-list-resize-handle ar-list-resize-top" data-resize="top"></div><div class="ar-list-resize-handle ar-list-resize-bottom" data-resize="bottom"></div><div class="ar-list-resize-handle ar-list-resize-nw" data-resize="top left"></div><div class="ar-list-resize-handle ar-list-resize-ne" data-resize="top right"></div><div class="ar-list-resize-handle ar-list-resize-sw" data-resize="bottom left"></div><div class="ar-list-resize-handle ar-list-resize-se" data-resize="bottom right"></div><div class="ar-panel-head"><strong id="arDrawerTitle"></strong><button id="arDrawerClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div id="arListDrawerBody"></div>';
           document.body.appendChild(drawer);
           drawerTitle = drawer.querySelector('#arDrawerTitle');
           drawerBody = drawer.querySelector('#arListDrawerBody');
@@ -2951,7 +3095,7 @@ end;;
           folderPanel.querySelectorAll('button[data-gap-code]').forEach(btn => {
             btn.classList.toggle('ar-control-active', !!activeGapKind && btn.getAttribute('data-gap-code') === activeGapKind);
           });
-          const panelActions = { matrices: 'arMatrixPanel', 'class-inspector': 'arClassInspectorPanel', 'module-matrix': 'arModuleMatrixPanel', traverse: 'arTraversePanel', calculator: 'calculatorPanel' };
+          const panelActions = { matrices: 'arMatrixPanel', 'class-inspector': 'arClassInspectorPanel', 'module-matrix': 'arModuleMatrixPanel', traverse: 'arTraversePanel', calculator: 'calculatorPanel', 'export-tex': 'arTexExportModal', 'display-code': 'arDisplayCodeModal', legend: 'arColorLegendModal' };
           folderPanel.querySelectorAll('button[data-action]').forEach(btn => {
             const action = btn.getAttribute('data-action');
             const panelId = panelActions[action];
@@ -2966,7 +3110,8 @@ end;;
           folderPanel = document.createElement('div');
           folderPanel.id = 'arFolderPanel';
           folderPanel.innerHTML = `
-            <div class="ar-panel-head"><span>Controls</span><button class="ar-panel-close" data-action="close-panel">×</button></div>
+            <div class="ar-panel-head"><span>Controls</span><button data-action="close-panel" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div>
+            <div id="arFolderPanelBody">
             <details open><summary>View</summary><div class="ar-folder-body">
               <button data-toggle="pdToggle">PD</button>
               <button data-toggle="idToggle">ID</button>
@@ -3019,9 +3164,10 @@ end;;
               <button data-action="display-code">Display code</button>
               <button data-action="legend">Color legend</button>
             </div></details>
+            </div>
           `;
           document.body.appendChild(folderPanel);
-          makeFloatingWindow(folderPanel, folderPanel.querySelector('.ar-panel-head'), { minWidth: 220, minHeight: 180 });
+          makeFloatingWindow(folderPanel, folderPanel.querySelector('.ar-panel-head'), { minWidth: 220, minHeight: 180, onResize: (el) => { const body = el.querySelector('#arFolderPanelBody'); const head = el.querySelector('.ar-panel-head'); if (body) body.style.height = Math.max(80, el.getBoundingClientRect().height - (head ? head.offsetHeight : 38)) + 'px'; } });
           folderPanel.addEventListener('click', handleMenuAction);
           refreshFolderControlStates();
         }
@@ -3254,8 +3400,9 @@ end;;
           });
         }
 
-        function showTexExport(mode) {
+        function showTexExport(mode, toggle) {
           let modal = document.getElementById('arTexExportModal');
+          if (toggle && modal && modal.style.display === 'block') { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); return; }
           if (!modal) {
             modal = document.createElement('div');
             modal.id = 'arTexExportModal';
@@ -3275,7 +3422,7 @@ end;;
             modal.style.display = 'none';
             modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong id="arTexExportTitle">Export AR quiver to TeX / xymatrix</strong><button id="arTexClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div style="display:flex;gap:8px;padding:8px 10px;border-bottom:1px solid #e5e7eb;background:#fff;"><button data-tex-mode="xy">xymatrix</button><button data-tex-mode="tikz">TikZ</button></div><textarea id="arTexOutput" style="box-sizing:border-box;width:100%;height:360px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arTexCopy">Copy</button><button id="arTexDownload">Download .tex</button></div>';
             document.body.appendChild(modal);
-            modal.querySelector('#arTexClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelector('#arTexClose').addEventListener('click', () => { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
             modal.querySelectorAll('button[data-tex-mode]').forEach(btn => {
               btn.addEventListener('click', () => setTexExportMode(btn.getAttribute('data-tex-mode')));
             });
@@ -3446,8 +3593,9 @@ end;;
           }
         }
 
-        function showDisplayCodeModal() {
+        function showDisplayCodeModal(toggle) {
           let modal = document.getElementById('arDisplayCodeModal');
+          if (toggle && modal && modal.style.display === 'block') { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); return; }
           if (!modal) {
             modal = document.createElement('div');
             modal.id = 'arDisplayCodeModal';
@@ -3467,7 +3615,7 @@ end;;
             modal.style.display = 'none';
             modal.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #e5e7eb;background:#f8fafc;border-radius:10px 10px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;"><strong>Display code: compact node positions, arrow curves, and dimmed arrows</strong><button id="arDisplayCodeClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><textarea id="arDisplayCodeText" style="box-sizing:border-box;width:100%;height:400px;border:0;border-bottom:1px solid #e5e7eb;padding:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;padding:9px 12px;"><button id="arDisplayCodeRefresh">Refresh from current display</button><button id="arDisplayCodeApply">Apply code</button><button id="arDisplayCodeCopy">Copy</button><button id="arDisplayCodeDownload">Download .txt</button></div>';
             document.body.appendChild(modal);
-            modal.querySelector('#arDisplayCodeClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelector('#arDisplayCodeClose').addEventListener('click', () => { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
             modal.querySelector('#arDisplayCodeRefresh').addEventListener('click', () => { modal.querySelector('#arDisplayCodeText').value = exportDisplayCodeText(); });
             modal.querySelector('#arDisplayCodeApply').addEventListener('click', () => {
               if (applyDisplayCodeText(modal.querySelector('#arDisplayCodeText').value)) alert('Display code applied.');
@@ -3495,10 +3643,11 @@ end;;
           modal.style.display = 'block';
         }
 
-        function showColorLegend() {
+        function showColorLegend(toggle) {
           let modal = document.getElementById('arColorLegendModal');
+          if (toggle && modal && modal.style.display === 'block') { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); return; }
           if (!modal) {
-            const row = (label, color, note, borderColor) => '<div style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="display:inline-block;width:0.95em;height:0.95em;border:2px solid ' + (borderColor || '#64748b') + ';border-radius:2px;background:' + color + ';"></span><span><strong>' + label + '</strong>' + (note ? ' — ' + note : '') + '</span></div>';
+            const row = (label, color, note, borderColor) => '<div class="ar-legend-row ar-legend-' + String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '" style="display:flex;align-items:center;gap:6px;margin:2px 0;"><span style="display:inline-block;width:0.95em;height:0.95em;border:2px solid ' + (borderColor || '#64748b') + ';border-radius:2px;background:' + color + ';"></span><span><strong>' + label + '</strong>' + (note ? ' — ' + note : '') + '</span></div>';
             const section = (title, rows) => '<section style="margin:8px 0;"><div style="font-weight:700;color:#0f172a;margin-bottom:3px;">' + title + '</div>' + rows.join('') + '</section>';
             modal = document.createElement('div');
             modal.id = 'arColorLegendModal';
@@ -3588,7 +3737,7 @@ end;;
                 document.addEventListener('mouseup', onUp);
               });
             }
-            modal.querySelector('#arLegendClose').addEventListener('click', () => { modal.style.display = 'none'; });
+            modal.querySelector('#arLegendClose').addEventListener('click', () => { modal.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
           }
           modal.style.display = 'block';
         }
@@ -3600,10 +3749,10 @@ end;;
             p = document.createElement('div');
             p.id = id;
             p.style.cssText = 'position:fixed;right:32px;top:104px;width:520px;max-width:calc(100vw - 48px);max-height:calc(100vh - 120px);overflow:auto;z-index:1400;background:rgba(255,255,255,.98);border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.18);';
-            p.innerHTML = `<div class="ar-panel-head"><span>${title}</span><button class="ar-panel-close">×</button></div><div class="ar-tool-body" style="padding:10px;font-size:12px;"></div>`;
+            p.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid rgb(229,231,235);background:rgb(248,250,252);border-radius:10px 10px 0 0;font-weight:650;cursor:move;"><span>${title}</span><button class="ar-tool-close" style="border:0;background:transparent;font-size:20px;cursor:pointer;">×</button></div><div class="ar-tool-body" style="padding:10px;font-size:12px;"></div>`;
             document.body.appendChild(p);
-            p.querySelector('.ar-panel-close').addEventListener('click', () => { p.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
-            makeFloatingWindow(p, p.querySelector('.ar-panel-head'), { minWidth: 300, minHeight: 180 });
+            p.querySelector('.ar-tool-close').addEventListener('click', () => { p.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
+            makeFloatingWindow(p, p.firstElementChild, { minWidth: 300, minHeight: 180 });
           }
           p.style.display = 'block';
           return p;
@@ -3659,15 +3808,22 @@ end;;
         function arSameClass(a,b) { a=(a||[]).map(Number).sort((x,y)=>x-y); b=(b||[]).map(Number).sort((x,y)=>x-y); return a.length===b.length && a.every((x,i)=>x===b[i]); }
         function arModuleRecord(id) {
           const text = String(indecomposableModuleDataGap || '');
-          const re = new RegExp('rec\\(id\\s*:=\\s*' + Number(id) + '\\s*,\\s*dim\\s*:=\\s*(\\[[^\\]]*\\])\\s*,\\s*maps\\s*:=\\s*([\\s\\S]*?)\\n\\s*\\)', 'm');
-          const m = text.match(re);
-          if (!m) return null;
+          const startRe = new RegExp('rec\\\\(id\\\\s*:=\\\\s*' + Number(id) + '\\\\s*,', 'm');
+          const startMatch = text.match(startRe);
+          if (!startMatch || startMatch.index === undefined) return null;
+          const start = startMatch.index;
+          const rest = text.slice(start + startMatch[0].length);
+          const nextMatch = rest.match(new RegExp(',\\\\s*rec\\\\(id\\\\s*:=\\\\s*\\\\d+\\\\s*,', 'm'));
+          const block = text.slice(start, nextMatch && nextMatch.index !== undefined ? start + startMatch[0].length + nextMatch.index : text.indexOf('];;', start) > 0 ? text.indexOf('];;', start) : text.length);
+          const dimMatch = block.match(new RegExp('dim\\\\s*:=\\\\s*(\\\\[[^\\\\]]*\\\\])', 'm'));
+          const mapsMatch = block.match(new RegExp('maps\\\\s*:=\\\\s*([\\\\s\\\\S]*?)\\\\s*\\\\]\\\\s*\\\\)', 'm'));
+          if (!dimMatch || !mapsMatch) return null;
           const maps = {};
-          const mapText = m[2];
+          const mapText = mapsMatch[1].trim() + ' ]';
           const mapRe = new RegExp('\\\\[\\\\s*"([^"]+)"\\\\s*,\\\\s*(\\\\[\\\\s*\\\\[[\\\\s\\\\S]*?\\\\]\\\\s*\\\\])\\\\s*\\\\]', 'g');
           let mm;
           while ((mm = mapRe.exec(mapText)) !== null) maps[mm[1]] = mm[2].replace(new RegExp('\\\\s+', 'g'), ' ');
-          return { id: Number(id), dim: m[1].replace(new RegExp('\\\\s+', 'g'), ' '), maps, rawMaps: mapText.trim() };
+          return { id: Number(id), dim: dimMatch[1].replace(new RegExp('\\\\s+', 'g'), ' '), maps, rawMaps: mapText };
         }
         function arModuleMatrixText(id) {
           const rec = arModuleRecord(id);
@@ -3685,36 +3841,176 @@ end;;
           const run = () => { let cls = arParseClassText(b.querySelector('#arInspectClass').value); b.querySelector('#arInspectOut').textContent = ['Class: '+arClassText(cls),'Size: '+cls.length,'Torsion class: '+(arInTable(cls,torsionPairData,['T'])?'yes':'no'),'Torsionfree class: '+(arInTable(cls,torsionPairData,['F'])?'yes':'no'),'Left cotorsion class: '+(arInTable(cls,cotorsionPairData,['L'])?'yes':'no'),'Right cotorsion class: '+(arInTable(cls,cotorsionPairData,['R'])?'yes':'no'),'Syzygy closed: '+(arSameClass(cls,arClosureByEdges(cls,syzygyEdges))?'yes':'no'),'Cosyzygy closed: '+(arSameClass(cls,arClosureByEdges(cls,cosyzygyEdges))?'yes':'no'),'Radical closed: '+(arSameClass(cls,arClosureByEdges(cls,radicalEdges))?'yes':'no'),'Coradical closed: '+(arSameClass(cls,arClosureByEdges(cls,coradicalEdges))?'yes':'no'),'Stored: '+arClassText(arStoredClass)].join('\\n'); arRecord('inspect','Inspect '+arClassText(cls),{ids:cls}); };
           b.querySelector('#arInspectRun').onclick = run; b.querySelector('#arInspectSel').onclick = () => { b.querySelector('#arInspectClass').value = arClassText(network.getSelectedNodes()); run(); }; b.querySelector('#arInspectHigh').onclick = () => { const cls=arParseClassText(b.querySelector('#arInspectClass').value); arHighlightClass(cls); arRecord('class','Highlight '+arClassText(cls),{ids:cls}); }; b.querySelector('#arInspectStore').onclick = () => { arStoredClass = arParseClassText(b.querySelector('#arInspectClass').value); run(); }; b.querySelector('#arInspectCompare').onclick = () => { const cls=arParseClassText(b.querySelector('#arInspectClass').value), A=new Set(arStoredClass), B=new Set(cls); b.querySelector('#arInspectOut').textContent = ['stored = '+arClassText(arStoredClass),'current = '+arClassText(cls),'union = '+arClassText([...new Set([...A,...B])]),'intersection = '+arClassText([...A].filter(x=>B.has(x))),'stored minus current = '+arClassText([...A].filter(x=>!B.has(x)))].join('\\n'); }; run();
         }
+        let arModuleMatrixNodePositions = new Map();
+        let arModuleMatrixLabelPositions = new Map();
         function arShowModuleMatrix(toggle) {
           const existing = document.getElementById('arModuleMatrixPanel');
           if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
           const p = arToolPanel('arModuleMatrixPanel', 'Module matrix'), b = p.querySelector('.ar-tool-body');
-          b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><label>Module label <input id="arModuleMatrixId" type="number" min="1" value="1" style="width:80px;"></label><button id="arModuleMatrixSelected">Use selected</button></div><div id="arModuleMatrixGraph" style="width:100%;height:300px;border:1px solid #ddd;background:white;"></div><pre id="arModuleMatrixText" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:180px;overflow:auto;"></pre>`;
+          b.innerHTML = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;"><label>Module label <input id="arModuleMatrixId" type="number" min="1" value="1" style="width:80px;"></label><label>Labels <select id="arModuleMatrixMode"><option value="matrix">dimensions + matrices</option><option value="structure">node + edge</option></select></label><button id="arModuleMatrixSelected">Use selected</button><button id="arModuleMatrixReset">Reset layout</button></div><div id="arModuleMatrixGraph" style="width:100%;height:320px;border:1px solid #ddd;background:white;overflow:hidden;"></div><pre id="arModuleMatrixText" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:180px;overflow:auto;"></pre>`;
           const draw = () => {
-            const id = Number(b.querySelector('#arModuleMatrixId').value || 1);
-            const rec = arModuleRecord(id);
-            b.querySelector('#arModuleMatrixText').textContent = arModuleMatrixText(id);
-            const dims = rec && rec.dim ? rec.dim.replace(new RegExp('[\\\\[\\\\]]', 'g'), '').split(',').map(x => x.trim()) : [];
-            const nodes = new vis.DataSet((quiverNodes || []).map(n => ({
-              id: n.id,
-              label: String(n.label) + (dims[Number(n.id) - 1] !== undefined ? '\\n dim ' + dims[Number(n.id) - 1] : ''),
-              shape: 'circle',
-              font: { face: 'monospace', size: 13, bold: true, color: 'black' },
-              color: { border: '#000000', background: '#ffffff', highlight: { border: '#00aa00', background: '#ffffff' } },
-              borderWidth: 2
-            })));
-            const edges = new vis.DataSet((quiverEdges || []).map((e, i) => {
-              const name = e[2] || '';
-              const mat = rec && rec.maps && rec.maps[name] ? rec.maps[name] : '0';
-              return { id: 'mm_' + i, from: e[0], to: e[1], label: name + ': ' + mat, arrows: 'to', color: { color: '#000000', highlight: '#00aa00' }, font: { align: 'horizontal', size: 11, face: 'monospace', color: '#000000' }, smooth: false };
-            }));
-            const target = b.querySelector('#arModuleMatrixGraph');
-            target.innerHTML = '';
-            const net = new vis.Network(target, { nodes, edges }, { physics: false, interaction: { dragNodes: true, zoomView: true, dragView: true }, edges: { selectionWidth: 2, smooth: false } });
-            setTimeout(() => net.fit({ animation: false }), 0);
-            arRecord('module-matrix', 'Show module matrix M[' + id + ']', { id });
+            try {
+              const id = Number(b.querySelector('#arModuleMatrixId').value || 1);
+              const mode = b.querySelector('#arModuleMatrixMode').value || 'matrix';
+              const rec = arModuleRecord(id);
+              b.querySelector('#arModuleMatrixText').textContent = arModuleMatrixText(id);
+              const dimText = rec && rec.dim ? rec.dim.trim() : '';
+              const dims = dimText ? dimText.slice(dimText.startsWith('[') ? 1 : 0, dimText.endsWith(']') ? -1 : dimText.length).split(',').map(x => x.trim()) : [];
+              const layoutPositions = {};
+              if (quiverStructure) {
+                let s = String(quiverStructure).trim();
+                if (s.startsWith('[') && s.endsWith(']')) s = s.slice(1, -1);
+                s.split(';').forEach((row, rowIdx) => {
+                  let colIdx = 0;
+                  for (let i = 0; i < row.length; i++) {
+                    if ('0123456789'.indexOf(row[i]) >= 0) { const nid = parseInt(row[i]); layoutPositions[nid] = { x: colIdx * 100, y: rowIdx * 100 }; colIdx++; }
+                    else colIdx++;
+                  }
+                });
+              }
+              const target = b.querySelector('#arModuleMatrixGraph');
+              const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+              const matrixLines = value => {
+                const raw = String(value == null || value === '' ? '0' : value).trim();
+                if (raw === '0' || raw === '[]') return ['0'];
+                const rows = [];
+                const text = raw.replace(new RegExp('\\s+', 'g'), ' ');
+                let depth = 0, start = -1;
+                for (let i = 0; i < text.length; i++) {
+                  if (text[i] === '[') { depth++; if (depth === 2) start = i + 1; }
+                  if (text[i] === ']') { if (depth === 2 && start >= 0) rows.push(text.slice(start, i).split(',').map(x => x.trim()).filter(Boolean).join(' ')); depth--; }
+                }
+                return rows.length ? rows : [text.replace(new RegExp('[\\\\[\\\\],]', 'g'), ' ').trim().replace(new RegExp('\\\\s+', 'g'), ' ') || '0'];
+              };
+              const textBlock = (lines, attrs) => {
+                const safe = (lines && lines.length ? lines : ['']).map(esc);
+                return `<text x="0" y="0" ${attrs}>` + safe.map((line, i) => `<tspan x="0" dy="${i === 0 ? 0 : 14}">${line}</tspan>`).join('') + `</text>`;
+              };
+              const posValues = Object.values(layoutPositions);
+              let minX = posValues.length ? Math.min(...posValues.map(p => p.x)) : 0;
+              let minY = posValues.length ? Math.min(...posValues.map(p => p.y)) : 0;
+              let maxX = posValues.length ? Math.max(...posValues.map(p => p.x)) : 240;
+              let maxY = posValues.length ? Math.max(...posValues.map(p => p.y)) : 160;
+              const pad = 70;
+              const initialPosOf = (nodeId, idx) => {
+                const p0 = layoutPositions[nodeId];
+                if (p0) return { x: p0.x - minX + pad, y: p0.y - minY + pad };
+                return { x: pad + (idx % 4) * 100, y: pad + Math.floor(idx / 4) * 90 };
+              };
+              const qNodes = (quiverNodes || []);
+              const nodePos = new Map(qNodes.map((n, idx) => {
+                const key = String(n.id);
+                return [Number(n.id), arModuleMatrixNodePositions.get(key) || initialPosOf(n.id, idx)];
+              }));
+              if (!posValues.length && qNodes.length) { maxX = Math.max(...Array.from(nodePos.values()).map(p0 => p0.x)); maxY = Math.max(...Array.from(nodePos.values()).map(p0 => p0.y)); minX = 0; minY = 0; }
+              const width = Math.max(260, maxX - minX + pad * 2);
+              const height = Math.max(180, maxY - minY + pad * 2);
+              const edgePoint = (a, c, sign) => {
+                const dx = c.x - a.x, dy = c.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+                return { x: a.x + sign * dx / len * 14, y: a.y + sign * dy / len * 14 };
+              };
+              const edgeSvg = (quiverEdges || []).map((e, i) => {
+                const a = nodePos.get(Number(e[0])) || initialPosOf(e[0], i);
+                const c = nodePos.get(Number(e[1])) || initialPosOf(e[1], i + 1);
+                const from = edgePoint(a, c, 1), to = edgePoint(c, a, 1);
+                const name = e[2] || '';
+                const mat = rec && rec.maps && rec.maps[name] ? rec.maps[name] : '0';
+                const key = 'e' + i;
+                const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+                const labelOffset = arModuleMatrixLabelPositions.get(key) || { x: 0, y: -8 };
+                const labelPos = { x: mid.x + labelOffset.x, y: mid.y + labelOffset.y };
+                const lines = mode === 'structure' ? [name] : matrixLines(mat);
+                return `<g class="mm-edge" data-edge="${i}" data-from="${esc(e[0])}" data-to="${esc(e[1])}"><line data-edge-line="${i}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#000" stroke-width="1.8" marker-end="url(#mmArrow)"/></g><g class="mm-edge-label" data-label-key="${key}" transform="translate(${labelPos.x},${labelPos.y})" style="cursor:move;user-select:none;">${textBlock(lines, 'text-anchor="middle" font-family="monospace" font-size="11" fill="#111827"')}</g>`;
+              }).join('');
+              const nodeSvg = qNodes.map((n, idx) => {
+                const p0 = nodePos.get(Number(n.id)) || initialPosOf(n.id, idx);
+                const dim = dims[Number(n.id) - 1] !== undefined ? dims[Number(n.id) - 1] : '0';
+                const label = mode === 'structure' ? String(n.label) : dim;
+                return `<g class="mm-node" data-node-id="${esc(n.id)}" transform="translate(${p0.x},${p0.y})" style="cursor:move;user-select:none;"><circle cx="0" cy="0" r="12" fill="#fff" stroke="#000" stroke-width="2"></circle><text x="0" y="4" text-anchor="middle" font-family="monospace" font-weight="700" font-size="12">${esc(label)}</text></g>`;
+              }).join('');
+              target.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="display:block;background:white;"><defs><marker id="mmArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/></marker></defs>${edgeSvg}${nodeSvg}</svg>`;
+              const svg = target.querySelector('svg');
+              const svgPoint = event => {
+                const rect = svg.getBoundingClientRect();
+                const vb = svg.viewBox.baseVal;
+                return { x: vb.x + (event.clientX - rect.left) * vb.width / rect.width, y: vb.y + (event.clientY - rect.top) * vb.height / rect.height };
+              };
+              const parseTranslate = el => {
+                const m = String(el.getAttribute('transform') || '').match(new RegExp('translate\\\\(([-0-9.]+),([-0-9.]+)\\\\)'));
+                return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 };
+              };
+              const currentNodePos = nodeId => {
+                const g = svg.querySelector(`.mm-node[data-node-id="${CSS.escape(String(nodeId))}"]`);
+                return g ? parseTranslate(g) : (nodePos.get(Number(nodeId)) || { x: 0, y: 0 });
+              };
+              const updateEdge = idx => {
+                const line = svg.querySelector(`[data-edge-line="${idx}"]`);
+                const edge = svg.querySelector(`.mm-edge[data-edge="${idx}"]`);
+                if (!line || !edge) return;
+                const a = currentNodePos(edge.getAttribute('data-from'));
+                const c = currentNodePos(edge.getAttribute('data-to'));
+                const from = edgePoint(a, c, 1), to = edgePoint(c, a, 1);
+                line.setAttribute('x1', from.x); line.setAttribute('y1', from.y);
+                line.setAttribute('x2', to.x); line.setAttribute('y2', to.y);
+                const key = 'e' + idx;
+                const label = svg.querySelector(`.mm-edge-label[data-label-key="${key}"]`);
+                if (label) {
+                  const offset = arModuleMatrixLabelPositions.get(key) || { x: 0, y: -8 };
+                  label.setAttribute('transform', `translate(${(from.x + to.x) / 2 + offset.x},${(from.y + to.y) / 2 + offset.y})`);
+                }
+              };
+              let drag = null;
+              svg.querySelectorAll('.mm-node').forEach(g => {
+                g.addEventListener('mousedown', event => {
+                  const p0 = svgPoint(event), cur = parseTranslate(g);
+                  drag = { type: 'node', el: g, id: g.getAttribute('data-node-id'), dx: p0.x - cur.x, dy: p0.y - cur.y };
+                  document.addEventListener('mousemove', onMove);
+                  document.addEventListener('mouseup', onUp);
+                  event.preventDefault(); event.stopPropagation();
+                });
+              });
+              svg.querySelectorAll('.mm-edge-label').forEach(g => {
+                g.addEventListener('mousedown', event => {
+                  const p0 = svgPoint(event), cur = parseTranslate(g);
+                  drag = { type: 'label', el: g, key: g.getAttribute('data-label-key'), dx: p0.x - cur.x, dy: p0.y - cur.y };
+                  document.addEventListener('mousemove', onMove);
+                  document.addEventListener('mouseup', onUp);
+                  event.preventDefault(); event.stopPropagation();
+                });
+              });
+              const onMove = event => {
+                if (!drag) return;
+                const p0 = svgPoint(event), x = p0.x - drag.dx, y = p0.y - drag.dy;
+                drag.el.setAttribute('transform', `translate(${x},${y})`);
+                if (drag.type === 'node') {
+                  arModuleMatrixNodePositions.set(String(drag.id), { x, y });
+                  (quiverEdges || []).forEach((e, idx) => { if (String(e[0]) === String(drag.id) || String(e[1]) === String(drag.id)) updateEdge(idx); });
+                } else {
+                  const idx = Number(String(drag.key || '').replace(/^e/, ''));
+                  const edge = svg.querySelector(`.mm-edge[data-edge="${idx}"]`);
+                  if (edge) {
+                    const a = currentNodePos(edge.getAttribute('data-from'));
+                    const c = currentNodePos(edge.getAttribute('data-to'));
+                    const from = edgePoint(a, c, 1), to = edgePoint(c, a, 1);
+                    arModuleMatrixLabelPositions.set(String(drag.key), { x: x - (from.x + to.x) / 2, y: y - (from.y + to.y) / 2 });
+                  } else {
+                    arModuleMatrixLabelPositions.set(String(drag.key), { x, y });
+                  }
+                }
+                event.preventDefault();
+              };
+              const onUp = () => { drag = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+              arRecord('module-matrix', 'Show module matrix M[' + id + ']', { id });
+            } catch (err) {
+              const target = b.querySelector('#arModuleMatrixGraph');
+              const out = b.querySelector('#arModuleMatrixText');
+              if (target) target.innerHTML = '<div style="padding:12px;color:#b91c1c;">Module matrix render error. See details below.</div>';
+              if (out) out.textContent = String(err && err.stack || err);
+            }
           };
           b.querySelector('#arModuleMatrixId').oninput = draw;
+          b.querySelector('#arModuleMatrixMode').onchange = draw;
+          b.querySelector('#arModuleMatrixReset').onclick = () => { arModuleMatrixNodePositions = new Map(); arModuleMatrixLabelPositions = new Map(); draw(); };
           b.querySelector('#arModuleMatrixSelected').onclick = () => { const selected = network.getSelectedNodes(); if (selected.length) b.querySelector('#arModuleMatrixId').value = selected[0]; draw(); };
           draw();
         }
@@ -3755,7 +4051,7 @@ end;;
               if (toggleEl) arRecord('toggle', `${toggleId} ${toggleEl.checked ? 'on' : 'off'}`, { id: toggleId, checked: toggleEl.checked });
             }
           }
-          if (!toggleId && !clickId && !listSpec && action && !['calculator','matrices','class-inspector','module-matrix','traverse'].includes(action)) {
+          if (!toggleId && !clickId && !listSpec && action && !['calculator','matrices','class-inspector','module-matrix','traverse','export-tex','display-code','legend'].includes(action)) {
             btn.classList.add('ar-control-active');
             setTimeout(() => btn.classList.remove('ar-control-active'), 350);
           }
@@ -3775,7 +4071,8 @@ end;;
           if (action === 'close-panel') folderPanel.style.display = 'none';
           if (action === 'fit') network.fit({ animation: true });
           if (action === 'toggle-ui') toggleMenuUi();
-          if (action === 'clear-colors') clearListColoring();
+          if (action === 'clear-colors') clearCanvasView();
+          if (action === 'clear-canvas') clearCanvasView();
           if (action === 'undo' && typeof undo === 'function') undo();
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
@@ -3784,9 +4081,9 @@ end;;
           if (action === 'class-inspector') arShowInspector(true);
           if (action === 'module-matrix') arShowModuleMatrix(true);
           if (action === 'traverse') arShowTraverse(true);
-          if (action === 'export-tex') showTexExport('xy');
-          if (action === 'display-code') showDisplayCodeModal();
-          if (action === 'legend') showColorLegend();
+          if (action === 'export-tex') showTexExport('xy', true);
+          if (action === 'display-code') showDisplayCodeModal(true);
+          if (action === 'legend') showColorLegend(true);
           refreshFolderControlStates();
         }
 
@@ -3891,7 +4188,7 @@ end;;
           createFolderPanel();
           menuBar = document.createElement('div');
           menuBar.id = 'arTopMenu';
-          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="history">History</button><button data-action="fit">Fit graph</button><button data-action="undo">Ctrl+Z</button><button data-action="redo">Ctrl+Y</button><button data-action="clear-colors">Clear colors</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
+          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="history">History</button><button data-action="fit">Fit graph</button><button data-action="clear-canvas">Clear canvas</button><button data-action="module-matrix">Modules matrix</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span><button data-action="toggle-night">Day/Night</button>';
           document.body.appendChild(menuBar);
           menuBar.querySelectorAll('button[data-label-mode]').forEach(button => {
             nodeLabelButtons.set(button.getAttribute('data-label-mode'), button);
@@ -3911,9 +4208,9 @@ end;;
             }
             if (action === 'history') arShowHistory(true);
             if (action === 'fit') network.fit({ animation: true });
-            if (action === 'undo' && typeof undo === 'function') undo();
-            if (action === 'redo' && typeof redo === 'function') redo();
-            if (action === 'clear-colors') clearListColoring();
+            if (action === 'clear-canvas') clearCanvasView();
+            if (action === 'module-matrix') arShowModuleMatrix(true);
+            if (action === 'toggle-night') toggleNightMode();
           });
         }
 
@@ -4100,6 +4397,17 @@ end;;
         const nextSet = new Set();
         addSplitFill(item.L || [], 'top', arColors.cotorsionL, nextSet);
         addSplitFill(item.R || [], 'bottom', arColors.cotorsionR, nextSet);
+        pairHighlighted = nextSet;
+        network.unselectAll();
+        network.redraw();
+      }
+
+      function applySupportTauHighlight(item) {
+        resetTiltingStyles();
+        resetPairStyles();
+        const nextSet = new Set();
+        applyFullFill(item.P || [], arColors.supportP, nextSet);
+        applyFullFill(item.M || [], arColors.supportM, nextSet);
         pairHighlighted = nextSet;
         network.unselectAll();
         network.redraw();
@@ -4405,13 +4713,53 @@ end;;
       }
 
       function renderSupportTauList(containerId, data, title) {
-        renderButtonRecordList(
-          containerId,
-          data,
-          title,
-          [{ key: 'P', label: 'P' }, { key: 'M', label: 'M' }],
-          applySupportTauHighlight
-        );
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        try {
+          if (!Array.isArray(data) || data.length === 0) {
+            el.innerHTML = `<b>${title}</b><br/><span style="color:#666;">No data.</span>`;
+            return;
+          }
+          const state = ensureListState(containerId, 'M');
+          state.apply = applySupportTauHighlight;
+          const safeList = arr => (!arr || arr.length === 0) ? '0' : arr.join(',');
+          let rows = data.map((item, originalIndex) => ({ item, originalIndex }));
+          const key = state.sortKey === 'P' ? 'P' : 'M';
+          rows.sort((a, b) => compareByColumn(a, b, key, state.sortMode));
+          state.rows = rows;
+          if (state.selectedIndex >= rows.length) state.selectedIndex = rows.length - 1;
+          const modeText = state.sortMode === 'lex' ? 'lex' : 'length+lex';
+          const headerButtons = ['P','M'].map(col => {
+            const active = key === col;
+            return `<button type="button" data-sort-key="${col}" style="font-size:11px; margin-right:4px; padding:2px 6px; border:1px solid ${active ? '#0f766e' : '#ccc'}; border-radius:4px; background:${active ? '#ccfbf1' : '#fff'}; cursor:pointer;">${col}${active ? ` (${modeText})` : ''}</button>`;
+          }).join('');
+          const items = rows.map((row, idx) => {
+            const item = row.item || {};
+            const body = item.labelText || `P=[${safeList(item.P || [])}] | M=[${safeList(item.M || [])}]`;
+            return `<button type="button" data-row="${idx}" class="ar-record-row">${idx + 1}. ${body}</button>`;
+          }).join('');
+          el.innerHTML = `<b>${title}</b><div style="margin:4px 0;">${headerButtons}</div><div role="listbox">${items}</div>`;
+          el.onclick = event => {
+            const sortBtn = event.target.closest('button[data-sort-key]');
+            if (sortBtn && el.contains(sortBtn)) {
+              const nextKey = sortBtn.getAttribute('data-sort-key');
+              if (state.sortKey === nextKey) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
+              else { state.sortKey = nextKey; state.sortMode = 'lex'; }
+              state.selectedIndex = 0;
+              renderSupportTauList(containerId, data, title);
+              return;
+            }
+            const rowBtn = event.target.closest('button[data-row]');
+            if (rowBtn && el.contains(rowBtn)) activateButtonListRow(containerId, Number(rowBtn.getAttribute('data-row')));
+          };
+          el.onkeydown = event => {
+            if (event.key === 'ArrowDown') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex + 1); }
+            if (event.key === 'ArrowUp') { event.preventDefault(); activateButtonListRow(containerId, state.selectedIndex - 1); }
+          };
+          if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
+        } catch (err) {
+          el.innerHTML = `<b>${title}</b><pre style="white-space:pre-wrap;color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;padding:8px;">Support tau render error: ${err && err.stack ? err.stack : String(err)}</pre>`;
+        }
       }
 
       function renderTorsionClassListLikeCotorsion(containerId) {
@@ -5217,7 +5565,7 @@ end;;
         miniContainer.style.zIndex = '20000';
         miniContainer.style.boxSizing = 'border-box';
         miniContainer.innerHTML = `
-          <div id="quiverMiniHeader" class="ar-panel-head" style="font-size:12px; margin:-6px -6px 6px -6px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><span style="display:flex;gap:6px;align-items:center;"><button id="quiverOpenBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">Open in q.uiver</button><button id="quiverTikzBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">see ${originalQuiverFilename || 'quiver.txt'}</button><button id="quiverMiniClose" class="ar-panel-close" type="button">×</button></span></div>
+          <div id="quiverMiniHeader" class="ar-panel-head" style="font-size:12px; margin:-6px -6px 6px -6px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><span style="display:flex;gap:6px;align-items:center;"><button id="quiverOpenBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">Open in q.uiver</button><button id="quiverTikzBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">see ${originalQuiverFilename || 'quiver.txt'}</button><button id="quiverMiniClose" style="border:0;background:transparent;font-size:20px;cursor:pointer;" type="button">×</button></span></div>
           <div id="quiverMini" style="width:100%; height:220px; border:1px solid #ddd; background:white; box-sizing:border-box;"></div>
           <div id="quiverRel" style="margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;"></div>
         `;
@@ -5252,7 +5600,7 @@ end;;
           return;
         }
 
-        // Layout nodes using QuiverStructure
+        const esc = x => String(x == null ? '' : x).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
         let layoutPositions = {};
         if (quiverStructure) {
           let s = quiverStructure.trim();
@@ -5261,7 +5609,7 @@ end;;
           rows.forEach((row, rowIdx) => {
             let colIdx = 0;
             for (let i = 0; i < row.length; i++) {
-              if (/\\d/.test(row[i])) {
+              if ('0123456789'.indexOf(row[i]) >= 0) {
                 const nid = parseInt(row[i]);
                 layoutPositions[nid] = { x: colIdx * 100, y: rowIdx * 100 };
                 colIdx++;
@@ -5271,41 +5619,35 @@ end;;
             }
           });
         }
-
-        const nodes = new vis.DataSet(quiverNodes.map(n => {
-          const pos = layoutPositions[n.id] || {};
-          return {
-            id: n.id,
-            label: String(n.label),
-            shape: 'circle',
-            font: { face: 'monospace', size: 14, bold: true, color: 'black', vadjust: 0, align: 'center' },
-            color: { border: '#000000', background: '#ffffff', highlight: { border: '#00aa00', background: '#ffffff' } },
-            borderWidth: showBorders ? 2 : 0,
-            ...(pos.x !== undefined ? { x: pos.x, y: pos.y } : {})
-          };
+        const rawPos = quiverNodes.map((n, idx) => layoutPositions[n.id] || { x: (idx % 4) * 100, y: Math.floor(idx / 4) * 90 });
+        const minX = rawPos.length ? Math.min(...rawPos.map(p => p.x)) : 0;
+        const minY = rawPos.length ? Math.min(...rawPos.map(p => p.y)) : 0;
+        const maxX = rawPos.length ? Math.max(...rawPos.map(p => p.x)) : 240;
+        const maxY = rawPos.length ? Math.max(...rawPos.map(p => p.y)) : 160;
+        const pad = 70;
+        const nodePos = new Map(quiverNodes.map((n, idx) => {
+          const p = rawPos[idx];
+          return [Number(n.id), { x: p.x - minX + pad, y: p.y - minY + pad }];
         }));
-        const edges = new vis.DataSet(quiverEdges.map((e, i) => ({
-          id: `q_${i}` ,
-          from: e[0],
-          to: e[1],
-          label: e[2] || '',
-          arrows: 'to',
-          font: { align: 'horizontal', size: 12, face: 'monospace', color: '#000000', vadjust: 0 },
-          color: { color: '#000000', highlight: '#00aa00', hover: '#00aa00' },
-          width: 1,
-          smooth: false
-        })));
-        miniQuiver = new vis.Network(miniContainer.querySelector('#quiverMini'), { nodes, edges }, {
-          physics: false,
-          interaction: { dragNodes: true, zoomView: true, dragView: true },
-          edges: { selectionWidth: 2, color: { color: '#000000', highlight: '#00aa00', hover: '#00aa00', inherit: false }, arrows: { to: true }, font: { align: 'horizontal' }, smooth: false }
-        });
-        setTimeout(() => {
-          if (miniQuiver) {
-            miniQuiver.redraw();
-            miniQuiver.fit({ animation: false });
-          }
-        }, 0);
+        const width = Math.max(260, maxX - minX + pad * 2);
+        const height = Math.max(180, maxY - minY + pad * 2);
+        const edgePoint = (a, c, r) => {
+          const dx = c.x - a.x, dy = c.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+          return { x: a.x + dx / len * r, y: a.y + dy / len * r };
+        };
+        const edgeSvg = quiverEdges.map((e, i) => {
+          const a = nodePos.get(Number(e[0])) || { x: pad, y: pad };
+          const c = nodePos.get(Number(e[1])) || { x: pad + 100, y: pad };
+          const from = edgePoint(a, c, 14), to = edgePoint(c, a, 14);
+          const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2 - 8;
+          const label = e[2] || '';
+          return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#000" stroke-width="1.8" marker-end="url(#qMiniArrow)"/><text x="${mx}" y="${my}" text-anchor="middle" font-family="monospace" font-size="11" stroke="#fff" stroke-width="4" paint-order="stroke" fill="#111827">${esc(label)}</text>`;
+        }).join('');
+        const nodeSvg = quiverNodes.map(n => {
+          const p = nodePos.get(Number(n.id)) || { x: pad, y: pad };
+          return `<g transform="translate(${p.x},${p.y})"><circle cx="0" cy="0" r="12" fill="#fff" stroke="#000" stroke-width="2"></circle><text x="0" y="4" text-anchor="middle" font-family="monospace" font-weight="700" font-size="12" stroke="#fff" stroke-width="4" paint-order="stroke" fill="#111827">${esc(n.label)}</text></g>`;
+        }).join('');
+        mini.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="display:block;background:white;"><defs><marker id="qMiniArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/></marker></defs>${edgeSvg}${nodeSvg}</svg>`;
       }
 
       function makeDraggable(container, handle) {
@@ -5464,7 +5806,7 @@ end;;
 
       function isBlackEdge(edge) {
         const c = getEdgeColor(edge);
-        return c === '#000000' || c === 'black' || c === '#cccccc' || c === 'lightgray' || c === 'lightgrey';
+        return c === '#000000' || c === 'black' || c === '#ffffff' || c === 'white' || c === '#cccccc' || c === 'lightgray' || c === 'lightgrey';
       }
 
       function isIrreducibleEdge(edge) {
