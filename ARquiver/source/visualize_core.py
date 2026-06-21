@@ -2650,12 +2650,56 @@ end;;
 # Example:
 # PrintExtBasisSequencesForClasses([1], [2]);`;
         }
+        function homBasisGapCodeSnippet() {
+          return String.raw`# Hom basis matrices for M[i] -> M[j].
+# First run Part 1 so that A and M are defined.
+
+MapMatrixByVertex := function(f)
+    local maps, v, call;
+    if IsRecord(f) and IsBound(f!.maps) then return f!.maps; fi;
+    maps := [];;
+    for v in [1..Length(DimensionVector(Source(f)))] do
+        call := CALL_WITH_CATCH(MatrixOfMap, [f, v]);
+        if call[1] = true then Add(maps, [v, call[2]]); fi;
+    od;
+    if Length(maps) > 0 then return maps; fi;
+    return f;
+end;;
+
+PrintHomBasisMatrices := function(i, j)
+    local basis, t;
+    basis := HomOverAlgebra(M[i], M[j]);;
+    Print("Hom basis M[", i, "] -> M[", j, "] has ", Length(basis), " maps.\n");
+    for t in [1..Length(basis)] do
+        Print("basis ", t, ": ", MapMatrixByVertex(basis[t]), "\n");
+    od;
+end;;
+
+# Example:
+# PrintHomBasisMatrices(1, 2);`;
+        }
+        function moduleMatricesGapCodeSnippet() {
+          return String.raw`# Module matrix representation for an indecomposable M[i].
+# First run Part 1 so that A and M are defined.
+
+PrintModuleMatrices := function(i)
+    local r;
+    r := IndecomposableModuleData[i];;
+    Print("M[", i, "] dimension vector: ", r.dim, "\n");
+    Print("Arrow matrices: ", r.maps, "\n");
+end;;
+
+# Example:
+# PrintModuleMatrices(1);`;
+        }
         function usefulGapCode(kind) {
           if (kind === 'generate') return calcGapScript();
           if (kind === 'gen') return genGapCodeSnippet();
           if (kind === 'cogen') return cogenGapCodeSnippet();
           if (kind === 'extclosure') return extensionClosureGapCodeSnippet();
           if (kind === 'extbasis') return extBasisGapCodeSnippet();
+          if (kind === 'hombasis') return homBasisGapCodeSnippet();
+          if (kind === 'modulemat') return moduleMatricesGapCodeSnippet();
           return calcGapScript();
         }
         function usefulGapCommand(kind) {
@@ -2663,6 +2707,8 @@ end;;
           if (kind === 'cogen') return 'CogenOf([1]);';
           if (kind === 'extclosure') return ['table := ComputeExtMiddleTermTable(M);;', 'ExtensionClosureFromTable([1], table);', 'IsExtensionClosedClassFromTable([1], table);'].join(String.fromCharCode(10));
           if (kind === 'extbasis') return 'PrintExtBasisSequencesForClasses([1], [2]);';
+          if (kind === 'hombasis') return 'PrintHomBasisMatrices(1, 2);';
+          if (kind === 'modulemat') return 'PrintModuleMatrices(1);';
           return '# Run the setup code above.';
         }
         function usefulGapParts(kind) {
@@ -2717,7 +2763,7 @@ end;;
           panel.style.display = 'block';
           panel.setAttribute('data-gap-kind', kind);
           const parts = usefulGapParts(kind);
-          const names = { generate: 'generate_this_quiver', gen: 'find_gen', cogen: 'find_cogen', extclosure: 'extension_closure', extbasis: 'ext_basis_sequences' };
+          const names = { generate: 'generate_this_quiver', gen: 'find_gen', cogen: 'find_cogen', extclosure: 'extension_closure', extbasis: 'ext_basis_sequences', hombasis: 'hom_basis_matrices', modulemat: 'module_matrices' };
           const body = panel.querySelector('#arGapCodeBody');
           appendGapCodeParts(body, parts, source, names[kind] || 'gap_code');
           if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates();
@@ -2905,6 +2951,14 @@ end;;
           folderPanel.querySelectorAll('button[data-gap-code]').forEach(btn => {
             btn.classList.toggle('ar-control-active', !!activeGapKind && btn.getAttribute('data-gap-code') === activeGapKind);
           });
+          const panelActions = { matrices: 'arMatrixPanel', 'class-inspector': 'arClassInspectorPanel', 'module-matrix': 'arModuleMatrixPanel', traverse: 'arTraversePanel', calculator: 'calculatorPanel' };
+          folderPanel.querySelectorAll('button[data-action]').forEach(btn => {
+            const action = btn.getAttribute('data-action');
+            const panelId = panelActions[action];
+            if (!panelId) return;
+            const panel = document.getElementById(panelId);
+            btn.classList.toggle('ar-control-active', !!(panel && panel.style.display !== 'none'));
+          });
         }
 
         function createFolderPanel() {
@@ -2952,11 +3006,13 @@ end;;
               <button data-gap-code="cogen">Find cogen(-)</button>
               <button data-gap-code="extclosure">Extension closure</button>
               <button data-gap-code="extbasis">Ext basis sequences</button>
+              <button data-gap-code="hombasis">Hom basis matrices</button>
+              <button data-gap-code="modulemat">Module matrices</button>
             </div></details>
             <details><summary>Tools</summary><div class="ar-folder-body">
-              <button data-action="history">History</button>
               <button data-action="matrices">Matrices</button>
               <button data-action="class-inspector">Class inspector</button>
+              <button data-action="module-matrix">Module matrix</button>
               <button data-action="traverse">Traverse</button>
               <button data-action="calculator">Calculator</button>
               <button data-action="export-tex">Export AR quiver to TeX</button>
@@ -3546,7 +3602,7 @@ end;;
             p.style.cssText = 'position:fixed;right:32px;top:104px;width:520px;max-width:calc(100vw - 48px);max-height:calc(100vh - 120px);overflow:auto;z-index:1400;background:rgba(255,255,255,.98);border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.18);';
             p.innerHTML = `<div class="ar-panel-head"><span>${title}</span><button class="ar-panel-close">×</button></div><div class="ar-tool-body" style="padding:10px;font-size:12px;"></div>`;
             document.body.appendChild(p);
-            p.querySelector('.ar-panel-close').addEventListener('click', () => { p.style.display = 'none'; });
+            p.querySelector('.ar-panel-close').addEventListener('click', () => { p.style.display = 'none'; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
             makeFloatingWindow(p, p.querySelector('.ar-panel-head'), { minWidth: 300, minHeight: 180 });
           }
           p.style.display = 'block';
@@ -3564,7 +3620,7 @@ end;;
           arHistory.splice(arHistoryIndex + 1);
           arHistory.push({ kind, label, payload: payload || {}, time: new Date().toLocaleTimeString() });
           arHistoryIndex = arHistory.length - 1;
-          if (document.getElementById('arHistoryPanel')?.style.display !== 'none') arShowHistory();
+          if (document.getElementById('arHistoryPanel')?.style.display === 'block') arShowHistory();
         }
         function arReplay(item) {
           if (!item) return;
@@ -3574,9 +3630,11 @@ end;;
           if (item.kind === 'class') arHighlightClass(item.payload.ids || [], item.payload.color || '#fef08a');
           if (item.kind === 'list') showListInDrawer(item.payload.toggleId || '', item.payload.listId, item.payload.title);
           if (item.kind === 'calculator') { showCalculator(); if (document.getElementById('calcOp')) document.getElementById('calcOp').value = item.payload.op || 'ExtK'; if (document.getElementById('calcA')) document.getElementById('calcA').value = item.payload.A || ''; if (document.getElementById('calcB')) document.getElementById('calcB').value = item.payload.B || ''; if (document.getElementById('calcK')) document.getElementById('calcK').value = item.payload.k || '0'; calcRunOperation(); }
-          } finally { arReplaying = false; }
+          } finally { arReplaying = false; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); }
         }
-        function arShowHistory() {
+        function arShowHistory(toggle) {
+          const existing = document.getElementById('arHistoryPanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; return; }
           const p = arToolPanel('arHistoryPanel', 'History');
           const b = p.querySelector('.ar-tool-body');
           b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><button id="arHistBack">Back</button><button id="arHistFwd">Forward</button><button id="arHistClear">Clear</button></div>` + (arHistory.length ? arHistory.map((h,i)=>`<div style="display:flex;gap:6px;margin:3px 0;${i===arHistoryIndex?'background:#ecfeff;':''}"><button data-hist="${i}">replay</button><span>${i+1}. [${h.time}] ${h.label}</span></div>`).join('') : '<span style="color:#64748b;">No actions yet.</span>');
@@ -3589,23 +3647,81 @@ end;;
           const m = new Map(); (edges || []).forEach(e => m.set(`${Number(e[0])}|${Number(e[1])}`, String(e[2] == null ? '1' : e[2])));
           return ids.map(i => ids.map(j => m.get(`${i}|${j}`) || '0'));
         }
-        function arShowMatrix() {
+        function arShowMatrix(toggle) {
+          const existing = document.getElementById('arMatrixPanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
           const p = arToolPanel('arMatrixPanel', 'Matrices'), b = p.querySelector('.ar-tool-body');
-          b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><select id="arMatKind"><option value="hom">Hom</option><option value="ext">Ext¹</option><option value="tau">τ</option><option value="syz">Syzygy</option><option value="cosyz">Cosyzygy</option><option value="rad">Radical</option><option value="corad">Coradical</option></select><select id="arMatFmt"><option value="plain">plain</option><option value="sage">Sage</option><option value="latex">LaTeX</option></select><button id="arMatRun">Show</button></div><textarea id="arMatOut" style="width:100%;height:300px;font-family:monospace;font-size:11px;"></textarea>`;
-          const run = () => { const ids = calcAllIds(); const k = b.querySelector('#arMatKind').value; const e = k==='hom'?homEdges:k==='ext'?extEdges:k==='tau'?goldenEdges:k==='syz'?syzygyEdges:k==='cosyz'?cosyzygyEdges:k==='rad'?radicalEdges:coradicalEdges; const mat = arMatrixFromEdges(e, ids); const f = b.querySelector('#arMatFmt').value; const txt = f==='sage' ? 'matrix(['+mat.map(r=>'['+r.join(',')+']').join(',')+'])' : f==='latex' ? '\\\\begin{pmatrix}'+mat.map(r=>r.join(' & ')).join('\\\\\\\\')+'\\\\end{pmatrix}' : mat.map(r=>r.join(' ')).join('\\n'); b.querySelector('#arMatOut').value = '# ids: '+ids.join(',')+'\\n'+txt; arRecord('matrix','Show '+k+' matrix',{kind:k}); };
-          b.querySelector('#arMatRun').onclick = run; run();
+          b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><select id="arMatKind"><option value="hom">Hom</option><option value="ext">Ext¹</option><option value="tau">τ</option><option value="syz">Syzygy</option><option value="cosyz">Cosyzygy</option><option value="rad">Radical</option><option value="corad">Coradical</option></select><select id="arMatFmt"><option value="plain">plain</option><option value="sage">Sage</option><option value="latex">LaTeX</option></select></div><textarea id="arMatOut" style="width:100%;height:300px;font-family:monospace;font-size:11px;"></textarea>`;
+          const run = () => { const ids = calcAllIds(); const k = b.querySelector('#arMatKind').value; const e = k==='hom'?homEdges:k==='ext'?extEdges:k==='tau'?goldenEdges:k==='syz'?syzygyEdges:k==='cosyz'?cosyzygyEdges:k==='rad'?radicalEdges:coradicalEdges; const mat = arMatrixFromEdges(e, ids); const f = b.querySelector('#arMatFmt').value; const txt = f==='sage' ? 'matrix(['+mat.map(r=>'['+r.join(',')+']').join(',')+'])' : f==='latex' ? '\\\\begin{pmatrix}'+mat.map(r=>r.join(' & ')).join('\\\\\\\\')+'\\\\end{pmatrix}' : mat.map(r=>r.join(' ')).join('\\n'); const comment = f==='latex' ? '% ids: ' : '# ids: '; b.querySelector('#arMatOut').value = comment+ids.join(',')+'\\n'+txt; arRecord('matrix','Show '+k+' matrix',{kind:k}); };
+          b.querySelector('#arMatKind').onchange = run; b.querySelector('#arMatFmt').onchange = run; run();
         }
         function arClosureByEdges(seed, edges) { const s = new Set(seed || []); let changed = true, guard = 0; while (changed && guard++ < 100) { changed = false; (edges || []).forEach(e => { if (s.has(Number(e[0])) && !s.has(Number(e[1]))) { s.add(Number(e[1])); changed = true; } }); } return Array.from(s).sort((a,b)=>a-b); }
         function arSameClass(a,b) { a=(a||[]).map(Number).sort((x,y)=>x-y); b=(b||[]).map(Number).sort((x,y)=>x-y); return a.length===b.length && a.every((x,i)=>x===b[i]); }
+        function arModuleRecord(id) {
+          const text = String(indecomposableModuleDataGap || '');
+          const re = new RegExp('rec\\(id\\s*:=\\s*' + Number(id) + '\\s*,\\s*dim\\s*:=\\s*(\\[[^\\]]*\\])\\s*,\\s*maps\\s*:=\\s*([\\s\\S]*?)\\n\\s*\\)', 'm');
+          const m = text.match(re);
+          if (!m) return null;
+          const maps = {};
+          const mapText = m[2];
+          const mapRe = new RegExp('\\\\[\\\\s*"([^"]+)"\\\\s*,\\\\s*(\\\\[\\\\s*\\\\[[\\\\s\\\\S]*?\\\\]\\\\s*\\\\])\\\\s*\\\\]', 'g');
+          let mm;
+          while ((mm = mapRe.exec(mapText)) !== null) maps[mm[1]] = mm[2].replace(new RegExp('\\\\s+', 'g'), ' ');
+          return { id: Number(id), dim: m[1].replace(new RegExp('\\\\s+', 'g'), ' '), maps, rawMaps: mapText.trim() };
+        }
+        function arModuleMatrixText(id) {
+          const rec = arModuleRecord(id);
+          return rec ? ('M[' + id + '] dim := ' + rec.dim + '\\nmaps := ' + rec.rawMaps) : ('M[' + id + '] module matrix data not found in serialized log.');
+        }
+        function arSelectedModuleMatricesText(ids) {
+          return (ids || []).map(id => arModuleMatrixText(id)).join('\\n\\n');
+        }
         function arInTable(cls, data, keys) { return (data || []).some(item => keys.some(k => arSameClass(cls, item[k] || []))); }
-        function arShowInspector() {
+        function arShowInspector(toggle) {
+          const existing = document.getElementById('arClassInspectorPanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
           const p = arToolPanel('arClassInspectorPanel', 'Class inspector'), b = p.querySelector('.ar-tool-body');
           b.innerHTML = `<input id="arInspectClass" style="width:100%;" value="[]"><div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;"><button id="arInspectRun">Inspect</button><button id="arInspectSel">Use selected</button><button id="arInspectHigh">Highlight</button><button id="arInspectStore">Store</button><button id="arInspectCompare">Compare</button></div><pre id="arInspectOut" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:300px;overflow:auto;"></pre>`;
           const run = () => { let cls = arParseClassText(b.querySelector('#arInspectClass').value); b.querySelector('#arInspectOut').textContent = ['Class: '+arClassText(cls),'Size: '+cls.length,'Torsion class: '+(arInTable(cls,torsionPairData,['T'])?'yes':'no'),'Torsionfree class: '+(arInTable(cls,torsionPairData,['F'])?'yes':'no'),'Left cotorsion class: '+(arInTable(cls,cotorsionPairData,['L'])?'yes':'no'),'Right cotorsion class: '+(arInTable(cls,cotorsionPairData,['R'])?'yes':'no'),'Syzygy closed: '+(arSameClass(cls,arClosureByEdges(cls,syzygyEdges))?'yes':'no'),'Cosyzygy closed: '+(arSameClass(cls,arClosureByEdges(cls,cosyzygyEdges))?'yes':'no'),'Radical closed: '+(arSameClass(cls,arClosureByEdges(cls,radicalEdges))?'yes':'no'),'Coradical closed: '+(arSameClass(cls,arClosureByEdges(cls,coradicalEdges))?'yes':'no'),'Stored: '+arClassText(arStoredClass)].join('\\n'); arRecord('inspect','Inspect '+arClassText(cls),{ids:cls}); };
           b.querySelector('#arInspectRun').onclick = run; b.querySelector('#arInspectSel').onclick = () => { b.querySelector('#arInspectClass').value = arClassText(network.getSelectedNodes()); run(); }; b.querySelector('#arInspectHigh').onclick = () => { const cls=arParseClassText(b.querySelector('#arInspectClass').value); arHighlightClass(cls); arRecord('class','Highlight '+arClassText(cls),{ids:cls}); }; b.querySelector('#arInspectStore').onclick = () => { arStoredClass = arParseClassText(b.querySelector('#arInspectClass').value); run(); }; b.querySelector('#arInspectCompare').onclick = () => { const cls=arParseClassText(b.querySelector('#arInspectClass').value), A=new Set(arStoredClass), B=new Set(cls); b.querySelector('#arInspectOut').textContent = ['stored = '+arClassText(arStoredClass),'current = '+arClassText(cls),'union = '+arClassText([...new Set([...A,...B])]),'intersection = '+arClassText([...A].filter(x=>B.has(x))),'stored minus current = '+arClassText([...A].filter(x=>!B.has(x)))].join('\\n'); }; run();
         }
+        function arShowModuleMatrix(toggle) {
+          const existing = document.getElementById('arModuleMatrixPanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
+          const p = arToolPanel('arModuleMatrixPanel', 'Module matrix'), b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><label>Module label <input id="arModuleMatrixId" type="number" min="1" value="1" style="width:80px;"></label><button id="arModuleMatrixSelected">Use selected</button></div><div id="arModuleMatrixGraph" style="width:100%;height:300px;border:1px solid #ddd;background:white;"></div><pre id="arModuleMatrixText" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:180px;overflow:auto;"></pre>`;
+          const draw = () => {
+            const id = Number(b.querySelector('#arModuleMatrixId').value || 1);
+            const rec = arModuleRecord(id);
+            b.querySelector('#arModuleMatrixText').textContent = arModuleMatrixText(id);
+            const dims = rec && rec.dim ? rec.dim.replace(new RegExp('[\\\\[\\\\]]', 'g'), '').split(',').map(x => x.trim()) : [];
+            const nodes = new vis.DataSet((quiverNodes || []).map(n => ({
+              id: n.id,
+              label: String(n.label) + (dims[Number(n.id) - 1] !== undefined ? '\\n dim ' + dims[Number(n.id) - 1] : ''),
+              shape: 'circle',
+              font: { face: 'monospace', size: 13, bold: true, color: 'black' },
+              color: { border: '#000000', background: '#ffffff', highlight: { border: '#00aa00', background: '#ffffff' } },
+              borderWidth: 2
+            })));
+            const edges = new vis.DataSet((quiverEdges || []).map((e, i) => {
+              const name = e[2] || '';
+              const mat = rec && rec.maps && rec.maps[name] ? rec.maps[name] : '0';
+              return { id: 'mm_' + i, from: e[0], to: e[1], label: name + ': ' + mat, arrows: 'to', color: { color: '#000000', highlight: '#00aa00' }, font: { align: 'horizontal', size: 11, face: 'monospace', color: '#000000' }, smooth: false };
+            }));
+            const target = b.querySelector('#arModuleMatrixGraph');
+            target.innerHTML = '';
+            const net = new vis.Network(target, { nodes, edges }, { physics: false, interaction: { dragNodes: true, zoomView: true, dragView: true }, edges: { selectionWidth: 2, smooth: false } });
+            setTimeout(() => net.fit({ animation: false }), 0);
+            arRecord('module-matrix', 'Show module matrix M[' + id + ']', { id });
+          };
+          b.querySelector('#arModuleMatrixId').oninput = draw;
+          b.querySelector('#arModuleMatrixSelected').onclick = () => { const selected = network.getSelectedNodes(); if (selected.length) b.querySelector('#arModuleMatrixId').value = selected[0]; draw(); };
+          draw();
+        }
         function arTraverseStep(ids, op) { const e = op==='tau'?goldenEdges:op==='tau-inv'?goldenEdges.map(x=>[x[1],x[0]]):op==='syzygy'?syzygyEdges:op==='cosyzygy'?cosyzygyEdges:op==='radical'?radicalEdges:coradicalEdges; const out = new Set(); (ids||[]).forEach(id => (e||[]).forEach(x => { if (Number(x[0]) === Number(id)) out.add(Number(x[1])); })); return Array.from(out).sort((a,b)=>a-b); }
-        function arShowTraverse() {
+        function arShowTraverse(toggle) {
+          const existing = document.getElementById('arTraversePanel');
+          if (toggle && existing && existing.style.display === 'block') { existing.style.display = 'none'; refreshFolderControlStates(); return; }
           const p = arToolPanel('arTraversePanel', 'Traverse tools'), b = p.querySelector('.ar-tool-body');
           b.innerHTML = `<input id="arTravSeed" style="width:100%;" value="[]"><div style="display:flex;gap:6px;margin:8px 0;"><select id="arTravOp"><option value="tau">τ</option><option value="tau-inv">τ inverse</option><option value="syzygy">syzygy</option><option value="cosyzygy">cosyzygy</option><option value="radical">radical</option><option value="coradical">coradical</option></select><input id="arTravSteps" type="number" min="0" value="1" style="width:60px;"><button id="arTravRun">Run</button><button id="arTravSel">Use selected</button></div><pre id="arTravOut" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:280px;overflow:auto;"></pre>`;
           const run = () => { const seed=arParseClassText(b.querySelector('#arTravSeed').value), op=b.querySelector('#arTravOp').value, steps=Math.max(0,Number(b.querySelector('#arTravSteps').value||1)); let cur=seed, lines=['0: '+arClassText(cur)]; for(let i=1;i<=steps;i++){ cur=arTraverseStep(cur,op); lines.push(i+': '+arClassText(cur)); } b.querySelector('#arTravOut').textContent=lines.join('\\n'); arHighlightClass(cur,'#bfdbfe'); arRecord('class','Traverse '+op+' '+arClassText(seed),{ids:cur,color:'#bfdbfe'}); };
@@ -3639,7 +3755,7 @@ end;;
               if (toggleEl) arRecord('toggle', `${toggleId} ${toggleEl.checked ? 'on' : 'off'}`, { id: toggleId, checked: toggleEl.checked });
             }
           }
-          if (!toggleId && !clickId && !listSpec && action && action !== 'calculator') {
+          if (!toggleId && !clickId && !listSpec && action && !['calculator','matrices','class-inspector','module-matrix','traverse'].includes(action)) {
             btn.classList.add('ar-control-active');
             setTimeout(() => btn.classList.remove('ar-control-active'), 350);
           }
@@ -3664,12 +3780,14 @@ end;;
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
           if (action === 'history') arShowHistory();
-          if (action === 'matrices') arShowMatrix();
-          if (action === 'class-inspector') arShowInspector();
-          if (action === 'traverse') arShowTraverse();
+          if (action === 'matrices') arShowMatrix(true);
+          if (action === 'class-inspector') arShowInspector(true);
+          if (action === 'module-matrix') arShowModuleMatrix(true);
+          if (action === 'traverse') arShowTraverse(true);
           if (action === 'export-tex') showTexExport('xy');
           if (action === 'display-code') showDisplayCodeModal();
           if (action === 'legend') showColorLegend();
+          refreshFolderControlStates();
         }
 
         function translateTexToken(token) {
@@ -3773,7 +3891,7 @@ end;;
           createFolderPanel();
           menuBar = document.createElement('div');
           menuBar.id = 'arTopMenu';
-          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="fit">Fit graph</button><button data-action="undo">Ctrl+Z</button><button data-action="redo">Ctrl+Y</button><button data-action="clear-colors">Clear colors</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
+          menuBar.innerHTML = '<span class="ar-title">AR Quiver</span><button data-action="toggle-panel">Controls</button><button data-action="history">History</button><button data-action="fit">Fit graph</button><button data-action="undo">Ctrl+Z</button><button data-action="redo">Ctrl+Y</button><button data-action="clear-colors">Clear colors</button><button data-label-mode="dimension">show dimension vector</button><button data-label-mode="label">show label</button><button data-label-mode="custom">show custom label</button><span class="ar-spacer"></span><span>Ctrl+L hide/show UI</span>';
           document.body.appendChild(menuBar);
           menuBar.querySelectorAll('button[data-label-mode]').forEach(button => {
             nodeLabelButtons.set(button.getAttribute('data-label-mode'), button);
@@ -3791,6 +3909,7 @@ end;;
             if (action === 'toggle-panel') {
               folderPanel.style.display = folderPanel.style.display === 'block' ? 'none' : 'block';
             }
+            if (action === 'history') arShowHistory(true);
             if (action === 'fit') network.fit({ animation: true });
             if (action === 'undo' && typeof undo === 'function') undo();
             if (action === 'redo' && typeof redo === 'function') redo();
@@ -5098,7 +5217,7 @@ end;;
         miniContainer.style.zIndex = '20000';
         miniContainer.style.boxSizing = 'border-box';
         miniContainer.innerHTML = `
-          <div id="quiverMiniHeader" style="font-size:12px; margin-bottom:4px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><span style="display:flex;gap:6px;align-items:center;"><button id="quiverOpenBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">Open in q.uiver</button><button id="quiverTikzBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">see ${originalQuiverFilename || 'quiver.txt'}</button></span></div>
+          <div id="quiverMiniHeader" class="ar-panel-head" style="font-size:12px; margin:-6px -6px 6px -6px; cursor:move; font-weight:600; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:8px;"><span>Quiver Q</span><span style="display:flex;gap:6px;align-items:center;"><button id="quiverOpenBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">Open in q.uiver</button><button id="quiverTikzBtn" type="button" style="border:0;background:transparent;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;font-weight:600;padding:0;">see ${originalQuiverFilename || 'quiver.txt'}</button><button id="quiverMiniClose" class="ar-panel-close" type="button">×</button></span></div>
           <div id="quiverMini" style="width:100%; height:220px; border:1px solid #ddd; background:white; box-sizing:border-box;"></div>
           <div id="quiverRel" style="margin-top:6px; font-size:12px; font-family:monospace; white-space:pre-wrap;"></div>
         `;
@@ -5107,6 +5226,11 @@ end;;
         const relBox = miniContainer.querySelector('#quiverRel');
         const tikzBtn = miniContainer.querySelector('#quiverTikzBtn');
         const openBtn = miniContainer.querySelector('#quiverOpenBtn');
+        const closeBtn = miniContainer.querySelector('#quiverMiniClose');
+        if (closeBtn) {
+          closeBtn.addEventListener('mousedown', (event) => { event.stopPropagation(); });
+          closeBtn.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); miniContainer.style.display = 'none'; const el = document.getElementById('quiverToggle'); if (el) el.checked = false; if (typeof refreshFolderControlStates === 'function') refreshFolderControlStates(); });
+        }
         if (openBtn) {
           openBtn.addEventListener('mousedown', (event) => { event.stopPropagation(); });
           openBtn.addEventListener('click', (event) => {
@@ -5153,10 +5277,10 @@ end;;
           return {
             id: n.id,
             label: String(n.label),
-            shape: 'ellipse',
+            shape: 'circle',
             font: { face: 'monospace', size: 14, bold: true, color: 'black', vadjust: 0, align: 'center' },
-            color: { border: 'gray', background: 'white' },
-            borderWidth: 2,
+            color: { border: '#000000', background: '#ffffff', highlight: { border: '#00aa00', background: '#ffffff' } },
+            borderWidth: showBorders ? 2 : 0,
             ...(pos.x !== undefined ? { x: pos.x, y: pos.y } : {})
           };
         }));
@@ -5166,13 +5290,15 @@ end;;
           to: e[1],
           label: e[2] || '',
           arrows: 'to',
-          font: { align: 'horizontal', size: 12, face: 'monospace', color: '#333', vadjust: 0 },
+          font: { align: 'horizontal', size: 12, face: 'monospace', color: '#000000', vadjust: 0 },
+          color: { color: '#000000', highlight: '#00aa00', hover: '#00aa00' },
+          width: 1,
           smooth: false
         })));
         miniQuiver = new vis.Network(miniContainer.querySelector('#quiverMini'), { nodes, edges }, {
           physics: false,
           interaction: { dragNodes: true, zoomView: true, dragView: true },
-          edges: { arrows: { to: true }, font: { align: 'horizontal' }, smooth: false }
+          edges: { selectionWidth: 2, color: { color: '#000000', highlight: '#00aa00', hover: '#00aa00', inherit: false }, arrows: { to: true }, font: { align: 'horizontal' }, smooth: false }
         });
         setTimeout(() => {
           if (miniQuiver) {
