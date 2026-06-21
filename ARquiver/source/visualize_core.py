@@ -2024,6 +2024,7 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
             output = err && err.message ? err.message : String(err);
           }
           document.getElementById('calcOutput').textContent = output;
+          arRecord('calculator', `Calculator ${op}: ${output}`, { op, A: document.getElementById('calcA') ? document.getElementById('calcA').value : '', B: document.getElementById('calcB') ? document.getElementById('calcB').value : '', k: document.getElementById('calcK') ? document.getElementById('calcK').value : '0' });
         }
         function gapQuote(value) {
           return String(value == null ? '' : value).split(String.fromCharCode(92)).join(String.fromCharCode(92) + String.fromCharCode(92)).split('"').join(String.fromCharCode(92) + '"');
@@ -2953,6 +2954,10 @@ end;;
               <button data-gap-code="extbasis">Ext basis sequences</button>
             </div></details>
             <details><summary>Tools</summary><div class="ar-folder-body">
+              <button data-action="history">History</button>
+              <button data-action="matrices">Matrices</button>
+              <button data-action="class-inspector">Class inspector</button>
+              <button data-action="traverse">Traverse</button>
               <button data-action="calculator">Calculator</button>
               <button data-action="export-tex">Export AR quiver to TeX</button>
               <button data-action="display-code">Display code</button>
@@ -3532,6 +3537,81 @@ end;;
           modal.style.display = 'block';
         }
 
+        let arHistory = [], arHistoryIndex = -1, arStoredClass = [], arReplaying = false;
+        function arToolPanel(id, title) {
+          let p = document.getElementById(id);
+          if (!p) {
+            p = document.createElement('div');
+            p.id = id;
+            p.style.cssText = 'position:fixed;right:32px;top:104px;width:520px;max-width:calc(100vw - 48px);max-height:calc(100vh - 120px);overflow:auto;z-index:1400;background:rgba(255,255,255,.98);border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.18);';
+            p.innerHTML = `<div class="ar-panel-head"><span>${title}</span><button class="ar-panel-close">×</button></div><div class="ar-tool-body" style="padding:10px;font-size:12px;"></div>`;
+            document.body.appendChild(p);
+            p.querySelector('.ar-panel-close').addEventListener('click', () => { p.style.display = 'none'; });
+            makeFloatingWindow(p, p.querySelector('.ar-panel-head'), { minWidth: 300, minHeight: 180 });
+          }
+          p.style.display = 'block';
+          return p;
+        }
+        function arClassText(ids) { return '[' + (ids || []).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join(',') + ']'; }
+        function arParseClassText(text) { return calcParseSet(String(text || '')); }
+        function arHighlightClass(ids, color) {
+          resetTiltingStyles(); resetPairStyles();
+          const s = new Set(); applyFullFill(ids || [], color || '#fef08a', s);
+          pairHighlighted = s; network.unselectAll(); network.redraw();
+        }
+        function arRecord(kind, label, payload) {
+          if (arReplaying) return;
+          arHistory.splice(arHistoryIndex + 1);
+          arHistory.push({ kind, label, payload: payload || {}, time: new Date().toLocaleTimeString() });
+          arHistoryIndex = arHistory.length - 1;
+          if (document.getElementById('arHistoryPanel')?.style.display !== 'none') arShowHistory();
+        }
+        function arReplay(item) {
+          if (!item) return;
+          arReplaying = true;
+          try {
+          if (item.kind === 'toggle') { const el = document.getElementById(item.payload.id); if (el) { el.checked = !!item.payload.checked; dispatchChange(el); } }
+          if (item.kind === 'class') arHighlightClass(item.payload.ids || [], item.payload.color || '#fef08a');
+          if (item.kind === 'list') showListInDrawer(item.payload.toggleId || '', item.payload.listId, item.payload.title);
+          if (item.kind === 'calculator') { showCalculator(); if (document.getElementById('calcOp')) document.getElementById('calcOp').value = item.payload.op || 'ExtK'; if (document.getElementById('calcA')) document.getElementById('calcA').value = item.payload.A || ''; if (document.getElementById('calcB')) document.getElementById('calcB').value = item.payload.B || ''; if (document.getElementById('calcK')) document.getElementById('calcK').value = item.payload.k || '0'; calcRunOperation(); }
+          } finally { arReplaying = false; }
+        }
+        function arShowHistory() {
+          const p = arToolPanel('arHistoryPanel', 'History');
+          const b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><button id="arHistBack">Back</button><button id="arHistFwd">Forward</button><button id="arHistClear">Clear</button></div>` + (arHistory.length ? arHistory.map((h,i)=>`<div style="display:flex;gap:6px;margin:3px 0;${i===arHistoryIndex?'background:#ecfeff;':''}"><button data-hist="${i}">replay</button><span>${i+1}. [${h.time}] ${h.label}</span></div>`).join('') : '<span style="color:#64748b;">No actions yet.</span>');
+          b.querySelector('#arHistBack').onclick = () => { if (arHistoryIndex > 0) { arHistoryIndex--; arReplay(arHistory[arHistoryIndex]); arShowHistory(); } };
+          b.querySelector('#arHistFwd').onclick = () => { if (arHistoryIndex + 1 < arHistory.length) { arHistoryIndex++; arReplay(arHistory[arHistoryIndex]); arShowHistory(); } };
+          b.querySelector('#arHistClear').onclick = () => { arHistory = []; arHistoryIndex = -1; arShowHistory(); };
+          b.querySelectorAll('[data-hist]').forEach(btn => btn.onclick = () => { arHistoryIndex = Number(btn.dataset.hist); arReplay(arHistory[arHistoryIndex]); arShowHistory(); });
+        }
+        function arMatrixFromEdges(edges, ids) {
+          const m = new Map(); (edges || []).forEach(e => m.set(`${Number(e[0])}|${Number(e[1])}`, String(e[2] == null ? '1' : e[2])));
+          return ids.map(i => ids.map(j => m.get(`${i}|${j}`) || '0'));
+        }
+        function arShowMatrix() {
+          const p = arToolPanel('arMatrixPanel', 'Matrices'), b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<div style="display:flex;gap:6px;margin-bottom:8px;"><select id="arMatKind"><option value="hom">Hom</option><option value="ext">Ext¹</option><option value="tau">τ</option><option value="syz">Syzygy</option><option value="cosyz">Cosyzygy</option><option value="rad">Radical</option><option value="corad">Coradical</option></select><select id="arMatFmt"><option value="plain">plain</option><option value="sage">Sage</option><option value="latex">LaTeX</option></select><button id="arMatRun">Show</button></div><textarea id="arMatOut" style="width:100%;height:300px;font-family:monospace;font-size:11px;"></textarea>`;
+          const run = () => { const ids = calcAllIds(); const k = b.querySelector('#arMatKind').value; const e = k==='hom'?homEdges:k==='ext'?extEdges:k==='tau'?goldenEdges:k==='syz'?syzygyEdges:k==='cosyz'?cosyzygyEdges:k==='rad'?radicalEdges:coradicalEdges; const mat = arMatrixFromEdges(e, ids); const f = b.querySelector('#arMatFmt').value; const txt = f==='sage' ? 'matrix(['+mat.map(r=>'['+r.join(',')+']').join(',')+'])' : f==='latex' ? '\\\\begin{pmatrix}'+mat.map(r=>r.join(' & ')).join('\\\\\\\\')+'\\\\end{pmatrix}' : mat.map(r=>r.join(' ')).join('\\n'); b.querySelector('#arMatOut').value = '# ids: '+ids.join(',')+'\\n'+txt; arRecord('matrix','Show '+k+' matrix',{kind:k}); };
+          b.querySelector('#arMatRun').onclick = run; run();
+        }
+        function arClosureByEdges(seed, edges) { const s = new Set(seed || []); let changed = true, guard = 0; while (changed && guard++ < 100) { changed = false; (edges || []).forEach(e => { if (s.has(Number(e[0])) && !s.has(Number(e[1]))) { s.add(Number(e[1])); changed = true; } }); } return Array.from(s).sort((a,b)=>a-b); }
+        function arSameClass(a,b) { a=(a||[]).map(Number).sort((x,y)=>x-y); b=(b||[]).map(Number).sort((x,y)=>x-y); return a.length===b.length && a.every((x,i)=>x===b[i]); }
+        function arInTable(cls, data, keys) { return (data || []).some(item => keys.some(k => arSameClass(cls, item[k] || []))); }
+        function arShowInspector() {
+          const p = arToolPanel('arClassInspectorPanel', 'Class inspector'), b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<input id="arInspectClass" style="width:100%;" value="[]"><div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;"><button id="arInspectRun">Inspect</button><button id="arInspectSel">Use selected</button><button id="arInspectHigh">Highlight</button><button id="arInspectStore">Store</button><button id="arInspectCompare">Compare</button></div><pre id="arInspectOut" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:300px;overflow:auto;"></pre>`;
+          const run = () => { let cls = arParseClassText(b.querySelector('#arInspectClass').value); b.querySelector('#arInspectOut').textContent = ['Class: '+arClassText(cls),'Size: '+cls.length,'Torsion class: '+(arInTable(cls,torsionPairData,['T'])?'yes':'no'),'Torsionfree class: '+(arInTable(cls,torsionPairData,['F'])?'yes':'no'),'Left cotorsion class: '+(arInTable(cls,cotorsionPairData,['L'])?'yes':'no'),'Right cotorsion class: '+(arInTable(cls,cotorsionPairData,['R'])?'yes':'no'),'Syzygy closed: '+(arSameClass(cls,arClosureByEdges(cls,syzygyEdges))?'yes':'no'),'Cosyzygy closed: '+(arSameClass(cls,arClosureByEdges(cls,cosyzygyEdges))?'yes':'no'),'Radical closed: '+(arSameClass(cls,arClosureByEdges(cls,radicalEdges))?'yes':'no'),'Coradical closed: '+(arSameClass(cls,arClosureByEdges(cls,coradicalEdges))?'yes':'no'),'Stored: '+arClassText(arStoredClass)].join('\\n'); arRecord('inspect','Inspect '+arClassText(cls),{ids:cls}); };
+          b.querySelector('#arInspectRun').onclick = run; b.querySelector('#arInspectSel').onclick = () => { b.querySelector('#arInspectClass').value = arClassText(network.getSelectedNodes()); run(); }; b.querySelector('#arInspectHigh').onclick = () => { const cls=arParseClassText(b.querySelector('#arInspectClass').value); arHighlightClass(cls); arRecord('class','Highlight '+arClassText(cls),{ids:cls}); }; b.querySelector('#arInspectStore').onclick = () => { arStoredClass = arParseClassText(b.querySelector('#arInspectClass').value); run(); }; b.querySelector('#arInspectCompare').onclick = () => { const cls=arParseClassText(b.querySelector('#arInspectClass').value), A=new Set(arStoredClass), B=new Set(cls); b.querySelector('#arInspectOut').textContent = ['stored = '+arClassText(arStoredClass),'current = '+arClassText(cls),'union = '+arClassText([...new Set([...A,...B])]),'intersection = '+arClassText([...A].filter(x=>B.has(x))),'stored minus current = '+arClassText([...A].filter(x=>!B.has(x)))].join('\\n'); }; run();
+        }
+        function arTraverseStep(ids, op) { const e = op==='tau'?goldenEdges:op==='tau-inv'?goldenEdges.map(x=>[x[1],x[0]]):op==='syzygy'?syzygyEdges:op==='cosyzygy'?cosyzygyEdges:op==='radical'?radicalEdges:coradicalEdges; const out = new Set(); (ids||[]).forEach(id => (e||[]).forEach(x => { if (Number(x[0]) === Number(id)) out.add(Number(x[1])); })); return Array.from(out).sort((a,b)=>a-b); }
+        function arShowTraverse() {
+          const p = arToolPanel('arTraversePanel', 'Traverse tools'), b = p.querySelector('.ar-tool-body');
+          b.innerHTML = `<input id="arTravSeed" style="width:100%;" value="[]"><div style="display:flex;gap:6px;margin:8px 0;"><select id="arTravOp"><option value="tau">τ</option><option value="tau-inv">τ inverse</option><option value="syzygy">syzygy</option><option value="cosyzygy">cosyzygy</option><option value="radical">radical</option><option value="coradical">coradical</option></select><input id="arTravSteps" type="number" min="0" value="1" style="width:60px;"><button id="arTravRun">Run</button><button id="arTravSel">Use selected</button></div><pre id="arTravOut" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px;max-height:280px;overflow:auto;"></pre>`;
+          const run = () => { const seed=arParseClassText(b.querySelector('#arTravSeed').value), op=b.querySelector('#arTravOp').value, steps=Math.max(0,Number(b.querySelector('#arTravSteps').value||1)); let cur=seed, lines=['0: '+arClassText(cur)]; for(let i=1;i<=steps;i++){ cur=arTraverseStep(cur,op); lines.push(i+': '+arClassText(cur)); } b.querySelector('#arTravOut').textContent=lines.join('\\n'); arHighlightClass(cur,'#bfdbfe'); arRecord('class','Traverse '+op+' '+arClassText(seed),{ids:cur,color:'#bfdbfe'}); };
+          b.querySelector('#arTravRun').onclick = run; b.querySelector('#arTravSel').onclick = () => { b.querySelector('#arTravSeed').value = arClassText(network.getSelectedNodes()); run(); };
+        }
+
         function handleMenuAction(event) {
           const btn = event.target.closest('button');
           if (!btn) return;
@@ -3556,6 +3636,7 @@ end;;
               toggleCheckbox(toggleId);
               const toggleEl = document.getElementById(toggleId);
               btn.classList.toggle('ar-control-active', !!(toggleEl && toggleEl.checked));
+              if (toggleEl) arRecord('toggle', `${toggleId} ${toggleEl.checked ? 'on' : 'off'}`, { id: toggleId, checked: toggleEl.checked });
             }
           }
           if (!toggleId && !clickId && !listSpec && action && action !== 'calculator') {
@@ -3573,6 +3654,7 @@ end;;
             const opened = showListInDrawer(parts[0], parts[1], parts[2]);
             clearListMenuActive();
             if (opened) btn.classList.add('ar-control-active');
+            if (opened) arRecord('list', `Open ${parts[2]}`, { toggleId: parts[0], listId: parts[1], title: parts[2] });
           }
           if (action === 'close-panel') folderPanel.style.display = 'none';
           if (action === 'fit') network.fit({ animation: true });
@@ -3581,6 +3663,10 @@ end;;
           if (action === 'undo' && typeof undo === 'function') undo();
           if (action === 'redo' && typeof redo === 'function') redo();
           if (action === 'calculator') toggleCalculator();
+          if (action === 'history') arShowHistory();
+          if (action === 'matrices') arShowMatrix();
+          if (action === 'class-inspector') arShowInspector();
+          if (action === 'traverse') arShowTraverse();
           if (action === 'export-tex') showTexExport('xy');
           if (action === 'display-code') showDisplayCodeModal();
           if (action === 'legend') showColorLegend();
@@ -4154,7 +4240,7 @@ end;;
         state.apply(state.rows[bounded].item);
       }
 
-      function renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra) {
+      function renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra, rerenderFn) {
         const el = document.getElementById(containerId);
         if (!el) return;
         if (!data || data.length === 0) {
@@ -4186,7 +4272,8 @@ end;;
             if (state.sortKey === key) state.sortMode = state.sortMode === 'lex' ? 'lenlex' : 'lex';
             else { state.sortKey = key; state.sortMode = 'lex'; }
             state.selectedIndex = 0;
-            renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
+            if (typeof rerenderFn === 'function') rerenderFn();
+            else renderButtonRecordList(containerId, data, title, columns, applyFn, formatExtra);
             return;
           }
           const rowBtn = event.target.closest('button[data-row]');
@@ -4336,7 +4423,7 @@ end;;
           if (extraRenderer) return ` | ${item.hereditary ? 'hereditary' : 'non-hereditary'}`;
           return '';
         };
-        renderButtonRecordList(containerId, filteredData, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra);
+        renderButtonRecordList(containerId, filteredData, title, [{ key: leftKey, label: leftKey }, { key: rightKey, label: rightKey }], applyFn, formatExtra, rerender);
         if (isTorsion) installPairFilterButtons(containerId, 'torsion', rerender);
         if (isCotorsion) installPairFilterButtons(containerId, 'cotorsion', rerender);
         if (typeof resizeDrawerContent === 'function') resizeDrawerContent();
@@ -4393,7 +4480,7 @@ end;;
             applyTiltingHighlight(item);
             const idx = tiltingData.indexOf(item);
             setActiveTilting(idx);
-          }, tiltingExtraText);
+          }, tiltingExtraText, renderTiltingList);
           installTiltingFilterButtons('tiltingList');
           if (el && !el.querySelector('button[data-row]') && data && data.length) {
             throw new Error('tiltingData is nonempty but no tilting row was rendered');
