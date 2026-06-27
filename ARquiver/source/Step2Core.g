@@ -2707,7 +2707,7 @@ end;;
 IsHereditaryCotorsionPair := function(left_set, syz_edges)
     local edge;
     for edge in syz_edges do
-        if edge[2] in left_set and not (edge[1] in left_set) then
+        if edge[1] in left_set and not (edge[2] in left_set) then
             return false;
         fi;
     od;
