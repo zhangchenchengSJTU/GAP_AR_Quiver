@@ -688,13 +688,27 @@ def create_and_save_quiver_html(quiver_filepath, output_filename):
       };
       network.setOptions(options);
 
-      // After physics stabilization, snap all nodes to grid and disable physics
-      network.once('stabilizationIterationsDone', function() {
-        const allNodeIds = network.body.data.nodes.getIds();
-        allNodeIds.forEach(id => snapNode(id));
-        network.setOptions({ physics: { enabled: false } });
-        snapshot();
-      });
+      // Snap all nodes to the display grid.  Do not rely on a single
+      // stabilization event: for large generated pages the event can fire
+      // before this injected script finishes installing handlers.
+      function scheduleInitialGridSnap() {
+        const delays = [0, 50, 250, 1000, 3000];
+        delays.forEach(delay => setTimeout(() => snapAllNodesToGrid('initial-' + delay), delay));
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => snapAllNodesToGrid('domcontentloaded'), { once: true });
+        }
+        window.addEventListener('load', () => snapAllNodesToGrid('window-load'), { once: true });
+      }
+
+      if (network && typeof network.once === 'function') {
+        network.once('stabilizationIterationsDone', function() {
+          snapAllNodesToGrid('stabilizationIterationsDone');
+        });
+        network.once('stabilized', function() {
+          snapAllNodesToGrid('stabilized');
+        });
+      }
+      scheduleInitialGridSnap();
 
       (function hideManipulationPanel() {
         const style = document.createElement('style');
@@ -5777,9 +5791,29 @@ end;;
       // initial snapshot
       snapshot();
 
+      let initialGridSnapDone = false;
+      function snapAllNodesToGrid(reason) {
+        if (!network || !network.body || !network.body.data || !network.body.data.nodes) return;
+        const allNodeIds = network.body.data.nodes.getIds();
+        if (!allNodeIds || !allNodeIds.length) return;
+        allNodeIds.forEach(id => snapNode(id));
+        network.setOptions({ physics: { enabled: false } });
+        if (!initialGridSnapDone) {
+          initialGridSnapDone = true;
+          snapshot();
+        }
+        if (typeof updateIdLabels === 'function' && showLabels) updateIdLabels();
+        if (typeof updatePdLabels === 'function' && showPd) updatePdLabels();
+        if (typeof updateIdValueLabels === 'function' && showId) updateIdValueLabels();
+        if (typeof updateTopLabels === 'function' && showTop) updateTopLabels();
+        if (typeof updateSocLabels === 'function' && showSoc) updateSocLabels();
+      }
+
       function snapNode(nodeId) {
         const position = network.getPositions([nodeId]);
+        if (!position || !position[nodeId]) return;
         const x = position[nodeId].x, y = position[nodeId].y;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
         const snappedX = Math.round(x / gridSize) * gridSize;
         const snappedY = Math.round(y / gridSize) * gridSize;
         network.moveNode(nodeId, snappedX, snappedY);
@@ -5946,7 +5980,8 @@ end;;
       });
       network.on("dragEnd", function (params) {
         if (params.nodes.length > 0) {
-          snapNode(params.nodes[0]);
+          params.nodes.forEach(nodeId => snapNode(nodeId));
+          network.setOptions({ physics: { enabled: false } });
           if (showLabels) updateIdLabels();
           if (showPd) updatePdLabels();
           if (showId) updateIdValueLabels();

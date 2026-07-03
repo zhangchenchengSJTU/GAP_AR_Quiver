@@ -4,13 +4,14 @@
 
 # ===== Step2.ipynb cell 0 =====
 LoadPackage("QPA");;
+SetRecursionTrapInterval(100000);;
 compute_tilting := true;;
 ar_strategy := "hybrid";;
 V := [];;
 
 # ===== Runtime progress and safety guards =====
-MAX_AR_MODULES := 100;;
-MAX_TAU_ORBIT_LENGTH := 100;;
+MAX_AR_MODULES := 200;;
+MAX_TAU_ORBIT_LENGTH := 200;;
 
 Progress := function(msg)
     Print("[progress] ", msg, "\n");
