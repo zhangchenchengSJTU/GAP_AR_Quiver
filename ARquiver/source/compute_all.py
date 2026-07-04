@@ -1,5 +1,8 @@
+import os
+import selectors
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -7,6 +10,7 @@ SOURCE = ROOT / "source"
 
 EXCLUDED_PREFIXES = ("quiver_",)
 EXCLUDED_NAMES = {"Step1.txt", "name.txt"}
+DEFAULT_GAP_TIMEOUT_SEC = int(os.environ.get("ARQUIVER_GAP_TIMEOUT_SEC", "900"))
 
 
 def input_files():
@@ -23,7 +27,7 @@ def needs_compute(txt_path: Path) -> bool:
     return not (ROOT / f"{stem}.log").exists()
 
 
-def run_gap_streaming(script_path: Path) -> None:
+def run_gap_streaming(script_path: Path, timeout_sec: int = DEFAULT_GAP_TIMEOUT_SEC) -> None:
     proc = subprocess.Popen(
         ["gap", "-q", "--quitonbreak", str(script_path)],
         cwd=ROOT,
@@ -33,9 +37,26 @@ def run_gap_streaming(script_path: Path) -> None:
         bufsize=1,
     )
     assert proc.stdout is not None
+    selector = selectors.DefaultSelector()
+    selector.register(proc.stdout, selectors.EVENT_READ)
+    deadline = time.monotonic() + timeout_sec
+    timed_out = False
+    while proc.poll() is None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timed_out = True
+            proc.kill()
+            break
+        for key, _ in selector.select(timeout=min(1.0, remaining)):
+            line = key.fileobj.readline()
+            if line:
+                print(line, end="", flush=True)
     for line in proc.stdout:
         print(line, end="", flush=True)
+    selector.close()
     return_code = proc.wait()
+    if timed_out:
+        raise TimeoutError(f"GAP computation exceeded {timeout_sec} seconds for {script_path}")
     if return_code != 0:
         raise subprocess.CalledProcessError(return_code, ["gap", "-q", "--quitonbreak", str(script_path)])
 
