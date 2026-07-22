@@ -36,6 +36,10 @@ CheckTauOrbitLengthGuard := function(count)
     fi;
 end;;
 
+IsZeroARModule := function(M)
+    return IsInt(M) or M = 0 or Dimension(M) = 0;
+end;;
+
 
 # ===== Step2.ipynb cell 1 =====
 # Decompose a module into projections onto indecomposable summands.
@@ -686,7 +690,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
         # --- Input and module data ---
         fname, outDir, P, I, SI, V,
         # --- BFS core ---
-        queue, verts, edges, depthMap, dead, outAdj,
+        queue, verts, edges, depthMap, dead, outAdj, irrComputed, needsFinalClosure,
         X0, Y, f, depth, irr, irrCall, current,
         uX, uY, newDepth,
         # --- Output ---
@@ -718,6 +722,8 @@ DrawIrreducibleDiagram := function(A, N, arg)
     edges := [];      # list of [u, v] integer-ID pairs; multiplicity by repetition
     depthMap := [];
     dead := [];
+    irrComputed := [];
+    needsFinalClosure := [];
     outAdj := [];      # outAdj[u] = list of target vertex IDs (multiplicity by repetition)
 
     # --- Helper: add module to verts if absent, return its ID ---
@@ -789,7 +795,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
                 trdCall := CALL_WITH_CATCH(TrD, [M]);
                 if trdCall[1] <> true then continue; fi;
                 TrDM := trdCall[2];
-                if IsInt(TrDM) or TrDM = 0 then continue; fi;
+                if IsZeroARModule(TrDM) then continue; fi;
 
                 uTrDM := AddVertex(TrDM);
                 if IsBound(dead[uTrDM]) and dead[uTrDM] = true then continue; fi;
@@ -845,7 +851,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
                 trdNCall := CALL_WITH_CATCH(TrD, [verts[uN]]);
                 if trdNCall[1] <> true then continue; fi;
                 TrDN := trdNCall[2];
-                if IsInt(TrDN) or TrDN = 0 then continue; fi;
+                if IsZeroARModule(TrDN) then continue; fi;
 
                 # Check: sum dim(all outgoing targets of N) = dim(N) + dim(TrD(N))
                 if sum_dim = Dimension(verts[uN]) + Dimension(TrDN) then
@@ -899,7 +905,12 @@ DrawIrreducibleDiagram := function(A, N, arg)
         X0 := verts[uX];
 
         # Boundary: depth limit or simple injective
-        if depth >= N or IsIsomorphicToAny(X0, SI) then
+        if depth >= N then
+            needsFinalClosure[uX] := true;
+            dead[uX] := true;
+            continue;
+        fi;
+        if IsIsomorphicToAny(X0, SI) then
             dead[uX] := true;
             continue;
         fi;
@@ -916,6 +927,7 @@ DrawIrreducibleDiagram := function(A, N, arg)
             continue;
         fi;
         irr := irrCall[2];
+        irrComputed[uX] := true;
         if not IsList(irr) or Length(irr) = 0 then
             dead[uX] := true;
             continue;
@@ -943,6 +955,9 @@ DrawIrreducibleDiagram := function(A, N, arg)
     Progress("closing irreducible arrows among discovered vertices");
     # Final closure: depth limits should not hide irreducible arrows among already discovered vertices.
     for uX in [1..Length(verts)] do
+        if not IsBound(needsFinalClosure[uX]) or needsFinalClosure[uX] <> true then
+            continue;
+        fi;
         if IsBoundGlobal("guess") and ValueGlobal("guess") = true then
             irrCall := CALL_WITH_CATCH(IrrFromGuess, [verts[uX]]);
         else
@@ -1110,7 +1125,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
                 fi;
                 if tauCall[1] <> true then continue; fi;
                 tauM := tauCall[2];
-                if IsInt(tauM) or tauM = 0 then continue; fi;
+                if IsZeroARModule(tauM) then continue; fi;
                 tauIdx := PositionIsomorphic(verts, tauM);
                 if tauIdx = fail then
                     if orbitLength >= MAX_TAU_ORBIT_LENGTH then
@@ -1189,7 +1204,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
             dtrCall := CALL_WITH_CATCH(DTr, [verts[edge[2]]]);
             if dtrCall[1] <> true then continue; fi;
             dtrM := dtrCall[2];
-            if IsInt(dtrM) or dtrM = 0 then continue; fi;
+            if IsZeroARModule(dtrM) then continue; fi;
             uDtr := AddVertex(dtrM);
             reflected_edge_count := reflected_edge_count + SetKnownIrrDimension(uDtr, edge[1], dim);
         od;
@@ -1239,7 +1254,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
         trdCall := CALL_WITH_CATCH(TrD, [verts[uS]]);
         if trdCall[1] <> true then return false; fi;
         trdM := trdCall[2];
-        if IsInt(trdM) or trdM = 0 then return false; fi;
+        if IsZeroARModule(trdM) then return false; fi;
         uTrd := AddVertex(trdM);
         if IsBound(depthLeft[uT]) and depthLeft[uT] <> fail then
             newDepth := depthLeft[uT] + 1;
@@ -1298,7 +1313,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
             trdCall := CALL_WITH_CATCH(TrD, [verts[uV]]);
             if trdCall[1] = true then
                 trdM := trdCall[2];
-                if IsInt(trdM) or trdM = 0 then
+                if IsZeroARModule(trdM) then
                     leftIrrFinished[uV] := true;
                 else
                     targetDim := Dimension(verts[uV]) + Dimension(trdM);
@@ -1312,7 +1327,7 @@ DrawIrreducibleDiagramHybrid := function(A, N, arg)
             dtrCall := CALL_WITH_CATCH(DTr, [verts[uV]]);
             if dtrCall[1] = true then
                 dtrM := dtrCall[2];
-                if IsInt(dtrM) or dtrM = 0 then
+                if IsZeroARModule(dtrM) then
                     rightIrrFinished[uV] := true;
                 else
                     sourceDim := Dimension(verts[uV]) + Dimension(dtrM);
@@ -1928,7 +1943,7 @@ ComputeTauMap := function(verts)
             continue;
         fi;
         dtrM := dtrCall[2];
-        if IsInt(dtrM) and dtrM = 0 then
+        if IsZeroARModule(dtrM) then
             continue;
         fi;
         posN := PositionIsomorphic(verts, dtrM);
